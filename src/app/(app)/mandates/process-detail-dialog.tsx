@@ -13,7 +13,23 @@ import { format } from "date-fns";
 import { InterviewDialog } from "./interview-dialog";
 import { OfferDialog } from "./offer-dialog";
 import { PlaceCandidateDialog } from "./place-candidate-dialog";
-import { updateProcessAssessmentAction } from "./candidate-process-actions";
+import { updateProcessAssessmentAction, changeProcessStageAction } from "./candidate-process-actions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const SIMPLE_STAGES = [
+  "SOURCED",
+  "LONGLISTED",
+  "CONTACT_REQUIRED",
+  "CONTACTED",
+  "INTERESTED",
+  "QUALIFIED",
+  "SUBMITTED",
+  "CLIENT_REVIEW",
+  "FIRST_INTERVIEW",
+  "FURTHER_INTERVIEW",
+  "FINAL_INTERVIEW",
+  "ON_HOLD",
+];
 
 type ProcessDetail = {
   id: string;
@@ -89,7 +105,25 @@ export function ProcessDetailDialog({ candidateProcessId, onClose }: { candidate
               <Link href={`/people/${detail.candidatePersonId}`} className="text-[var(--color-accent)]">
                 View full candidate profile
               </Link>
-              <Badge tone="neutral">{label(detail.stage)}</Badge>
+              {SIMPLE_STAGES.includes(detail.stage) ? (
+                <Select
+                  value={detail.stage}
+                  onValueChange={(toStage) => changeProcessStageAction({ candidateProcessId: detail.id, toStage }).then(load)}
+                >
+                  <SelectTrigger aria-label="Change candidate stage" className="h-7 w-48 text-xs">
+                    <SelectValue placeholder={label(detail.stage)} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SIMPLE_STAGES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {label(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Badge tone="neutral">{label(detail.stage)}</Badge>
+              )}
               {detail.candidateRating ? <Badge tone="info">{label(detail.candidateRating)}</Badge> : null}
             </div>
             <p className="text-xs text-[var(--color-ink-subtle)]">

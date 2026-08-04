@@ -16,6 +16,7 @@ import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
 import { convertOpportunityToMandateAction } from "../actions";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
+import { StageSelect } from "../stage-select";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -74,6 +75,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
         actions={
           <>
+            <StageSelect opportunityId={opportunity.id} currentStage={opportunity.stage} />
             {opportunity.stage === "WON" && !opportunity.wonMandateId ? (
               <form action={convertOpportunityToMandateAction.bind(null, opportunity.id)}>
                 <Button type="submit">

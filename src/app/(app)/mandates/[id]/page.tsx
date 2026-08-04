@@ -18,6 +18,7 @@ import { archiveMandateAction } from "../actions";
 import { ProcessBoard, type BoardProcess } from "../process-board";
 import { AddCandidateDialog } from "../add-candidate-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
+import { MandateStatusSelect } from "../status-select";
 
 export default async function MandateDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -99,6 +100,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         }
         actions={
           <>
+            <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/activities/new?mandateId=${mandate.id}`}>Log activity</Link>
             </Button>
