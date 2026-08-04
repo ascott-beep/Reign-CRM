@@ -33,12 +33,14 @@ export function EmptyState({
   title = "Nothing here yet",
   description,
   action,
+  className,
 }: {
   title?: string;
   description?: string;
   action?: React.ReactNode;
+  className?: string;
 }) {
-  return <Frame icon={Inbox} title={title} description={description} action={action} />;
+  return <Frame icon={Inbox} title={title} description={description} action={action} className={className} />;
 }
 
 export function ErrorState({
