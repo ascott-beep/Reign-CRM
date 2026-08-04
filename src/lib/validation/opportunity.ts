@@ -32,8 +32,12 @@ export const STAGE_ORDER: string[] = [
   "ON_HOLD",
 ];
 
-export function defaultProbabilityFor(stage: string) {
-  return OPPORTUNITY_STAGE_PROBABILITY[stage] ?? 0;
+/**
+ * Admins can override default stage probabilities in Settings > Opportunities
+ * (Workspace.opportunityStageProbabilities); pass that map in when available.
+ */
+export function defaultProbabilityFor(stage: string, overrides?: Record<string, number> | null) {
+  return overrides?.[stage] ?? OPPORTUNITY_STAGE_PROBABILITY[stage] ?? 0;
 }
 
 export const stageChangeSchema = z.object({

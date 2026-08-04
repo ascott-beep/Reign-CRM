@@ -74,6 +74,7 @@ export function label(value: string | null | undefined): string {
   return OVERRIDES[value] ?? humanizeEnum(value);
 }
 
+/** Admin-configurable in Settings > Opportunities; this is the seeded/fallback default. */
 export const OPPORTUNITY_STAGE_PROBABILITY: Record<string, number> = {
   SIGNAL_IDENTIFIED: 5,
   CONTACT_IDENTIFIED: 10,

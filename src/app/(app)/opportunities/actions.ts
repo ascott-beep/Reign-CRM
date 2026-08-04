@@ -10,6 +10,11 @@ import { generateMandateReference } from "@/lib/mandate-reference";
 
 export type OpportunityFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
 
+async function getWorkspaceStageProbabilities(workspaceId: string): Promise<Record<string, number> | null> {
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { opportunityStageProbabilities: true } });
+  return (workspace?.opportunityStageProbabilities as Record<string, number> | null) ?? null;
+}
+
 export async function createOpportunityAction(_prev: OpportunityFormState, formData: FormData): Promise<OpportunityFormState> {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
@@ -18,6 +23,7 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
   const parsed = opportunityFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
+  const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
 
   const opportunity = await prisma.opportunity.create({
     data: {
@@ -26,7 +32,7 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
       hiringOrganizationId: data.hiringOrganizationId,
       type: data.type,
       stage: "SIGNAL_IDENTIFIED",
-      stageProbabilityDefault: defaultProbabilityFor("SIGNAL_IDENTIFIED"),
+      stageProbabilityDefault: defaultProbabilityFor("SIGNAL_IDENTIFIED", overrides),
       potentialRoleTitle: data.potentialRoleTitle ?? null,
       employmentType: data.employmentType ?? null,
       source: data.source,
@@ -111,6 +117,7 @@ export async function changeOpportunityStageAction(input: {
 
   const opportunity = await prisma.opportunity.findUniqueOrThrow({ where: { id: data.opportunityId } });
   if (opportunity.stage === data.toStage) return;
+  const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
 
   await prisma.$transaction([
     prisma.opportunity.update({
@@ -118,7 +125,7 @@ export async function changeOpportunityStageAction(input: {
       data: {
         stage: data.toStage,
         stageEnteredAt: new Date(),
-        stageProbabilityDefault: defaultProbabilityFor(data.toStage),
+        stageProbabilityDefault: defaultProbabilityFor(data.toStage, overrides),
         isProbabilityOverridden: false,
         probabilityOverride: null,
         lossReason: data.toStage === "LOST" ? (data.lossReason as any) : null,

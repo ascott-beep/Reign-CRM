@@ -579,15 +579,16 @@ enum ImportStatus {
 // =============================================================================
 
 model Workspace {
-  id              String   @id @default(cuid())
-  name            String
-  slug            String   @unique
-  defaultCurrency String   @default("GBP") @db.VarChar(3)
-  defaultTimezone String   @default("Europe/London")
-  brandAccent     String   @default("#1C2B4A")
-  staleThresholds Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                            String   @id @default(cuid())
+  name                          String
+  slug                          String   @unique
+  defaultCurrency               String   @default("GBP") @db.VarChar(3)
+  defaultTimezone               String   @default("Europe/London")
+  brandAccent                   String   @default("#1C2B4A")
+  staleThresholds               Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
+  opportunityStageProbabilities Json?
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
 
   users                     User[]
   organizations             Organization[]
