@@ -1,0 +1,50 @@
+import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/permissions";
+import { PageHeader } from "@/components/shell/page-header";
+import { OpportunityForm } from "../../opportunity-form";
+import { updateOpportunityAction } from "../../actions";
+
+export default async function EditOpportunityPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
+  const { id } = await params;
+
+  const [opportunity, organizations, people, users] = await Promise.all([
+    prisma.opportunity.findFirst({ where: { id, workspaceId: user.workspaceId } }),
+    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
+    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+  ]);
+  if (!opportunity) notFound();
+
+  const boundAction = updateOpportunityAction.bind(null, opportunity.id);
+
+  return (
+    <div className="max-w-2xl">
+      <PageHeader title={`Edit ${opportunity.name}`} />
+      <OpportunityForm
+        action={boundAction}
+        organizations={organizations}
+        people={people}
+        users={users}
+        currentUserId={user.id}
+        submitLabel="Save changes"
+        defaultValues={{
+          name: opportunity.name,
+          hiringOrganizationId: opportunity.hiringOrganizationId,
+          type: opportunity.type,
+          potentialRoleTitle: opportunity.potentialRoleTitle ?? "",
+          employmentType: opportunity.employmentType ?? "",
+          source: opportunity.source,
+          leadContactPersonId: opportunity.leadContactPersonId ?? "",
+          ownerId: opportunity.ownerId,
+          estimatedFeeAmount: opportunity.estimatedFeeAmount?.toString() ?? "",
+          estimatedFeeCurrency: opportunity.estimatedFeeCurrency ?? "GBP",
+          expectedDecisionDate: opportunity.expectedDecisionDate?.toISOString().slice(0, 10) ?? "",
+          nextStepSummary: opportunity.nextStepSummary ?? "",
+          notes: opportunity.notes ?? "",
+        }}
+      />
+    </div>
+  );
+}
