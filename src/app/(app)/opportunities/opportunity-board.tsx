@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { DndContext, DragOverlay, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
@@ -91,6 +91,10 @@ export function OpportunityBoard({ initialOpportunities }: { initialOpportunitie
   const [items, setItems] = useState(initialOpportunities);
   const [pendingMove, setPendingMove] = useState<{ id: string; toStage: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Require a small pointer move before a drag activates, so a plain click
+  // (which fires a mousedown/mouseup at effectively the same coordinates)
+  // opens/navigates the card instead of being swallowed as a zero-distance drag.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const columns = useMemo(() => {
     const grouped: Record<string, BoardOpportunity[]> = Object.fromEntries(STAGES.map((s) => [s, []]));
@@ -124,7 +128,7 @@ export function OpportunityBoard({ initialOpportunities }: { initialOpportunitie
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map((stage) => (
             <Column key={stage} stage={stage} items={columns[stage] ?? []} />

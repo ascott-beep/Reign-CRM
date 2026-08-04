@@ -181,7 +181,13 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           {mandate.candidateProcesses.length === 0 ? (
             <EmptyState title="No candidates in this pipeline yet" />
           ) : (
-            <ProcessBoard initialProcesses={boardData} />
+            <ProcessBoard
+              key={mandate.candidateProcesses
+                .map((p) => p.id)
+                .sort()
+                .join(",")}
+              initialProcesses={boardData}
+            />
           )}
         </TabsContent>
 

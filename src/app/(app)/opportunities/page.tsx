@@ -95,7 +95,10 @@ export default async function OpportunitiesPage({
           }
         />
       ) : display === "board" ? (
-        <OpportunityBoard initialOpportunities={boardData} />
+        <OpportunityBoard
+          key={opportunities.map((o) => `${o.id}:${o.stage}`).join(",")}
+          initialOpportunities={boardData}
+        />
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           <Table>

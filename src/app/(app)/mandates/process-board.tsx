@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
@@ -65,6 +65,10 @@ export function ProcessBoard({ initialProcesses }: { initialProcesses: BoardProc
   const [pendingPlacement, setPendingPlacement] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Require a small pointer move before a drag activates, so a plain click
+  // (which fires a mousedown/mouseup at effectively the same coordinates)
+  // opens the card instead of being swallowed as a zero-distance drag.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const columns = useMemo(() => {
     const grouped: Record<string, BoardProcess[]> = Object.fromEntries(CANDIDATE_PROCESS_BOARD_STAGES.map((s) => [s, []]));
@@ -107,7 +111,7 @@ export function ProcessBoard({ initialProcesses }: { initialProcesses: BoardProc
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-2 overflow-x-auto pb-4">
           {CANDIDATE_PROCESS_BOARD_STAGES.map((stage) => (
             <Column key={stage} stage={stage} items={columns[stage] ?? []} onOpen={setDetailId} />
@@ -143,7 +147,11 @@ export function ProcessBoard({ initialProcesses }: { initialProcesses: BoardProc
         }}
         onCancelDrag={() => setItems(initialProcesses)}
       />
-      <ProcessDetailDialog candidateProcessId={detailId} onClose={() => setDetailId(null)} />
+      <ProcessDetailDialog
+        candidateProcessId={detailId}
+        onClose={() => setDetailId(null)}
+        onStageChange={(id, stage) => setItems((prev) => prev.map((i) => (i.id === id ? { ...i, stage } : i)))}
+      />
     </div>
   );
 }

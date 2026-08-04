@@ -72,7 +72,15 @@ const SCORE_FIELDS: { key: keyof ProcessDetail; label: string }[] = [
   { key: "locationFitScore", label: "Location Fit" },
 ];
 
-export function ProcessDetailDialog({ candidateProcessId, onClose }: { candidateProcessId: string | null; onClose: () => void }) {
+export function ProcessDetailDialog({
+  candidateProcessId,
+  onClose,
+  onStageChange,
+}: {
+  candidateProcessId: string | null;
+  onClose: () => void;
+  onStageChange?: (candidateProcessId: string, stage: string) => void;
+}) {
   const [detail, setDetail] = useState<ProcessDetail | null>(null);
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [placeDialogOpen, setPlaceDialogOpen] = useState(false);
@@ -108,7 +116,12 @@ export function ProcessDetailDialog({ candidateProcessId, onClose }: { candidate
               {SIMPLE_STAGES.includes(detail.stage) ? (
                 <Select
                   value={detail.stage}
-                  onValueChange={(toStage) => changeProcessStageAction({ candidateProcessId: detail.id, toStage }).then(load)}
+                  onValueChange={(toStage) =>
+                    changeProcessStageAction({ candidateProcessId: detail.id, toStage }).then(() => {
+                      onStageChange?.(detail.id, toStage);
+                      load();
+                    })
+                  }
                 >
                   <SelectTrigger aria-label="Change candidate stage" className="h-7 w-48 text-xs">
                     <SelectValue placeholder={label(detail.stage)} />
@@ -251,6 +264,7 @@ export function ProcessDetailDialog({ candidateProcessId, onClose }: { candidate
         onClose={() => setOfferDialogOpen(false)}
         onDone={() => {
           setOfferDialogOpen(false);
+          if (detail) onStageChange?.(detail.id, "OFFER");
           load();
         }}
       />
@@ -260,6 +274,7 @@ export function ProcessDetailDialog({ candidateProcessId, onClose }: { candidate
         onClose={() => setPlaceDialogOpen(false)}
         onDone={() => {
           setPlaceDialogOpen(false);
+          if (detail) onStageChange?.(detail.id, "PLACED");
           load();
         }}
       />
