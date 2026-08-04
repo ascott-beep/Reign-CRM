@@ -64,7 +64,10 @@ export async function findPersonDuplicates(
       OR: [
         email ? { primaryEmail: email } : undefined,
         input.linkedinUrl ? { linkedinUrl: input.linkedinUrl } : undefined,
-        { lastName: { equals: input.lastName, mode: "insensitive" } },
+        // Broad net for the fuzzy-name pass below: same leading characters
+        // of the surname catches near-miss spellings (e.g. "Bennett" vs
+        // "Bennet") that an exact match would otherwise never see.
+        { lastName: { startsWith: input.lastName.slice(0, Math.max(3, input.lastName.length - 2)), mode: "insensitive" } },
       ].filter(Boolean) as any[],
     },
     select: { id: true, firstName: true, lastName: true, primaryEmail: true, linkedinUrl: true, headlineOverride: true },

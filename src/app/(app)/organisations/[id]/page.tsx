@@ -18,6 +18,7 @@ import { format } from "date-fns";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
 import { archiveOrganizationAction, restoreOrganizationAction } from "../actions";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
+import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 void CURRENCIES;
 
 export default async function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -504,6 +505,9 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
         </TabsContent>
 
         <TabsContent value="documents">
+          <div className="mb-3 flex justify-end">
+            <UploadDocumentDialog linkField="organizationId" linkId={org.id} />
+          </div>
           {documents.length === 0 ? (
             <EmptyState title="No documents" />
           ) : (
@@ -518,7 +522,16 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <TableBody>
                 {documents.map((d) => (
                   <TableRow key={d.id}>
-                    <TableCell>{d.document.displayName}</TableCell>
+                    <TableCell>
+                      <a href={`/api/documents/${d.documentId}/download`} className="text-[var(--color-accent)]">
+                        {d.document.displayName}
+                      </a>
+                      {d.document.restricted ? (
+                        <Badge tone="warning" className="ml-2">
+                          Restricted
+                        </Badge>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{label(d.document.category)}</TableCell>
                     <TableCell>{format(d.document.uploadedAt, "d MMM yyyy")}</TableCell>
                   </TableRow>

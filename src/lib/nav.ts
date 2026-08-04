@@ -36,7 +36,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     children: [
       { label: "All People", href: "/people" },
-      { label: "Candidates", href: "/people?view=candidates" },
+      { label: "Candidates", href: "/people?filter=candidates" },
     ],
   },
   { label: "Opportunities", href: "/opportunities", icon: Target },

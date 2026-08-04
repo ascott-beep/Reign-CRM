@@ -20,7 +20,7 @@ export async function TaskIndicator({ user }: { user: SessionUser }) {
 
   return (
     <Link
-      href="/tasks?view=overdue"
+      href="/tasks?filter=overdue"
       className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
       title={`${count} task${count === 1 ? "" : "s"} due today or overdue`}
     >

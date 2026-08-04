@@ -108,8 +108,8 @@ export default async function DashboardPage() {
   const placementFeesThisMonth = placementsThisMonth.reduce((sum, p) => sum + (p.feeAmount ? Number(p.feeAmount) : 0), 0);
 
   const cards: { title: string; value: string; href: string; description?: string }[] = [
-    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?view=today" },
-    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?view=overdue" },
+    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?filter=today" },
+    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?filter=overdue" },
     { title: "Active opportunities", value: String(activeOpportunities), href: "/opportunities" },
     { title: "Weighted opportunity value", value: formatMoney(weightedValue, "GBP"), href: "/opportunities", description: "Probability-weighted, open stages only" },
     { title: "Active mandates", value: String(activeMandates), href: "/mandates" },
