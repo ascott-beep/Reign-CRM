@@ -1,0 +1,35 @@
+# deps
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# env
+.env
+.env.local
+.env.*.local
+
+# storage (local file provider)
+/storage
+
+# testing
+/coverage
+/playwright-report
+/test-results
+/blob-report
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# prisma
+/prisma/dev.db*
+
+# typescript
+*.tsbuildinfo

@@ -1,0 +1,2211 @@
+// Reign Partners PE Recruitment CRM — Prisma schema
+// See /docs or README for modelling rationale. Field lists follow the product
+// specification; naming favours clarity over 1:1 literal field names.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgTrgm(map: "pg_trgm")]
+}
+
+// =============================================================================
+// FIXED ENUMS (application logic depends on these — spec section 5)
+// =============================================================================
+
+enum UserRole {
+  ADMIN
+  STANDARD
+  READ_ONLY
+}
+
+enum OrganizationType {
+  PE_FUND
+  PORTFOLIO_COMPANY
+  OTHER_COMPANY
+  ADVISER
+  LENDER
+  OTHER
+}
+
+enum OrganizationStatus {
+  RESEARCH
+  TARGET
+  PROSPECT
+  ACTIVE_CLIENT
+  DORMANT
+  DO_NOT_CONTACT
+  ARCHIVED
+}
+
+enum OrganizationRelationshipType {
+  CURRENT_INVESTOR_IN
+  FORMER_INVESTOR_IN
+  CO_INVESTOR_WITH
+  PARENT_OF
+  SUBSIDIARY_OF
+  ADVISER_TO
+  LENDER_TO
+  PARTNER_OF
+  OTHER
+}
+
+enum InvestmentStatus {
+  ANNOUNCED
+  CURRENT
+  PARTIALLY_EXITED
+  EXITED
+  UNKNOWN
+}
+
+enum PortfolioClassification {
+  PLATFORM
+  ADD_ON
+  STANDALONE
+  CARVE_OUT
+  UNKNOWN
+}
+
+enum InvestmentStage {
+  NEWLY_ACQUIRED
+  EARLY_HOLD
+  MID_HOLD
+  LATE_HOLD
+  EXIT_ANNOUNCED
+  UNKNOWN
+}
+
+enum AccountPriority {
+  PRIORITY
+  DEVELOP
+  MONITOR
+  UNSCORED
+}
+
+enum PersonType {
+  CANDIDATE
+  CLIENT_CONTACT
+  INVESTOR
+  OPERATING_PARTNER
+  TALENT_OR_HR
+  REFERRER
+  ADVISER
+  OTHER
+}
+
+enum PersonRelationshipStatus {
+  RESEARCH_ONLY
+  OUTREACH_PLANNED
+  CONTACTED
+  ENGAGED
+  ACTIVE_RELATIONSHIP
+  DORMANT
+  DO_NOT_CONTACT
+  ARCHIVED
+}
+
+enum StakeholderRole {
+  DECISION_MAKER
+  HIRING_MANAGER
+  BUSINESS_SPONSOR
+  INFLUENCER
+  INTERNAL_TALENT
+  HR
+  PROCUREMENT_OR_TERMS
+  FUND_SPONSOR
+  REFERRER
+  OTHER
+  UNKNOWN
+}
+
+enum Seniority {
+  BOARD_OR_C_SUITE
+  N_MINUS_1
+  DIRECTOR_OR_VP
+  HEAD_OF
+  SENIOR_MANAGER
+  MANAGER
+  INDIVIDUAL_CONTRIBUTOR
+  CONSULTANT_OR_INTERIM
+  OTHER
+}
+
+enum EmploymentType {
+  PERMANENT
+  INTERIM
+  FRACTIONAL
+  FIXED_TERM
+  CONTRACT
+}
+
+enum WorkArrangement {
+  ON_SITE
+  HYBRID
+  REMOTE
+  FLEXIBLE
+}
+
+enum CandidateStatus {
+  PROSPECT
+  OUTREACH_PLANNED
+  CONTACTED
+  ENGAGED
+  QUALIFIED
+  OPEN_TO_MOVE
+  NOT_LOOKING
+  UNAVAILABLE
+  PLACED
+  DORMANT
+  DO_NOT_CONTACT
+  ARCHIVED
+}
+
+enum CandidateRating {
+  A_STRONG
+  B_RELEVANT
+  C_UNQUALIFIED
+  D_NOT_RELEVANT
+  NOT_RATED
+}
+
+enum ConsentStatus {
+  NOT_REQUESTED
+  REQUESTED
+  GRANTED
+  WITHDRAWN
+  EXPIRED
+  NOT_REQUIRED
+}
+
+enum LegalBasis {
+  CONSENT
+  LEGITIMATE_INTEREST
+  CONTRACT
+  LEGAL_OBLIGATION
+  NOT_SET
+}
+
+enum OpportunityType {
+  RETAINED_SEARCH
+  EXCLUSIVE_CONTINGENT
+  CONTINGENT
+  INTERIM_ASSIGNMENT
+  TALENT_MAPPING
+  ADVISORY
+  UNKNOWN
+}
+
+enum OpportunityStage {
+  SIGNAL_IDENTIFIED
+  CONTACT_IDENTIFIED
+  CONTACTED
+  DISCOVERY_ARRANGED
+  QUALIFIED
+  PROPOSAL_OR_TERMS
+  WON
+  LOST
+  ON_HOLD
+}
+
+enum OpportunitySource {
+  CANDIDATE_INTELLIGENCE
+  REFERRAL
+  FUND_INTRODUCTION
+  CLIENT_INBOUND
+  OUTBOUND
+  EXISTING_RELATIONSHIP
+  WEBSITE_INBOUND
+  LINKEDIN
+  EVENT
+  OTHER
+}
+
+enum OpportunityLossReason {
+  NO_REQUIREMENT
+  TIMING
+  INTERNAL_HIRE
+  EXISTING_SUPPLIER
+  COMPETITOR_SELECTED
+  TERMS_OR_FEE
+  ROLE_CANCELLED
+  NO_RESPONSE
+  OUTSIDE_SCOPE
+  OTHER
+}
+
+enum MandateStatus {
+  BRIEF_RECEIVED
+  SEARCH_ACTIVE
+  LONGLISTING
+  SHORTLISTING
+  INTERVIEWING
+  OFFER
+  FILLED
+  CANCELLED
+  ON_HOLD
+}
+
+enum MandatePriority {
+  CRITICAL
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum EngagementModel {
+  RETAINED
+  EXCLUSIVE_CONTINGENT
+  CONTINGENT
+  INTERIM
+  OTHER
+}
+
+enum FeeType {
+  PERCENTAGE_OF_BASE
+  PERCENTAGE_OF_TOTAL_CASH
+  FIXED_FEE
+  DAY_RATE_MARGIN
+  OTHER
+}
+
+enum MandateConfidentiality {
+  OPEN
+  CONFIDENTIAL
+  HIGHLY_CONFIDENTIAL
+}
+
+enum CandidateProcessStage {
+  SOURCED
+  LONGLISTED
+  CONTACT_REQUIRED
+  CONTACTED
+  INTERESTED
+  QUALIFIED
+  SUBMITTED
+  CLIENT_REVIEW
+  FIRST_INTERVIEW
+  FURTHER_INTERVIEW
+  FINAL_INTERVIEW
+  OFFER
+  PLACED
+  ON_HOLD
+  REJECTED
+  WITHDRAWN
+}
+
+enum CandidateProcessSource {
+  DATABASE
+  LINKEDIN
+  REFERRAL
+  DIRECT_APPLICANT
+  RESEARCH
+  CLIENT_SUGGESTION
+  FUND_SUGGESTION
+  OTHER
+}
+
+enum ProcessRejectionReason {
+  FUNCTIONAL_FIT
+  SECTOR_FIT
+  PE_EXPERIENCE
+  SENIORITY
+  COMPENSATION
+  LOCATION
+  AVAILABILITY
+  CULTURAL_FIT
+  CLIENT_PREFERENCE
+  ROLE_CHANGED
+  NO_RESPONSE
+  OTHER
+}
+
+enum WithdrawalReason {
+  ACCEPTED_OTHER_ROLE
+  COUNTEROFFER
+  COMPENSATION
+  LOCATION
+  TIMING
+  LOST_INTEREST
+  PERSONAL_CIRCUMSTANCES
+  CONCERNS_ABOUT_COMPANY
+  OTHER
+}
+
+enum InterviewType {
+  RECRUITER_SCREEN
+  CLIENT_INTERVIEW
+  CASE_STUDY
+  PRESENTATION
+  ASSESSMENT
+  INFORMAL_MEETING
+  OTHER
+}
+
+enum InterviewOutcome {
+  SCHEDULED
+  COMPLETED_PROGRESS
+  COMPLETED_HOLD
+  COMPLETED_REJECT
+  CANDIDATE_WITHDREW
+  CANCELLED
+  RESCHEDULED
+  AWAITING_FEEDBACK
+}
+
+enum OfferStatus {
+  PLANNED
+  MADE
+  NEGOTIATING
+  ACCEPTED
+  DECLINED
+  WITHDRAWN
+  LAPSED
+}
+
+enum PlacementStatus {
+  PLANNED_START
+  STARTED
+  GUARANTEE_COMPLETE
+  FELL_THROUGH
+  LEFT_IN_GUARANTEE
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  LINKEDIN_MESSAGE
+  WHATSAPP
+  NOTE
+  INTERVIEW
+  INTERNAL_UPDATE
+  SYSTEM_EVENT
+  OTHER
+}
+
+enum ActivityDirection {
+  INBOUND
+  OUTBOUND
+  INTERNAL
+  NOT_APPLICABLE
+}
+
+enum ActivityOutcome {
+  CONNECTED
+  NO_ANSWER
+  VOICEMAIL
+  REPLIED
+  NO_REPLY
+  MEETING_BOOKED
+  FOLLOW_UP_REQUIRED
+  NOT_INTERESTED
+  DO_NOT_CONTACT
+  COMPLETED
+  OTHER
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  LINKEDIN
+  RESEARCH
+  FOLLOW_UP
+  MEETING
+  INTERVIEW
+  ADMIN
+  OTHER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  URGENT
+  HIGH
+  NORMAL
+  LOW
+}
+
+enum RelatedRecordType {
+  ORGANIZATION
+  PERSON
+  OPPORTUNITY
+  MANDATE
+  CANDIDATE_PROCESS
+  INTELLIGENCE_ITEM
+  PLACEMENT
+  INTERVIEW
+  OFFER
+}
+
+enum IntelligenceType {
+  LEADERSHIP_CHANGE
+  POTENTIAL_VACANCY
+  ACTIVE_VACANCY
+  ACQUISITION
+  INTEGRATION
+  CARVE_OUT
+  TRANSFORMATION
+  INTERNATIONAL_EXPANSION
+  EXIT_PREPARATION
+  REFINANCING
+  FINANCE_TEAM_WEAKNESS
+  FAILED_SEARCH
+  AGENCY_DISSATISFACTION
+  CANDIDATE_MOVEMENT
+  OTHER
+}
+
+enum IntelligenceConfidence {
+  UNVERIFIED
+  PARTIALLY_VERIFIED
+  VERIFIED
+}
+
+enum CommercialRelevance {
+  NONE
+  LOW
+  MEDIUM
+  HIGH
+  IMMEDIATE
+}
+
+enum IntelligenceConfidentiality {
+  INTERNAL
+  RESTRICTED
+}
+
+enum OffLimitsType {
+  ACTIVE_CLIENT
+  CONTRACTUAL
+  PLACEMENT_GUARANTEE
+  MANDATE_SPECIFIC
+  INTERNAL_DECISION
+  OTHER
+}
+
+enum OffLimitsSeverity {
+  WARNING
+  BLOCK
+}
+
+enum DocumentCategory {
+  CV
+  JOB_DESCRIPTION
+  TERMS
+  PROPOSAL
+  INTERVIEW_NOTES
+  OTHER
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  ARCHIVE
+  RESTORE
+  STAGE_CHANGE
+  CONVERSION
+  EXPORT
+  PRIVACY_ACTION
+  OFF_LIMITS_OVERRIDE
+}
+
+enum CustomFieldType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  CURRENCY
+  DATE
+  BOOLEAN
+  SINGLE_SELECT
+  MULTI_SELECT
+  URL
+}
+
+enum CustomFieldEntityType {
+  ORGANIZATION
+  PERSON
+  CANDIDATE_PROFILE
+  OPPORTUNITY
+  MANDATE
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_TODAY
+  TASK_OVERDUE
+  INTERVIEW_SCHEDULED
+  INTERVIEW_CHANGED
+  ASSIGNED_TO_RECORD
+  PROCESS_OFFER
+  PROCESS_PLACED
+  INTELLIGENCE_HIGH_PRIORITY
+  OTHER
+}
+
+enum SavedViewEntityType {
+  ORGANIZATION
+  PERSON
+  OPPORTUNITY
+  MANDATE
+  TASK
+  INTELLIGENCE
+}
+
+enum ImportEntityType {
+  ORGANIZATION
+  PERSON
+}
+
+enum ImportStatus {
+  PENDING
+  VALIDATING
+  READY
+  IMPORTING
+  COMPLETED
+  FAILED
+}
+
+// =============================================================================
+// WORKSPACE, USERS & AUTH
+// =============================================================================
+
+model Workspace {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  defaultCurrency String   @default("GBP") @db.VarChar(3)
+  defaultTimezone String   @default("Europe/London")
+  brandAccent     String   @default("#1C2B4A")
+  staleThresholds Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users                     User[]
+  organizations             Organization[]
+  organizationRelationships OrganizationRelationship[]
+  people                    Person[]
+  opportunities             Opportunity[]
+  mandates                  Mandate[]
+  candidateProcesses        CandidateProcess[]
+  intelligenceItems         IntelligenceItem[]
+  activities                Activity[]
+  tasks                     Task[]
+  documents                 Document[]
+  tags                      Tag[]
+  offLimitsRestrictions     OffLimitsRestriction[]
+  savedViews                SavedView[]
+  customFieldDefinitions    CustomFieldDefinition[]
+  auditLogs                 AuditLog[]
+  sectors                   Sector[]
+  investorStrategies        InvestorStrategy[]
+  ownershipTypes            OwnershipType[]
+  practiceAreas             PracticeArea[]
+  functionalSpecialisms     FunctionalSpecialism[]
+  importJobs                ImportJob[]
+}
+
+model User {
+  id                      String    @id @default(cuid())
+  workspaceId             String
+  workspace               Workspace @relation(fields: [workspaceId], references: [id])
+  firstName               String
+  lastName                String
+  email                   String
+  passwordHash            String
+  role                    UserRole  @default(STANDARD)
+  active                  Boolean   @default(true)
+  avatarUrl               String?
+  timezone                String    @default("Europe/London")
+  notificationPreferences Json      @default("{}")
+  lastLoginAt             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  ownedOrganizations      Organization[]                 @relation("OrganizationOwner")
+  createdOrganizations    Organization[]                 @relation("OrganizationCreatedBy")
+  createdOrgRelationships OrganizationRelationship[]     @relation("OrgRelationshipCreatedBy")
+  ownedPeople             Person[]                       @relation("PersonOwner")
+  createdPeople           Person[]                       @relation("PersonCreatedBy")
+  qualifiedCandidates     CandidateProfile[]             @relation("CandidateQualifiedBy")
+  ownedOpportunities      Opportunity[]                  @relation("OpportunityOwner")
+  createdOpportunities    Opportunity[]                  @relation("OpportunityCreatedBy")
+  opportunityStageChanges OpportunityStageHistory[]      @relation("OppStageChangedBy")
+  ownedMandates           Mandate[]                      @relation("MandateOwner")
+  createdMandates         Mandate[]                      @relation("MandateCreatedBy")
+  assignedMandates        MandateAssignedUser[]
+  mandateStageChanges     MandateStatusHistory[]         @relation("MandateStatusChangedBy")
+  ownedCandidateProcesses CandidateProcess[]             @relation("ProcessOwner")
+  addedCandidateProcesses CandidateProcess[]             @relation("ProcessAddedBy")
+  processStageChanges     CandidateProcessStageHistory[] @relation("ProcessStageChangedBy")
+  createdInterviews       Interview[]                    @relation("InterviewCreatedBy")
+  interviewParticipations InterviewInternalParticipant[]
+  createdOffers           Offer[]                        @relation("OfferCreatedBy")
+  createdPlacements       Placement[]                    @relation("PlacementCreatedBy")
+  ownedIntelligence       IntelligenceItem[]             @relation("IntelligenceOwner")
+  createdIntelligence     IntelligenceItem[]             @relation("IntelligenceCreatedBy")
+  verifiedIntelligence    IntelligenceItem[]             @relation("IntelligenceVerifiedBy")
+  createdActivities       Activity[]                     @relation("ActivityCreatedBy")
+  assignedActivities      Activity[]                     @relation("ActivityAssignedOwner")
+  assignedTasks           Task[]                         @relation("TaskAssignedUser")
+  createdTasks            Task[]                         @relation("TaskCreatedBy")
+  uploadedDocuments       Document[]                     @relation("DocumentUploadedBy")
+  createdOffLimits        OffLimitsRestriction[]         @relation("OffLimitsCreatedBy")
+  savedViews              SavedView[]                    @relation("SavedViewOwner")
+  auditLogEntries         AuditLog[]                     @relation("AuditActor")
+  notifications           InAppNotification[]
+  importJobs              ImportJob[]                    @relation("ImportCreatedBy")
+
+  @@unique([workspaceId, email])
+  @@index([workspaceId])
+}
+
+// =============================================================================
+// EDITABLE TAXONOMIES / LOOKUP TABLES
+// =============================================================================
+
+model InvestorStrategy {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  name         String
+  active       Boolean   @default(true)
+  displayOrder Int       @default(0)
+
+  organizations OrganizationInvestorStrategy[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model OwnershipType {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  name         String
+  active       Boolean   @default(true)
+  displayOrder Int       @default(0)
+
+  organizations Organization[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model Sector {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  name         String
+  active       Boolean   @default(true)
+  displayOrder Int       @default(0)
+  parentId     String?
+  parent       Sector?   @relation("SectorHierarchy", fields: [parentId], references: [id])
+  children     Sector[]  @relation("SectorHierarchy")
+
+  organizations       OrganizationSector[]
+  candidateExperience CandidateSectorExperience[]
+
+  @@unique([workspaceId, parentId, name])
+  @@index([workspaceId])
+}
+
+model PracticeArea {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id])
+  name         String
+  active       Boolean   @default(true)
+  displayOrder Int       @default(0)
+
+  specialisms         FunctionalSpecialism[]
+  employmentHistories EmploymentHistory[]
+  candidateProfiles   CandidateProfilePracticeArea[]
+  opportunities       Opportunity[]
+  mandates            Mandate[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model FunctionalSpecialism {
+  id             String        @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace     @relation(fields: [workspaceId], references: [id])
+  name           String
+  active         Boolean       @default(true)
+  displayOrder   Int           @default(0)
+  practiceAreaId String?
+  practiceArea   PracticeArea? @relation(fields: [practiceAreaId], references: [id])
+
+  employmentHistories EmploymentHistorySpecialism[]
+  candidateProfiles   CandidateProfileSpecialism[]
+  opportunities       OpportunitySpecialism[]
+  mandates            MandateSpecialism[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+// =============================================================================
+// ORGANIZATIONS
+// =============================================================================
+
+model Organization {
+  id                       String             @id @default(cuid())
+  workspaceId              String
+  workspace                Workspace          @relation(fields: [workspaceId], references: [id])
+  name                     String
+  normalizedName           String
+  type                     OrganizationType
+  status                   OrganizationStatus @default(RESEARCH)
+  website                  String?
+  normalizedWebsiteDomain  String?
+  linkedinUrl              String?
+  hqCity                   String?
+  hqRegion                 String?
+  hqCountryCode            String?            @db.VarChar(2)
+  countriesOfOperation     String[]
+  ownershipTypeId          String?
+  ownershipType            OwnershipType?     @relation(fields: [ownershipTypeId], references: [id])
+  employeeCountMin         Int?
+  employeeCountMax         Int?
+  employeeCountExact       Int?
+  revenueAmount            Decimal?           @db.Decimal(16, 2)
+  revenueCurrency          String?            @db.VarChar(3)
+  workingLanguages         String[]
+  description              String?
+  internalSummary          String?
+  accountPriority          AccountPriority    @default(UNSCORED)
+  priorityScore            Int?
+  priorityScoreFlags       Json?
+  priorityScoreExplanation String?
+  relationshipOwnerId      String?
+  relationshipOwner        User?              @relation("OrganizationOwner", fields: [relationshipOwnerId], references: [id])
+  source                   String?
+  sourceUrl                String?
+  lastResearchedAt         DateTime?
+  lastVerifiedAt           DateTime?
+
+  // Fund-only extension fields
+  aumAmount                      Decimal? @db.Decimal(18, 2)
+  aumCurrency                    String?  @db.VarChar(3)
+  typicalMinEquityChequeAmount   Decimal? @db.Decimal(16, 2)
+  typicalMinEquityChequeCurrency String?  @db.VarChar(3)
+  typicalMaxEquityChequeAmount   Decimal? @db.Decimal(16, 2)
+  typicalMaxEquityChequeCurrency String?  @db.VarChar(3)
+  typicalMinCompanySize          Int?
+  typicalMaxCompanySize          Int?
+  fundVintageOrCurrentFundName   String?
+  fundNotes                      String?
+
+  // Portfolio-company-only extension fields
+  portfolioClassification    PortfolioClassification?
+  businessModelSummary       String?
+  investmentThesisSummary    String?
+  valueCreationThemes        String[]
+  acquisitionStrategySummary String?
+  likelyExitWindow           String?
+  financeTeamSummary         String?
+  hiringProcessSummary       String?
+  agencyUsageSummary         String?
+  investmentStageOverride    InvestmentStage?
+
+  createdById String
+  createdBy   User      @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime?
+
+  relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
+  relationshipsAsTarget        OrganizationRelationship[]      @relation("OrgRelTarget")
+  investorStrategies           OrganizationInvestorStrategy[]
+  sectors                      OrganizationSector[]
+  personAssociations           PersonOrganizationAssociation[]
+  employmentHistories          EmploymentHistory[]
+  employmentHistoryInvestorFor EmploymentHistoryInvestor[]
+  opportunitiesAsHiringOrg     Opportunity[]                   @relation("OpportunityHiringOrganization")
+  opportunitiesAsRelatedFund   OpportunityFund[]
+  mandatesAsHiringOrg          Mandate[]                       @relation("MandateHiringOrganization")
+  mandatesAsRelatedFund        MandateFund[]
+  intelligenceItems            IntelligenceItem[]              @relation("IntelligenceOrganization")
+  intelligenceAsRelatedFund    IntelligenceItemFund[]
+  activities                   ActivityOrganization[]
+  tasks                        TaskOrganization[]
+  documents                    DocumentOrganization[]
+  tags                         TagOnOrganization[]
+  offLimitsRestrictions        OffLimitsRestriction[]
+  placements                   Placement[]
+  customFieldValues            CustomFieldValue[]              @relation("CustomFieldValueOrganization")
+  people                       Person[]
+
+  @@index([workspaceId, type])
+  @@index([workspaceId, status])
+  @@index([normalizedWebsiteDomain])
+  @@index([normalizedName])
+}
+
+model OrganizationInvestorStrategy {
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  strategyId     String
+  strategy       InvestorStrategy @relation(fields: [strategyId], references: [id])
+
+  @@unique([organizationId, strategyId])
+}
+
+model OrganizationSector {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sectorId       String
+  sector         Sector       @relation(fields: [sectorId], references: [id])
+  isPrimary      Boolean      @default(false)
+
+  @@unique([organizationId, sectorId])
+}
+
+model OrganizationRelationship {
+  id                   String                       @id @default(cuid())
+  workspaceId          String
+  workspace            Workspace                    @relation(fields: [workspaceId], references: [id])
+  sourceOrganizationId String
+  sourceOrganization   Organization                 @relation("OrgRelSource", fields: [sourceOrganizationId], references: [id])
+  targetOrganizationId String
+  targetOrganization   Organization                 @relation("OrgRelTarget", fields: [targetOrganizationId], references: [id])
+  type                 OrganizationRelationshipType
+  investmentStatus     InvestmentStatus?
+  announcementDate     DateTime?
+  investmentDate       DateTime?
+  exitDate             DateTime?
+  ownershipPercentage  Decimal?                     @db.Decimal(5, 2)
+  isLeadInvestor       Boolean                      @default(false)
+  investmentAmount     Decimal?                     @db.Decimal(16, 2)
+  investmentCurrency   String?                      @db.VarChar(3)
+  sourceUrl            String?
+  investmentThesis     String?
+  valueCreationThemes  String[]
+  notes                String?
+  createdById          String
+  createdBy            User                         @relation("OrgRelationshipCreatedBy", fields: [createdById], references: [id])
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  archivedAt           DateTime?
+
+  @@index([workspaceId])
+  @@index([sourceOrganizationId])
+  @@index([targetOrganizationId])
+}
+
+// =============================================================================
+// PEOPLE
+// =============================================================================
+
+model Person {
+  id                            String                   @id @default(cuid())
+  workspaceId                   String
+  workspace                     Workspace                @relation(fields: [workspaceId], references: [id])
+  firstName                     String
+  middleName                    String?
+  lastName                      String
+  preferredName                 String?
+  pronouns                      String?
+  primaryEmail                  String?
+  secondaryEmail                String?
+  primaryPhone                  String?
+  secondaryPhone                String?
+  linkedinUrl                   String?
+  city                          String?
+  region                        String?
+  countryCode                   String?                  @db.VarChar(2)
+  languages                     String[]
+  personTypes                   PersonType[]
+  relationshipStatus            PersonRelationshipStatus @default(RESEARCH_ONLY)
+  relationshipOwnerId           String?
+  relationshipOwner             User?                    @relation("PersonOwner", fields: [relationshipOwnerId], references: [id])
+  headlineOverride              String?
+  currentOrganizationOverrideId String?
+  currentOrganizationOverride   Organization?            @relation(fields: [currentOrganizationOverrideId], references: [id])
+  source                        String?
+  sourcePersonId                String?
+  sourcePerson                  Person?                  @relation("PersonReferrer", fields: [sourcePersonId], references: [id])
+  referredPeople                Person[]                 @relation("PersonReferrer")
+  sourceUrl                     String?
+  summary                       String?
+  contactPreferences            String?
+  doNotContact                  Boolean                  @default(false)
+  doNotContactReason            String?
+  createdById                   String
+  createdBy                     User                     @relation("PersonCreatedBy", fields: [createdById], references: [id])
+  createdAt                     DateTime                 @default(now())
+  updatedAt                     DateTime                 @updatedAt
+  archivedAt                    DateTime?
+
+  candidateProfile                   CandidateProfile?
+  organizationAssociations           PersonOrganizationAssociation[]
+  employmentHistories                EmploymentHistory[]
+  opportunitiesAsLeadContact         Opportunity[]                   @relation("OpportunityLeadContact")
+  opportunitiesAsSource              Opportunity[]                   @relation("OpportunitySourcePerson")
+  opportunityStakeholder             OpportunityStakeholder[]
+  mandatesAsHiringManager            Mandate[]                       @relation("MandateHiringManager")
+  mandatesAsInternalTalent           Mandate[]                       @relation("MandateInternalTalent")
+  mandateStakeholder                 MandateStakeholder[]
+  candidateProcesses                 CandidateProcess[]              @relation("ProcessCandidate")
+  candidateProcessesAsSource         CandidateProcess[]              @relation("ProcessSourcePerson")
+  interviewParticipations            InterviewExternalParticipant[]
+  intelligenceAsSource               IntelligenceItem[]              @relation("IntelligenceSourcePerson")
+  activities                         ActivityPerson[]
+  tasks                              TaskPerson[]
+  documents                          DocumentPerson[]
+  tags                               TagOnPerson[]
+  offLimitsRestrictions              OffLimitsRestriction[]
+  placements                         Placement[]
+  employmentHistoryInvestorRelevance EmploymentHistoryInvestor[]     @relation("EmploymentInvestorPerson")
+  activityAsCreatedFollowUp          Activity[]                      @relation("ActivityRelatedPerson")
+  customFieldValues                  CustomFieldValue[]
+
+  @@unique([workspaceId, primaryEmail])
+  @@index([workspaceId])
+  @@index([linkedinUrl])
+}
+
+model PersonOrganizationAssociation {
+  id                      String            @id @default(cuid())
+  personId                String
+  person                  Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  organizationId          String
+  organization            Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  stakeholderRoles        StakeholderRole[]
+  relationshipDescription String?
+  isCurrent               Boolean           @default(true)
+  startDate               DateTime?
+  endDate                 DateTime?
+  isPrimaryContact        Boolean           @default(false)
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  @@index([personId])
+  @@index([organizationId])
+}
+
+model EmploymentHistory {
+  id                       String           @id @default(cuid())
+  personId                 String
+  person                   Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  organizationId           String?
+  organization             Organization?    @relation(fields: [organizationId], references: [id])
+  employerNameFallback     String?
+  jobTitle                 String
+  seniority                Seniority?
+  practiceAreaId           String?
+  practiceArea             PracticeArea?    @relation(fields: [practiceAreaId], references: [id])
+  employmentType           EmploymentType?
+  startDate                DateTime?
+  endDate                  DateTime?
+  isCurrent                Boolean          @default(false)
+  city                     String?
+  region                   String?
+  countryCode              String?          @db.VarChar(2)
+  workArrangement          WorkArrangement?
+  reportingLineDescription String?
+  teamSize                 Int?
+  geographicScope          String?
+  responsibilities         String?
+  achievements             String?
+  peBackedDuringTenure     Boolean?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  functionalSpecialisms EmploymentHistorySpecialism[]
+  relevantInvestors     EmploymentHistoryInvestor[]
+
+  @@index([personId])
+  @@index([organizationId])
+}
+
+model EmploymentHistorySpecialism {
+  id                  String               @id @default(cuid())
+  employmentHistoryId String
+  employmentHistory   EmploymentHistory    @relation(fields: [employmentHistoryId], references: [id], onDelete: Cascade)
+  specialismId        String
+  specialism          FunctionalSpecialism @relation(fields: [specialismId], references: [id])
+
+  @@unique([employmentHistoryId, specialismId])
+}
+
+model EmploymentHistoryInvestor {
+  id                  String            @id @default(cuid())
+  employmentHistoryId String
+  employmentHistory   EmploymentHistory @relation(fields: [employmentHistoryId], references: [id], onDelete: Cascade)
+  organizationId      String
+  organization        Organization      @relation(fields: [organizationId], references: [id])
+  relatedPersonId     String?
+  relatedPerson       Person?           @relation("EmploymentInvestorPerson", fields: [relatedPersonId], references: [id])
+
+  @@unique([employmentHistoryId, organizationId])
+}
+
+model CandidateProfile {
+  id                         String            @id @default(cuid())
+  personId                   String            @unique
+  person                     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status                     CandidateStatus   @default(PROSPECT)
+  rating                     CandidateRating   @default(NOT_RATED)
+  seniorityValues            Seniority[]
+  peBackedExperienceSummary  String?
+  totalYearsExperience       Int?
+  currentBaseAmount          Decimal?          @db.Decimal(14, 2)
+  currentBaseCurrency        String?           @db.VarChar(3)
+  currentBonusAmount         Decimal?          @db.Decimal(14, 2)
+  currentBonusPercentage     Decimal?          @db.Decimal(5, 2)
+  currentTotalCashAmount     Decimal?          @db.Decimal(14, 2)
+  currentTotalCashCurrency   String?           @db.VarChar(3)
+  expectedBaseAmount         Decimal?          @db.Decimal(14, 2)
+  expectedBaseCurrency       String?           @db.VarChar(3)
+  expectedTotalCashAmount    Decimal?          @db.Decimal(14, 2)
+  expectedTotalCashCurrency  String?           @db.VarChar(3)
+  currentDayRateAmount       Decimal?          @db.Decimal(10, 2)
+  currentDayRateCurrency     String?           @db.VarChar(3)
+  expectedDayRateAmount      Decimal?          @db.Decimal(10, 2)
+  expectedDayRateCurrency    String?           @db.VarChar(3)
+  employmentPreferences      EmploymentType[]
+  noticePeriodValue          Int?
+  noticePeriodUnit           String?
+  availabilityDate           DateTime?
+  preferredCountries         String[]
+  preferredRegions           String[]
+  preferredCities            String[]
+  workArrangementPreferences WorkArrangement[]
+  willRelocate               Boolean?
+  travelTolerance            String?
+  rightToWorkCountries       String[]
+  visaSponsorshipNotes       String?
+  careerSummary              String?
+  keyAchievements            String?
+  motivation                 String?
+  targetRoleDescription      String?
+  companyPreferences         String?
+  excludedCompanies          String?
+  lastQualifiedAt            DateTime?
+  qualifiedById              String?
+  qualifiedBy                User?             @relation("CandidateQualifiedBy", fields: [qualifiedById], references: [id])
+  consentStatus              ConsentStatus     @default(NOT_REQUESTED)
+  legalBasis                 LegalBasis        @default(NOT_SET)
+  consentRequestedDate       DateTime?
+  consentGrantedDate         DateTime?
+  consentExpiryDate          DateTime?
+  retentionReviewDate        DateTime?
+  privacyNotes               String?
+  createdAt                  DateTime          @default(now())
+  updatedAt                  DateTime          @updatedAt
+
+  practiceAreas         CandidateProfilePracticeArea[]
+  functionalSpecialisms CandidateProfileSpecialism[]
+  sectorExperience      CandidateSectorExperience[]
+  customFieldValues     CustomFieldValue[]             @relation("CustomFieldValueCandidateProfile")
+
+  @@index([status])
+  @@index([rating])
+}
+
+model CandidateProfilePracticeArea {
+  id                 String           @id @default(cuid())
+  candidateProfileId String
+  candidateProfile   CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  practiceAreaId     String
+  practiceArea       PracticeArea     @relation(fields: [practiceAreaId], references: [id])
+
+  @@unique([candidateProfileId, practiceAreaId])
+}
+
+model CandidateProfileSpecialism {
+  id                 String               @id @default(cuid())
+  candidateProfileId String
+  candidateProfile   CandidateProfile     @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  specialismId       String
+  specialism         FunctionalSpecialism @relation(fields: [specialismId], references: [id])
+
+  @@unique([candidateProfileId, specialismId])
+}
+
+model CandidateSectorExperience {
+  id                 String           @id @default(cuid())
+  candidateProfileId String
+  candidateProfile   CandidateProfile @relation(fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  sectorId           String
+  sector             Sector           @relation(fields: [sectorId], references: [id])
+
+  @@unique([candidateProfileId, sectorId])
+}
+
+// =============================================================================
+// OPPORTUNITIES
+// =============================================================================
+
+model Opportunity {
+  id                      String                 @id @default(cuid())
+  workspaceId             String
+  workspace               Workspace              @relation(fields: [workspaceId], references: [id])
+  name                    String
+  hiringOrganizationId    String
+  hiringOrganization      Organization           @relation("OpportunityHiringOrganization", fields: [hiringOrganizationId], references: [id])
+  type                    OpportunityType        @default(UNKNOWN)
+  stage                   OpportunityStage       @default(SIGNAL_IDENTIFIED)
+  stageEnteredAt          DateTime               @default(now())
+  stageProbabilityDefault Int                    @default(5)
+  probabilityOverride     Int?
+  isProbabilityOverridden Boolean                @default(false)
+  potentialRoleTitle      String?
+  practiceAreaId          String?
+  practiceArea            PracticeArea?          @relation(fields: [practiceAreaId], references: [id])
+  employmentType          EmploymentType?
+  source                  OpportunitySource      @default(OTHER)
+  sourcePersonId          String?
+  sourcePerson            Person?                @relation("OpportunitySourcePerson", fields: [sourcePersonId], references: [id])
+  sourceActivityId        String?
+  sourceActivity          Activity?              @relation("ActivitySourcedOpportunity", fields: [sourceActivityId], references: [id])
+  leadContactPersonId     String?
+  leadContactPerson       Person?                @relation("OpportunityLeadContact", fields: [leadContactPersonId], references: [id])
+  ownerId                 String
+  owner                   User                   @relation("OpportunityOwner", fields: [ownerId], references: [id])
+  estimatedFeeAmount      Decimal?               @db.Decimal(14, 2)
+  estimatedFeeCurrency    String?                @db.VarChar(3)
+  expectedDecisionDate    DateTime?
+  nextStepSummary         String?
+  primaryNextTaskId       String?                @unique
+  primaryNextTask         Task?                  @relation("OpportunityPrimaryNextTask", fields: [primaryNextTaskId], references: [id])
+  lossReason              OpportunityLossReason?
+  lossExplanation         String?
+  onHoldReason            String?
+  notes                   String?
+  wonMandateId            String?                @unique
+  createdById             String
+  createdBy               User                   @relation("OpportunityCreatedBy", fields: [createdById], references: [id])
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  closedAt                DateTime?
+  archivedAt              DateTime?
+
+  wonMandate                Mandate?                  @relation("MandateSourceOpportunity")
+  relatedFunds              OpportunityFund[]
+  functionalSpecialisms     OpportunitySpecialism[]
+  stakeholders              OpportunityStakeholder[]
+  stageHistory              OpportunityStageHistory[]
+  activities                ActivityOpportunity[]
+  tasks                     TaskOpportunity[]
+  documents                 DocumentOpportunity[]
+  tags                      TagOnOpportunity[]
+  offLimitsRestrictions     OffLimitsRestriction[]
+  convertedFromIntelligence IntelligenceItem[]        @relation("IntelligenceConvertedOpportunity")
+  customFieldValues         CustomFieldValue[]        @relation("CustomFieldValueOpportunity")
+  sourcedActivities         Activity[]                @relation("ActivitySourcedOpportunityBacklink")
+
+  @@index([workspaceId, stage])
+  @@index([hiringOrganizationId])
+  @@index([ownerId])
+}
+
+model OpportunityFund {
+  id             String       @id @default(cuid())
+  opportunityId  String
+  opportunity    Opportunity  @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([opportunityId, organizationId])
+}
+
+model OpportunitySpecialism {
+  id            String               @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity          @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  specialismId  String
+  specialism    FunctionalSpecialism @relation(fields: [specialismId], references: [id])
+
+  @@unique([opportunityId, specialismId])
+}
+
+model OpportunityStakeholder {
+  id            String          @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity     @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  personId      String
+  person        Person          @relation(fields: [personId], references: [id])
+  role          StakeholderRole @default(UNKNOWN)
+
+  @@unique([opportunityId, personId])
+}
+
+model OpportunityStageHistory {
+  id            String            @id @default(cuid())
+  opportunityId String
+  opportunity   Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  fromStage     OpportunityStage?
+  toStage       OpportunityStage
+  changedById   String
+  changedBy     User              @relation("OppStageChangedBy", fields: [changedById], references: [id])
+  changedAt     DateTime          @default(now())
+  notes         String?
+
+  @@index([opportunityId])
+}
+
+// =============================================================================
+// MANDATES
+// =============================================================================
+
+model Mandate {
+  id                      String                 @id @default(cuid())
+  workspaceId             String
+  workspace               Workspace              @relation(fields: [workspaceId], references: [id])
+  reference               String
+  title                   String
+  hiringOrganizationId    String
+  hiringOrganization      Organization           @relation("MandateHiringOrganization", fields: [hiringOrganizationId], references: [id])
+  sourceOpportunityId     String?                @unique
+  sourceOpportunity       Opportunity?           @relation("MandateSourceOpportunity", fields: [sourceOpportunityId], references: [id])
+  status                  MandateStatus          @default(BRIEF_RECEIVED)
+  statusEnteredAt         DateTime               @default(now())
+  priority                MandatePriority        @default(NORMAL)
+  confidentiality         MandateConfidentiality @default(OPEN)
+  ownerId                 String
+  owner                   User                   @relation("MandateOwner", fields: [ownerId], references: [id])
+  hiringManagerPersonId   String?
+  hiringManagerPerson     Person?                @relation("MandateHiringManager", fields: [hiringManagerPersonId], references: [id])
+  internalTalentPersonId  String?
+  internalTalentPerson    Person?                @relation("MandateInternalTalent", fields: [internalTalentPersonId], references: [id])
+  practiceAreaId          String?
+  practiceArea            PracticeArea?          @relation(fields: [practiceAreaId], references: [id])
+  seniority               Seniority?
+  employmentType          EmploymentType         @default(PERMANENT)
+  numberOfHires           Int                    @default(1)
+  city                    String?
+  region                  String?
+  countryCode             String?                @db.VarChar(2)
+  workArrangement         WorkArrangement?
+  relocationSupport       Boolean?
+  visaSponsorship         Boolean?
+  roleSummary             String?
+  businessContext         String?
+  responsibilities        String?
+  requiredExperience      String?
+  preferredExperience     String?
+  assessmentCriteria      String?
+  searchExclusions        String?
+  minBaseAmount           Decimal?               @db.Decimal(14, 2)
+  maxBaseAmount           Decimal?               @db.Decimal(14, 2)
+  baseCurrency            String?                @db.VarChar(3)
+  bonusInformation        String?
+  equityInformation       String?
+  minDayRateAmount        Decimal?               @db.Decimal(10, 2)
+  maxDayRateAmount        Decimal?               @db.Decimal(10, 2)
+  dayRateCurrency         String?                @db.VarChar(3)
+  engagementModel         EngagementModel        @default(RETAINED)
+  feeType                 FeeType                @default(PERCENTAGE_OF_BASE)
+  feePercentage           Decimal?               @db.Decimal(5, 2)
+  fixedFeeAmount          Decimal?               @db.Decimal(14, 2)
+  fixedFeeCurrency        String?                @db.VarChar(3)
+  dayRateMarginAmount     Decimal?               @db.Decimal(10, 2)
+  dayRateMarginPercentage Decimal?               @db.Decimal(5, 2)
+  paymentTermsDays        Int?
+  exclusivity             Boolean                @default(false)
+  exclusivityExpiryDate   DateTime?
+  guaranteeValue          Int?
+  guaranteeUnit           String?
+  signedTerms             Boolean                @default(false)
+  termsSignedDate         DateTime?
+  startDate               DateTime?
+  targetLonglistDate      DateTime?
+  targetShortlistDate     DateTime?
+  targetCompletionDate    DateTime?
+  filledDate              DateTime?
+  cancelledDate           DateTime?
+  cancellationReason      String?
+  onHoldReason            String?
+  primaryNextTaskId       String?                @unique
+  primaryNextTask         Task?                  @relation("MandatePrimaryNextTask", fields: [primaryNextTaskId], references: [id])
+  createdById             String
+  createdBy               User                   @relation("MandateCreatedBy", fields: [createdById], references: [id])
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime               @updatedAt
+  archivedAt              DateTime?
+
+  relatedFunds          MandateFund[]
+  functionalSpecialisms MandateSpecialism[]
+  stakeholders          MandateStakeholder[]
+  assignedUsers         MandateAssignedUser[]
+  statusHistory         MandateStatusHistory[]
+  candidateProcesses    CandidateProcess[]
+  activities            ActivityMandate[]
+  tasks                 TaskMandate[]
+  documents             DocumentMandate[]
+  tags                  TagOnMandate[]
+  offLimitsRestrictions OffLimitsRestriction[]
+  placements            Placement[]
+  customFieldValues     CustomFieldValue[]     @relation("CustomFieldValueMandate")
+
+  @@unique([workspaceId, reference])
+  @@index([workspaceId, status])
+  @@index([hiringOrganizationId])
+  @@index([ownerId])
+}
+
+model MandateFund {
+  id             String       @id @default(cuid())
+  mandateId      String
+  mandate        Mandate      @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([mandateId, organizationId])
+}
+
+model MandateSpecialism {
+  id           String               @id @default(cuid())
+  mandateId    String
+  mandate      Mandate              @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  specialismId String
+  specialism   FunctionalSpecialism @relation(fields: [specialismId], references: [id])
+
+  @@unique([mandateId, specialismId])
+}
+
+model MandateStakeholder {
+  id        String          @id @default(cuid())
+  mandateId String
+  mandate   Mandate         @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person          @relation(fields: [personId], references: [id])
+  role      StakeholderRole @default(UNKNOWN)
+
+  @@unique([mandateId, personId])
+}
+
+model MandateAssignedUser {
+  id        String  @id @default(cuid())
+  mandateId String
+  mandate   Mandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@unique([mandateId, userId])
+}
+
+model MandateStatusHistory {
+  id          String         @id @default(cuid())
+  mandateId   String
+  mandate     Mandate        @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+  fromStatus  MandateStatus?
+  toStatus    MandateStatus
+  changedById String
+  changedBy   User           @relation("MandateStatusChangedBy", fields: [changedById], references: [id])
+  changedAt   DateTime       @default(now())
+  notes       String?
+
+  @@index([mandateId])
+}
+
+// =============================================================================
+// CANDIDATE PROCESSES
+// =============================================================================
+
+model CandidateProcess {
+  id                            String                  @id @default(cuid())
+  workspaceId                   String
+  workspace                     Workspace               @relation(fields: [workspaceId], references: [id])
+  mandateId                     String
+  mandate                       Mandate                 @relation(fields: [mandateId], references: [id])
+  candidatePersonId             String
+  candidatePerson               Person                  @relation("ProcessCandidate", fields: [candidatePersonId], references: [id])
+  stage                         CandidateProcessStage   @default(SOURCED)
+  stageEnteredAt                DateTime                @default(now())
+  source                        CandidateProcessSource  @default(OTHER)
+  sourcePersonId                String?
+  sourcePerson                  Person?                 @relation("ProcessSourcePerson", fields: [sourcePersonId], references: [id])
+  addedById                     String
+  addedBy                       User                    @relation("ProcessAddedBy", fields: [addedById], references: [id])
+  ownerId                       String
+  owner                         User                    @relation("ProcessOwner", fields: [ownerId], references: [id])
+  overallScore                  Int?
+  functionalFitScore            Int?
+  peExperienceScore             Int?
+  sectorFitScore                Int?
+  motivationScore               Int?
+  compensationFitScore          Int?
+  locationFitScore              Int?
+  assessmentSummary             String?
+  risksConcerns                 String?
+  candidateInterest             String?
+  submissionSummary             String?
+  submittedCvDocumentId         String?
+  submittedCvDocument           Document?               @relation("ProcessSubmittedCv", fields: [submittedCvDocumentId], references: [id])
+  candidatePermissionToSubmit   Boolean                 @default(false)
+  candidatePermissionCapturedAt DateTime?
+  compensationExpectation       String?
+  availabilityForMandate        String?
+  clientFeedback                String?
+  rejectionReason               ProcessRejectionReason?
+  rejectionExplanation          String?
+  withdrawalReason              WithdrawalReason?
+  withdrawalExplanation         String?
+  primaryNextTaskId             String?                 @unique
+  primaryNextTask               Task?                   @relation("ProcessPrimaryNextTask", fields: [primaryNextTaskId], references: [id])
+  submittedAt                   DateTime?
+  rejectedAt                    DateTime?
+  withdrawnAt                   DateTime?
+  placedAt                      DateTime?
+  createdAt                     DateTime                @default(now())
+  updatedAt                     DateTime                @updatedAt
+
+  stageHistory CandidateProcessStageHistory[]
+  interviews   Interview[]
+  offers       Offer[]
+  placement    Placement?
+  activities   ActivityCandidateProcess[]
+  tasks        TaskCandidateProcess[]
+  documents    DocumentCandidateProcess[]
+
+  @@unique([mandateId, candidatePersonId])
+  @@index([workspaceId, stage])
+  @@index([mandateId])
+  @@index([candidatePersonId])
+}
+
+model CandidateProcessStageHistory {
+  id                 String                 @id @default(cuid())
+  candidateProcessId String
+  candidateProcess   CandidateProcess       @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+  fromStage          CandidateProcessStage?
+  toStage            CandidateProcessStage
+  changedById        String
+  changedBy          User                   @relation("ProcessStageChangedBy", fields: [changedById], references: [id])
+  changedAt          DateTime               @default(now())
+  notes              String?
+
+  @@index([candidateProcessId])
+}
+
+model Interview {
+  id                 String           @id @default(cuid())
+  candidateProcessId String
+  candidateProcess   CandidateProcess @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+  type               InterviewType
+  roundNumber        Int              @default(1)
+  scheduledStart     DateTime
+  scheduledEnd       DateTime?
+  timezone           String           @default("Europe/London")
+  locationOrLink     String?
+  preparationNotes   String?
+  outcome            InterviewOutcome @default(SCHEDULED)
+  candidateFeedback  String?
+  clientFeedback     String?
+  internalNotes      String?
+  createdById        String
+  createdBy          User             @relation("InterviewCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  internalParticipants InterviewInternalParticipant[]
+  externalParticipants InterviewExternalParticipant[]
+
+  @@index([candidateProcessId])
+}
+
+model InterviewInternalParticipant {
+  id          String    @id @default(cuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([interviewId, userId])
+}
+
+model InterviewExternalParticipant {
+  id          String    @id @default(cuid())
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  personId    String
+  person      Person    @relation(fields: [personId], references: [id])
+
+  @@unique([interviewId, personId])
+}
+
+model Offer {
+  id                        String           @id @default(cuid())
+  candidateProcessId        String
+  candidateProcess          CandidateProcess @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+  status                    OfferStatus      @default(PLANNED)
+  offerDate                 DateTime?
+  expiryDate                DateTime?
+  baseAmount                Decimal?         @db.Decimal(14, 2)
+  baseCurrency              String?          @db.VarChar(3)
+  bonusAmount               Decimal?         @db.Decimal(14, 2)
+  bonusPercentage           Decimal?         @db.Decimal(5, 2)
+  signOnAmount              Decimal?         @db.Decimal(14, 2)
+  signOnCurrency            String?          @db.VarChar(3)
+  equityDetails             String?
+  dayRateAmount             Decimal?         @db.Decimal(10, 2)
+  dayRateCurrency           String?          @db.VarChar(3)
+  proposedStartDate         DateTime?
+  noticeConsiderations      String?
+  candidateResponseDate     DateTime?
+  declineOrWithdrawalReason String?
+  notes                     String?
+  createdById               String
+  createdBy                 User             @relation("OfferCreatedBy", fields: [createdById], references: [id])
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  acceptedForPlacement Placement?
+
+  @@index([candidateProcessId])
+}
+
+model Placement {
+  id                        String           @id @default(cuid())
+  candidateProcessId        String           @unique
+  candidateProcess          CandidateProcess @relation(fields: [candidateProcessId], references: [id])
+  mandateId                 String
+  mandate                   Mandate          @relation(fields: [mandateId], references: [id])
+  candidatePersonId         String
+  candidatePerson           Person           @relation(fields: [candidatePersonId], references: [id])
+  hiringOrganizationId      String
+  hiringOrganization        Organization     @relation(fields: [hiringOrganizationId], references: [id])
+  acceptedOfferId           String?          @unique
+  acceptedOffer             Offer?           @relation(fields: [acceptedOfferId], references: [id])
+  placementDate             DateTime
+  startDate                 DateTime?
+  employmentType            EmploymentType
+  agreedBaseAmount          Decimal?         @db.Decimal(14, 2)
+  agreedBaseCurrency        String?          @db.VarChar(3)
+  agreedTotalCashAmount     Decimal?         @db.Decimal(14, 2)
+  agreedTotalCashCurrency   String?          @db.VarChar(3)
+  agreedDayRateAmount       Decimal?         @db.Decimal(10, 2)
+  agreedDayRateCurrency     String?          @db.VarChar(3)
+  feeAmount                 Decimal?         @db.Decimal(14, 2)
+  feeCurrency               String?          @db.VarChar(3)
+  guaranteeEndDate          DateTime?
+  status                    PlacementStatus  @default(PLANNED_START)
+  fallThroughOrLeaverReason String?
+  createdById               String
+  createdBy                 User             @relation("PlacementCreatedBy", fields: [createdById], references: [id])
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
+
+  @@index([mandateId])
+  @@index([candidatePersonId])
+}
+
+// =============================================================================
+// INTELLIGENCE
+// =============================================================================
+
+model IntelligenceItem {
+  id                     String                      @id @default(cuid())
+  workspaceId            String
+  workspace              Workspace                   @relation(fields: [workspaceId], references: [id])
+  title                  String
+  organizationId         String
+  organization           Organization                @relation("IntelligenceOrganization", fields: [organizationId], references: [id])
+  type                   IntelligenceType
+  details                String?
+  sourcePersonId         String?
+  sourcePerson           Person?                     @relation("IntelligenceSourcePerson", fields: [sourcePersonId], references: [id])
+  sourceActivityId       String?
+  sourceActivity         Activity?                   @relation("ActivitySourcedIntelligence", fields: [sourceActivityId], references: [id])
+  sourceUrl              String?
+  dateReceived           DateTime                    @default(now())
+  confidence             IntelligenceConfidence      @default(UNVERIFIED)
+  commercialRelevance    CommercialRelevance         @default(NONE)
+  confidentiality        IntelligenceConfidentiality @default(INTERNAL)
+  verifiedById           String?
+  verifiedBy             User?                       @relation("IntelligenceVerifiedBy", fields: [verifiedById], references: [id])
+  verifiedAt             DateTime?
+  ownerId                String
+  owner                  User                        @relation("IntelligenceOwner", fields: [ownerId], references: [id])
+  followUpRequired       Boolean                     @default(false)
+  primaryNextTaskId      String?                     @unique
+  primaryNextTask        Task?                       @relation("IntelligencePrimaryNextTask", fields: [primaryNextTaskId], references: [id])
+  convertedOpportunityId String?                     @unique
+  convertedOpportunity   Opportunity?                @relation("IntelligenceConvertedOpportunity", fields: [convertedOpportunityId], references: [id])
+  createdById            String
+  createdBy              User                        @relation("IntelligenceCreatedBy", fields: [createdById], references: [id])
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+  archivedAt             DateTime?
+
+  relatedFunds IntelligenceItemFund[]
+  activities   ActivityIntelligenceItem[]
+  tasks        TaskIntelligenceItem[]
+  documents    DocumentIntelligenceItem[]
+  tags         TagOnIntelligenceItem[]
+
+  @@index([workspaceId, type])
+  @@index([organizationId])
+}
+
+model IntelligenceItemFund {
+  id                 String           @id @default(cuid())
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+  organizationId     String
+  organization       Organization     @relation(fields: [organizationId], references: [id])
+
+  @@unique([intelligenceItemId, organizationId])
+}
+
+// =============================================================================
+// ACTIVITIES
+// =============================================================================
+
+model Activity {
+  id               String            @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id])
+  type             ActivityType
+  direction        ActivityDirection @default(NOT_APPLICABLE)
+  outcome          ActivityOutcome?
+  subject          String?
+  occurredAt       DateTime          @default(now())
+  durationMinutes  Int?
+  summary          String?
+  fullNotes        String?
+  createdById      String
+  createdBy        User              @relation("ActivityCreatedBy", fields: [createdById], references: [id])
+  assignedOwnerId  String
+  assignedOwner    User              @relation("ActivityAssignedOwner", fields: [assignedOwnerId], references: [id])
+  followUpRequired Boolean           @default(false)
+  followUpTaskId   String?           @unique
+  followUpTask     Task?             @relation("ActivityFollowUpTask", fields: [followUpTaskId], references: [id])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  people                       ActivityPerson[]
+  organizations                ActivityOrganization[]
+  opportunities                ActivityOpportunity[]
+  mandates                     ActivityMandate[]
+  candidateProcesses           ActivityCandidateProcess[]
+  intelligenceItems            ActivityIntelligenceItem[]
+  sourcedOpportunity           Opportunity[]              @relation("ActivitySourcedOpportunity")
+  sourcedIntelligence          IntelligenceItem[]         @relation("ActivitySourcedIntelligence")
+  relatedPersonBacklink        Person[]                   @relation("ActivityRelatedPerson")
+  sourcedOpportunityBacklink   Opportunity?               @relation("ActivitySourcedOpportunityBacklink", fields: [sourcedOpportunityBacklinkId], references: [id])
+  sourcedOpportunityBacklinkId String?
+
+  @@index([workspaceId, occurredAt])
+  @@index([assignedOwnerId])
+}
+
+model ActivityPerson {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  personId   String
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, personId])
+}
+
+model ActivityOrganization {
+  id             String       @id @default(cuid())
+  activityId     String
+  activity       Activity     @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, organizationId])
+}
+
+model ActivityOpportunity {
+  id            String      @id @default(cuid())
+  activityId    String
+  activity      Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, opportunityId])
+}
+
+model ActivityMandate {
+  id         String   @id @default(cuid())
+  activityId String
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  mandateId  String
+  mandate    Mandate  @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, mandateId])
+}
+
+model ActivityCandidateProcess {
+  id                 String           @id @default(cuid())
+  activityId         String
+  activity           Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  candidateProcessId String
+  candidateProcess   CandidateProcess @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, candidateProcessId])
+}
+
+model ActivityIntelligenceItem {
+  id                 String           @id @default(cuid())
+  activityId         String
+  activity           Activity         @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, intelligenceItemId])
+}
+
+// =============================================================================
+// TASKS
+// =============================================================================
+
+model Task {
+  id                String             @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace          @relation(fields: [workspaceId], references: [id])
+  title             String
+  description       String?
+  type              TaskType           @default(OTHER)
+  status            TaskStatus         @default(TODO)
+  priority          TaskPriority       @default(NORMAL)
+  assignedUserId    String
+  assignedUser      User               @relation("TaskAssignedUser", fields: [assignedUserId], references: [id])
+  createdById       String
+  createdBy         User               @relation("TaskCreatedBy", fields: [createdById], references: [id])
+  dueDate           DateTime
+  dueTime           String?
+  reminderAt        DateTime?
+  completedAt       DateTime?
+  completionNote    String?
+  relatedRecordType RelatedRecordType?
+  relatedRecordId   String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  archivedAt        DateTime?
+
+  people                 TaskPerson[]
+  organizations          TaskOrganization[]
+  opportunities          TaskOpportunity[]
+  mandates               TaskMandate[]
+  candidateProcesses     TaskCandidateProcess[]
+  intelligenceItems      TaskIntelligenceItem[]
+  activityFollowUpFor    Activity?              @relation("ActivityFollowUpTask")
+  opportunityPrimaryFor  Opportunity?           @relation("OpportunityPrimaryNextTask")
+  mandatePrimaryFor      Mandate?               @relation("MandatePrimaryNextTask")
+  processPrimaryFor      CandidateProcess?      @relation("ProcessPrimaryNextTask")
+  intelligencePrimaryFor IntelligenceItem?      @relation("IntelligencePrimaryNextTask")
+  notifications          InAppNotification[]
+
+  @@index([workspaceId, status])
+  @@index([assignedUserId, dueDate])
+}
+
+model TaskPerson {
+  id       String @id @default(cuid())
+  taskId   String
+  task     Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, personId])
+}
+
+model TaskOrganization {
+  id             String       @id @default(cuid())
+  taskId         String
+  task           Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, organizationId])
+}
+
+model TaskOpportunity {
+  id            String      @id @default(cuid())
+  taskId        String
+  task          Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, opportunityId])
+}
+
+model TaskMandate {
+  id        String  @id @default(cuid())
+  taskId    String
+  task      Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mandateId String
+  mandate   Mandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, mandateId])
+}
+
+model TaskCandidateProcess {
+  id                 String           @id @default(cuid())
+  taskId             String
+  task               Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  candidateProcessId String
+  candidateProcess   CandidateProcess @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, candidateProcessId])
+}
+
+model TaskIntelligenceItem {
+  id                 String           @id @default(cuid())
+  taskId             String
+  task               Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, intelligenceItemId])
+}
+
+// =============================================================================
+// DOCUMENTS
+// =============================================================================
+
+model Document {
+  id               String           @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id])
+  originalFilename String
+  displayName      String
+  mimeType         String
+  size             Int
+  storageKey       String
+  category         DocumentCategory @default(OTHER)
+  versionNumber    Int              @default(1)
+  isCurrentVersion Boolean          @default(true)
+  uploadedById     String
+  uploadedBy       User             @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  uploadedAt       DateTime         @default(now())
+  restricted       Boolean          @default(false)
+
+  organizations       DocumentOrganization[]
+  people              DocumentPerson[]
+  opportunities       DocumentOpportunity[]
+  mandates            DocumentMandate[]
+  candidateProcesses  DocumentCandidateProcess[]
+  intelligenceItems   DocumentIntelligenceItem[]
+  submittedForProcess CandidateProcess[]         @relation("ProcessSubmittedCv")
+
+  @@index([workspaceId, category])
+}
+
+model DocumentOrganization {
+  id             String       @id @default(cuid())
+  documentId     String
+  document       Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, organizationId])
+}
+
+model DocumentPerson {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  personId   String
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, personId])
+}
+
+model DocumentOpportunity {
+  id            String      @id @default(cuid())
+  documentId    String
+  document      Document    @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, opportunityId])
+}
+
+model DocumentMandate {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  mandateId  String
+  mandate    Mandate  @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, mandateId])
+}
+
+model DocumentCandidateProcess {
+  id                 String           @id @default(cuid())
+  documentId         String
+  document           Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  candidateProcessId String
+  candidateProcess   CandidateProcess @relation(fields: [candidateProcessId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, candidateProcessId])
+}
+
+model DocumentIntelligenceItem {
+  id                 String           @id @default(cuid())
+  documentId         String
+  document           Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, intelligenceItemId])
+}
+
+// =============================================================================
+// TAGS
+// =============================================================================
+
+model Tag {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  name        String
+  colorToken  String    @default("neutral")
+  description String?
+  active      Boolean   @default(true)
+
+  organizations     TagOnOrganization[]
+  people            TagOnPerson[]
+  opportunities     TagOnOpportunity[]
+  mandates          TagOnMandate[]
+  intelligenceItems TagOnIntelligenceItem[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model TagOnOrganization {
+  id             String       @id @default(cuid())
+  tagId          String
+  tag            Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, organizationId])
+}
+
+model TagOnPerson {
+  id       String @id @default(cuid())
+  tagId    String
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, personId])
+}
+
+model TagOnOpportunity {
+  id            String      @id @default(cuid())
+  tagId         String
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, opportunityId])
+}
+
+model TagOnMandate {
+  id        String  @id @default(cuid())
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  mandateId String
+  mandate   Mandate @relation(fields: [mandateId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, mandateId])
+}
+
+model TagOnIntelligenceItem {
+  id                 String           @id @default(cuid())
+  tagId              String
+  tag                Tag              @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, intelligenceItemId])
+}
+
+// =============================================================================
+// OFF-LIMITS
+// =============================================================================
+
+model OffLimitsRestriction {
+  id             String            @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id])
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  personId       String?
+  person         Person?           @relation(fields: [personId], references: [id])
+  mandateId      String?
+  mandate        Mandate?          @relation(fields: [mandateId], references: [id])
+  placementId    String?
+  type           OffLimitsType
+  severity       OffLimitsSeverity @default(WARNING)
+  reason         String
+  startDate      DateTime          @default(now())
+  endDate        DateTime?
+  activeOverride Boolean?
+  createdById    String
+  createdBy      User              @relation("OffLimitsCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  opportunity    Opportunity?      @relation(fields: [opportunityId], references: [id])
+  opportunityId  String?
+
+  @@index([workspaceId])
+  @@index([organizationId])
+  @@index([personId])
+}
+
+// =============================================================================
+// SAVED VIEWS
+// =============================================================================
+
+model SavedView {
+  id          String              @id @default(cuid())
+  workspaceId String
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id])
+  name        String
+  entityType  SavedViewEntityType
+  ownerId     String?
+  owner       User?               @relation("SavedViewOwner", fields: [ownerId], references: [id])
+  shared      Boolean             @default(false)
+  filterJson  Json                @default("{}")
+  sortJson    Json                @default("[]")
+  columnJson  Json                @default("[]")
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([workspaceId, entityType])
+}
+
+// =============================================================================
+// CUSTOM FIELDS
+// =============================================================================
+
+model CustomFieldDefinition {
+  id            String                @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace             @relation(fields: [workspaceId], references: [id])
+  label         String
+  entityType    CustomFieldEntityType
+  fieldType     CustomFieldType
+  required      Boolean               @default(false)
+  active        Boolean               @default(true)
+  displayOrder  Int                   @default(0)
+  selectOptions Json?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  values CustomFieldValue[]
+
+  @@index([workspaceId, entityType])
+}
+
+model CustomFieldValue {
+  id                 String                @id @default(cuid())
+  definitionId       String
+  definition         CustomFieldDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  organizationId     String?
+  organization       Organization?         @relation("CustomFieldValueOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  personId           String?
+  person             Person?               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  candidateProfileId String?
+  candidateProfile   CandidateProfile?     @relation("CustomFieldValueCandidateProfile", fields: [candidateProfileId], references: [id], onDelete: Cascade)
+  opportunityId      String?
+  opportunity        Opportunity?          @relation("CustomFieldValueOpportunity", fields: [opportunityId], references: [id], onDelete: Cascade)
+  mandateId          String?
+  mandate            Mandate?              @relation("CustomFieldValueMandate", fields: [mandateId], references: [id], onDelete: Cascade)
+  valueText          String?
+  valueJson          Json?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@unique([definitionId, organizationId])
+  @@unique([definitionId, personId])
+  @@unique([definitionId, candidateProfileId])
+  @@unique([definitionId, opportunityId])
+  @@unique([definitionId, mandateId])
+  @@index([definitionId])
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+model AuditLog {
+  id              String      @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace   @relation(fields: [workspaceId], references: [id])
+  actorId         String?
+  actor           User?       @relation("AuditActor", fields: [actorId], references: [id])
+  entityType      String
+  entityId        String
+  action          AuditAction
+  timestamp       DateTime    @default(now())
+  changedFields   Json?
+  requestMetadata Json?
+
+  @@index([workspaceId, entityType, entityId])
+  @@index([timestamp])
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model InAppNotification {
+  id                String           @id @default(cuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id])
+  type              NotificationType
+  title             String
+  body              String?
+  relatedTaskId     String?
+  relatedTask       Task?            @relation(fields: [relatedTaskId], references: [id])
+  relatedEntityType String?
+  relatedEntityId   String?
+  readAt            DateTime?
+  createdAt         DateTime         @default(now())
+
+  @@index([userId, readAt])
+}
+
+// =============================================================================
+// IMPORTS
+// =============================================================================
+
+model ImportJob {
+  id               String           @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace        @relation(fields: [workspaceId], references: [id])
+  entityType       ImportEntityType
+  status           ImportStatus     @default(PENDING)
+  originalFilename String
+  storageKey       String
+  columnMapping    Json?
+  duplicateChoices Json?
+  totalRows        Int              @default(0)
+  processedRows    Int              @default(0)
+  successRows      Int              @default(0)
+  errorRows        Int              @default(0)
+  rowReport        Json?
+  createdById      String
+  createdBy        User             @relation("ImportCreatedBy", fields: [createdById], references: [id])
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([workspaceId])
+}

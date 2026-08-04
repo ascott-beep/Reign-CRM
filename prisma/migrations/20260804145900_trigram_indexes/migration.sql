@@ -1,0 +1,11 @@
+-- Trigram indexes to support fast partial-match global search (ILIKE / similarity).
+CREATE INDEX IF NOT EXISTS "Organization_name_trgm_idx" ON "Organization" USING GIN ("name" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Organization_website_trgm_idx" ON "Organization" USING GIN ("normalizedWebsiteDomain" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Person_firstName_trgm_idx" ON "Person" USING GIN ("firstName" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Person_lastName_trgm_idx" ON "Person" USING GIN ("lastName" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Person_primaryEmail_trgm_idx" ON "Person" USING GIN ("primaryEmail" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Opportunity_name_trgm_idx" ON "Opportunity" USING GIN ("name" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Opportunity_role_trgm_idx" ON "Opportunity" USING GIN ("potentialRoleTitle" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Mandate_reference_trgm_idx" ON "Mandate" USING GIN ("reference" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "Mandate_title_trgm_idx" ON "Mandate" USING GIN ("title" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "IntelligenceItem_title_trgm_idx" ON "IntelligenceItem" USING GIN ("title" gin_trgm_ops);
