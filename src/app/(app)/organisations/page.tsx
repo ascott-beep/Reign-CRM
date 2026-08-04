@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus, ExternalLink, Download, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/permissions";
+import { requireUser, canExport, canMutate } from "@/lib/permissions";
 import { organizationViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
@@ -96,6 +96,20 @@ export default async function OrganisationsPage({
         actions={
           <>
             <SavedViewsMenu views={views} />
+            {canExport(user.role) ? (
+              <Button variant="secondary" asChild>
+                <a href={`/api/export/organizations${typeParam ? `?type=${typeParam}` : ""}`}>
+                  <Download className="h-4 w-4" /> Export CSV
+                </a>
+              </Button>
+            ) : null}
+            {canMutate(user.role) ? (
+              <Button variant="secondary" asChild>
+                <Link href="/import/organisations">
+                  <Upload className="h-4 w-4" /> Import CSV
+                </Link>
+              </Button>
+            ) : null}
             <Button asChild>
               <Link href="/organisations/new">
                 <Plus className="h-4 w-4" /> New organisation
