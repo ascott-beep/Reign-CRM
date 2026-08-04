@@ -29,7 +29,7 @@ export const organizationFormSchema = z.object({
   aumCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
 
   // Portfolio-company-only
-  portfolioClassification: z.nativeEnum(PortfolioClassification).optional().nullable(),
+  portfolioClassification: z.preprocess(emptyToUndefined, z.nativeEnum(PortfolioClassification).optional()),
   businessModelSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
   investmentThesisSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
 

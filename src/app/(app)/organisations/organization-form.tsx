@@ -79,7 +79,7 @@ export function OrganizationForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="type">Type</Label>
-          <Select name="type" defaultValue={type} onValueChange={setType}>
+          <Select value={type} onValueChange={setType}>
             <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>
