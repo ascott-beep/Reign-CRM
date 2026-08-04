@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canMutate, canViewMandate, canOverrideOffLimits, PermissionError } from "@/lib/permissions";
+import { requireUser, canMutate, canViewMandate, PermissionError } from "@/lib/permissions";
 import {
   addCandidateToMandateSchema,
   processStageChangeSchema,
