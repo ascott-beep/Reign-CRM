@@ -25,6 +25,14 @@
      brand accent and adapts automatically between light/dark surfaces. */
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
 
+  /* Secondary accent — same blue family as the Finance practice-area tag,
+     saturated up so it actually reads as colour at icon/text sizes (the
+     navy accent is dark enough that it visually flattens to "grey" at
+     small weights, so it's kept for solid fills/structure instead). */
+  --color-highlight: #2f5fbf;
+  --color-highlight-ink: #ffffff;
+  --color-highlight-subtle: color-mix(in srgb, var(--color-highlight) 12%, var(--color-surface));
+
   --color-status-success-bg: #eef3ea;
   --color-status-success-ink: #3c5c33;
   --color-status-warning-bg: #faf1df;
@@ -35,6 +43,15 @@
   --color-status-info-ink: #2c4870;
   --color-status-neutral-bg: #eeedea;
   --color-status-neutral-ink: #45454c;
+
+  /* Layered elevation (soft ambient + tighter contact shadow) so surfaces
+     read as raised cards rather than flat bordered boxes. Overridden per
+     theme below since a light-mode shadow recipe looks washed out on dark
+     surfaces. */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.08);
+  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.04), 0 16px 40px rgba(16, 24, 40, 0.14);
 }
 
 @layer base {
@@ -53,6 +70,8 @@
     --color-border: #2b2b2f;
     --color-border-strong: #3a3a40;
     --color-accent-ink: #101012;
+    --color-highlight: #6d9ef0;
+    --color-highlight-ink: #101012;
     --color-status-success-bg: #1e2a19;
     --color-status-success-ink: #a9d69a;
     --color-status-warning-bg: #332a10;
@@ -63,6 +82,11 @@
     --color-status-info-ink: #a9c3e6;
     --color-status-neutral-bg: #232327;
     --color-status-neutral-ink: #c6c4bf;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.25), 0 8px 20px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25), 0 16px 40px rgba(0, 0, 0, 0.4);
   }
 
   body {

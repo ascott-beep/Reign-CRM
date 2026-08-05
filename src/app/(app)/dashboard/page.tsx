@@ -1,11 +1,26 @@
 import Link from "next/link";
-import { TrendingUp, Target, ArrowRight } from "lucide-react";
+import {
+  TrendingUp,
+  Target,
+  ArrowRight,
+  ListChecks,
+  AlertCircle,
+  Briefcase,
+  PoundSterling,
+  Users,
+  CalendarClock,
+  HandCoins,
+  Award,
+  Star,
+  ClockAlert,
+  type LucideIcon,
+} from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, cn } from "@/lib/utils";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { formatDistanceToNow } from "date-fns";
 
@@ -110,18 +125,38 @@ export default async function DashboardPage() {
 
   const placementFeesThisMonth = placementsThisMonth.reduce((sum, p) => sum + (p.feeAmount ? Number(p.feeAmount) : 0), 0);
 
-  const cards: { title: string; value: string; href: string; description?: string }[] = [
-    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?filter=today" },
-    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?filter=overdue" },
-    { title: "Active opportunities", value: String(activeOpportunities), href: "/opportunities" },
-    { title: "Weighted opportunity value", value: formatMoney(weightedValue, "GBP"), href: "/opportunities", description: "Probability-weighted, open stages only" },
-    { title: "Active mandates", value: String(activeMandates), href: "/mandates" },
-    { title: "Candidate processes awaiting action", value: String(processesAwaitingAction), href: "/mandates" },
-    { title: "Interviews in next 7 days", value: String(upcomingInterviews), href: "/mandates" },
-    { title: "Offers outstanding", value: String(outstandingOffers), href: "/mandates" },
-    { title: "Placements this month", value: formatMoney(placementFeesThisMonth, "GBP"), href: "/reports", description: "Fee value, this calendar month" },
-    { title: "Priority organisations", value: String(orgsWithoutNextTask), href: "/organisations" },
-    { title: "Stale priority organisations", value: String(stalePriorityOrgs), href: "/organisations", description: "No verification in 60+ days" },
+  const cards: { title: string; value: string; href: string; description?: string; icon: LucideIcon; highlight?: boolean }[] = [
+    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?filter=today", icon: ListChecks },
+    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?filter=overdue", icon: AlertCircle },
+    { title: "Active opportunities", value: String(activeOpportunities), href: "/opportunities", icon: Briefcase },
+    {
+      title: "Weighted opportunity value",
+      value: formatMoney(weightedValue, "GBP"),
+      href: "/opportunities",
+      description: "Probability-weighted, open stages only",
+      icon: PoundSterling,
+      highlight: true,
+    },
+    { title: "Active mandates", value: String(activeMandates), href: "/mandates", icon: Target },
+    { title: "Candidate processes awaiting action", value: String(processesAwaitingAction), href: "/mandates", icon: Users },
+    { title: "Interviews in next 7 days", value: String(upcomingInterviews), href: "/mandates", icon: CalendarClock },
+    { title: "Offers outstanding", value: String(outstandingOffers), href: "/mandates", icon: HandCoins },
+    {
+      title: "Placements this month",
+      value: formatMoney(placementFeesThisMonth, "GBP"),
+      href: "/reports",
+      description: "Fee value, this calendar month",
+      icon: Award,
+      highlight: true,
+    },
+    { title: "Priority organisations", value: String(orgsWithoutNextTask), href: "/organisations", icon: Star },
+    {
+      title: "Stale priority organisations",
+      value: String(stalePriorityOrgs),
+      href: "/organisations",
+      description: "No verification in 60+ days",
+      icon: ClockAlert,
+    },
   ];
 
   const [recentOpportunities, recentMandates] = await Promise.all([
@@ -144,26 +179,44 @@ export default async function DashboardPage() {
       <PageHeader title={`Welcome back, ${user.firstName}`} description="Here's what's moving across the desk." />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Link key={card.title} href={card.href}>
-            <Card className="h-full transition-shadow hover:shadow-md">
-              <CardHeader className="pb-1">
-                <CardTitle className="text-xs font-medium text-[var(--color-ink-subtle)]">{card.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold text-[var(--color-ink)]">{card.value}</p>
-                {card.description ? <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{card.description}</p> : null}
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+        {cards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <Link key={card.title} href={card.href}>
+              <Card
+                className={cn(
+                  "h-full transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]",
+                  card.highlight ? "border-[var(--color-highlight)]/25 bg-[var(--color-highlight-subtle)]" : "",
+                )}
+              >
+                <CardContent className="flex items-start justify-between gap-2 p-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-[var(--color-ink-subtle)]">{card.title}</p>
+                    <p className="mt-1.5 text-2xl font-semibold tracking-tight text-[var(--color-ink)]">{card.value}</p>
+                    {card.description ? <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{card.description}</p> : null}
+                  </div>
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+                      card.highlight
+                        ? "bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                        : "bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Recently updated opportunities</CardTitle>
-            <Link href="/opportunities" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
+            <Link href="/opportunities" className="flex items-center gap-1 text-xs font-medium text-[var(--color-highlight)] hover:underline">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -177,7 +230,7 @@ export default async function DashboardPage() {
                   href={`/opportunities/${o.id}`}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]">
                     <TrendingUp className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -195,7 +248,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Recently updated mandates</CardTitle>
-            <Link href="/mandates" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
+            <Link href="/mandates" className="flex items-center gap-1 text-xs font-medium text-[var(--color-highlight)] hover:underline">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -209,7 +262,7 @@ export default async function DashboardPage() {
                   href={`/mandates/${m.id}`}
                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]">
                     <Target className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">

@@ -34,13 +34,18 @@ export function Sidebar({ logoPath }: { logoPath: string | null }) {
                 <Link
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                    "relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-[var(--color-canvas)] text-[var(--color-ink)]"
+                      ? "bg-[var(--color-highlight-subtle)] text-[var(--color-ink)]"
                       : "text-[var(--color-ink-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]",
                   )}
                 >
-                  {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
+                  {isActive ? (
+                    <span className="absolute -left-2 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[var(--color-highlight)]" />
+                  ) : null}
+                  {Icon ? (
+                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--color-highlight)]" : "")} />
+                  ) : null}
                   {item.label}
                 </Link>
                 {item.children && isActive ? (

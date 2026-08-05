@@ -1,0 +1,311 @@
+diff --git a/public/brand/mark.svg b/public/brand/mark.svg
+index cd3d3b3..c5eb4a5 100644
+--- a/public/brand/mark.svg
++++ b/public/brand/mark.svg
+@@ -1,3 +1,4 @@
+ <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+-  <path d="M4 4H22L28 10V28H4V4Z" fill="#101E33"/>
++  <rect width="32" height="32" rx="7" fill="#101E33"/>
++  <path d="M16 7L25 23H7L16 7Z" fill="white"/>
+ </svg>
+diff --git a/src/app/(app)/dashboard/page.tsx b/src/app/(app)/dashboard/page.tsx
+index ef4564f..803448c 100644
+--- a/src/app/(app)/dashboard/page.tsx
++++ b/src/app/(app)/dashboard/page.tsx
+@@ -1,11 +1,26 @@
+ import Link from "next/link";
+-import { TrendingUp, Target, ArrowRight } from "lucide-react";
++import {
++  TrendingUp,
++  Target,
++  ArrowRight,
++  ListChecks,
++  AlertCircle,
++  Briefcase,
++  PoundSterling,
++  Users,
++  CalendarClock,
++  HandCoins,
++  Award,
++  Star,
++  ClockAlert,
++  type LucideIcon,
++} from "lucide-react";
+ import { prisma } from "@/lib/prisma";
+ import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
+ import { PageHeader } from "@/components/shell/page-header";
+ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+ import { StatusBadge } from "@/components/ui/status-badge";
+-import { formatMoney } from "@/lib/utils";
++import { formatMoney, cn } from "@/lib/utils";
+ import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+ import { formatDistanceToNow } from "date-fns";
+ 
+@@ -110,18 +125,38 @@ export default async function DashboardPage() {
+ 
+   const placementFeesThisMonth = placementsThisMonth.reduce((sum, p) => sum + (p.feeAmount ? Number(p.feeAmount) : 0), 0);
+ 
+-  const cards: { title: string; value: string; href: string; description?: string }[] = [
+-    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?filter=today" },
+-    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?filter=overdue" },
+-    { title: "Active opportunities", value: String(activeOpportunities), href: "/opportunities" },
+-    { title: "Weighted opportunity value", value: formatMoney(weightedValue, "GBP"), href: "/opportunities", description: "Probability-weighted, open stages only" },
+-    { title: "Active mandates", value: String(activeMandates), href: "/mandates" },
+-    { title: "Candidate processes awaiting action", value: String(processesAwaitingAction), href: "/mandates" },
+-    { title: "Interviews in next 7 days", value: String(upcomingInterviews), href: "/mandates" },
+-    { title: "Offers outstanding", value: String(outstandingOffers), href: "/mandates" },
+-    { title: "Placements this month", value: formatMoney(placementFeesThisMonth, "GBP"), href: "/reports", description: "Fee value, this calendar month" },
+-    { title: "Priority organisations", value: String(orgsWithoutNextTask), href: "/organisations" },
+-    { title: "Stale priority organisations", value: String(stalePriorityOrgs), href: "/organisations", description: "No verification in 60+ days" },
++  const cards: { title: string; value: string; href: string; description?: string; icon: LucideIcon; highlight?: boolean }[] = [
++    { title: "My tasks due today", value: String(myTasksToday), href: "/tasks?filter=today", icon: ListChecks },
++    { title: "My overdue tasks", value: String(myTasksOverdue), href: "/tasks?filter=overdue", icon: AlertCircle },
++    { title: "Active opportunities", value: String(activeOpportunities), href: "/opportunities", icon: Briefcase },
++    {
++      title: "Weighted opportunity value",
++      value: formatMoney(weightedValue, "GBP"),
++      href: "/opportunities",
++      description: "Probability-weighted, open stages only",
++      icon: PoundSterling,
++      highlight: true,
++    },
++    { title: "Active mandates", value: String(activeMandates), href: "/mandates", icon: Target },
++    { title: "Candidate processes awaiting action", value: String(processesAwaitingAction), href: "/mandates", icon: Users },
++    { title: "Interviews in next 7 days", value: String(upcomingInterviews), href: "/mandates", icon: CalendarClock },
++    { title: "Offers outstanding", value: String(outstandingOffers), href: "/mandates", icon: HandCoins },
++    {
++      title: "Placements this month",
++      value: formatMoney(placementFeesThisMonth, "GBP"),
++      href: "/reports",
++      description: "Fee value, this calendar month",
++      icon: Award,
++      highlight: true,
++    },
++    { title: "Priority organisations", value: String(orgsWithoutNextTask), href: "/organisations", icon: Star },
++    {
++      title: "Stale priority organisations",
++      value: String(stalePriorityOrgs),
++      href: "/organisations",
++      description: "No verification in 60+ days",
++      icon: ClockAlert,
++    },
+   ];
+ 
+   const [recentOpportunities, recentMandates] = await Promise.all([
+@@ -144,26 +179,44 @@ export default async function DashboardPage() {
+       <PageHeader title={`Welcome back, ${user.firstName}`} description="Here's what's moving across the desk." />
+ 
+       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+-        {cards.map((card) => (
+-          <Link key={card.title} href={card.href}>
+-            <Card className="h-full transition-shadow hover:shadow-md">
+-              <CardHeader className="pb-1">
+-                <CardTitle className="text-xs font-medium text-[var(--color-ink-subtle)]">{card.title}</CardTitle>
+-              </CardHeader>
+-              <CardContent>
+-                <p className="text-2xl font-semibold text-[var(--color-ink)]">{card.value}</p>
+-                {card.description ? <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{card.description}</p> : null}
+-              </CardContent>
+-            </Card>
+-          </Link>
+-        ))}
++        {cards.map((card) => {
++          const Icon = card.icon;
++          return (
++            <Link key={card.title} href={card.href}>
++              <Card
++                className={cn(
++                  "h-full transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]",
++                  card.highlight ? "border-[var(--color-highlight)]/25 bg-[var(--color-highlight-subtle)]" : "",
++                )}
++              >
++                <CardContent className="flex items-start justify-between gap-2 p-4">
++                  <div className="min-w-0">
++                    <p className="text-xs font-medium text-[var(--color-ink-subtle)]">{card.title}</p>
++                    <p className="mt-1.5 text-2xl font-semibold tracking-tight text-[var(--color-ink)]">{card.value}</p>
++                    {card.description ? <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{card.description}</p> : null}
++                  </div>
++                  <span
++                    className={cn(
++                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
++                      card.highlight
++                        ? "bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
++                        : "bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]",
++                    )}
++                  >
++                    <Icon className="h-4 w-4" />
++                  </span>
++                </CardContent>
++              </Card>
++            </Link>
++          );
++        })}
+       </div>
+ 
+       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+         <Card>
+           <CardHeader className="flex flex-row items-center justify-between space-y-0">
+             <CardTitle>Recently updated opportunities</CardTitle>
+-            <Link href="/opportunities" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
++            <Link href="/opportunities" className="flex items-center gap-1 text-xs font-medium text-[var(--color-highlight)] hover:underline">
+               View all <ArrowRight className="h-3 w-3" />
+             </Link>
+           </CardHeader>
+@@ -177,7 +230,7 @@ export default async function DashboardPage() {
+                   href={`/opportunities/${o.id}`}
+                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
+                 >
+-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
++                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]">
+                     <TrendingUp className="h-4 w-4" />
+                   </span>
+                   <span className="min-w-0 flex-1">
+@@ -195,7 +248,7 @@ export default async function DashboardPage() {
+         <Card>
+           <CardHeader className="flex flex-row items-center justify-between space-y-0">
+             <CardTitle>Recently updated mandates</CardTitle>
+-            <Link href="/mandates" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
++            <Link href="/mandates" className="flex items-center gap-1 text-xs font-medium text-[var(--color-highlight)] hover:underline">
+               View all <ArrowRight className="h-3 w-3" />
+             </Link>
+           </CardHeader>
+@@ -209,7 +262,7 @@ export default async function DashboardPage() {
+                   href={`/mandates/${m.id}`}
+                   className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
+                 >
+-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
++                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]">
+                     <Target className="h-4 w-4" />
+                   </span>
+                   <span className="min-w-0 flex-1">
+diff --git a/src/app/globals.css b/src/app/globals.css
+index 2af7104..70d8032 100644
+--- a/src/app/globals.css
++++ b/src/app/globals.css
+@@ -25,6 +25,14 @@
+      brand accent and adapts automatically between light/dark surfaces. */
+   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+ 
++  /* Secondary accent — same blue family as the Finance practice-area tag,
++     saturated up so it actually reads as colour at icon/text sizes (the
++     navy accent is dark enough that it visually flattens to "grey" at
++     small weights, so it's kept for solid fills/structure instead). */
++  --color-highlight: #2f5fbf;
++  --color-highlight-ink: #ffffff;
++  --color-highlight-subtle: color-mix(in srgb, var(--color-highlight) 12%, var(--color-surface));
++
+   --color-status-success-bg: #eef3ea;
+   --color-status-success-ink: #3c5c33;
+   --color-status-warning-bg: #faf1df;
+@@ -35,6 +43,15 @@
+   --color-status-info-ink: #2c4870;
+   --color-status-neutral-bg: #eeedea;
+   --color-status-neutral-ink: #45454c;
++
++  /* Layered elevation (soft ambient + tighter contact shadow) so surfaces
++     read as raised cards rather than flat bordered boxes. Overridden per
++     theme below since a light-mode shadow recipe looks washed out on dark
++     surfaces. */
++  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
++  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
++  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.08);
++  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.04), 0 16px 40px rgba(16, 24, 40, 0.14);
+ }
+ 
+ @layer base {
+@@ -53,6 +70,8 @@
+     --color-border: #2b2b2f;
+     --color-border-strong: #3a3a40;
+     --color-accent-ink: #101012;
++    --color-highlight: #6d9ef0;
++    --color-highlight-ink: #101012;
+     --color-status-success-bg: #1e2a19;
+     --color-status-success-ink: #a9d69a;
+     --color-status-warning-bg: #332a10;
+@@ -63,6 +82,11 @@
+     --color-status-info-ink: #a9c3e6;
+     --color-status-neutral-bg: #232327;
+     --color-status-neutral-ink: #c6c4bf;
++
++    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
++    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
++    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.25), 0 8px 20px rgba(0, 0, 0, 0.3);
++    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25), 0 16px 40px rgba(0, 0, 0, 0.4);
+   }
+ 
+   body {
+diff --git a/src/app/icon.svg b/src/app/icon.svg
+new file mode 100644
+index 0000000..c5eb4a5
+--- /dev/null
++++ b/src/app/icon.svg
+@@ -0,0 +1,4 @@
++<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
++  <rect width="32" height="32" rx="7" fill="#101E33"/>
++  <path d="M16 7L25 23H7L16 7Z" fill="white"/>
++</svg>
+diff --git a/src/app/login/page.tsx b/src/app/login/page.tsx
+index 8b0693a..bf87c15 100644
+--- a/src/app/login/page.tsx
++++ b/src/app/login/page.tsx
+@@ -11,22 +11,19 @@ export default async function LoginPage() {
+   return (
+     <div className="flex min-h-screen items-center justify-center bg-[var(--color-canvas)] px-4">
+       <div className="w-full max-w-sm">
+-        <div className="mb-8 text-center">
+-          <div className="mb-4 flex items-center justify-center gap-2.5">
+-            {logoPath ? (
+-              // eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed
+-              <img src={logoPath} alt="Reign" className="h-10" />
+-            ) : (
+-              <>
+-                {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
+-                <img src="/brand/mark.svg" alt="" className="h-9 w-9" />
+-                <span className="text-2xl font-bold tracking-tight text-[var(--color-ink)]">Reign</span>
+-              </>
+-            )}
+-          </div>
+-          <p className="text-sm text-[var(--color-ink-subtle)]">Sign in to the Reign Partners recruitment CRM</p>
++        <div className="mb-8 flex items-center justify-center gap-2.5">
++          {logoPath ? (
++            // eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed
++            <img src={logoPath} alt="Reign" className="h-10" />
++          ) : (
++            <>
++              {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
++              <img src="/brand/mark.svg" alt="" className="h-9 w-9" />
++              <span className="text-2xl font-bold tracking-tight text-[var(--color-ink)]">Reign Partners</span>
++            </>
++          )}
+         </div>
+-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
++        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[var(--shadow-md)]">
+           <LoginForm />
+         </div>
+         <p className="mt-6 text-center text-xs text-[var(--color-ink-subtle)]">
+diff --git a/src/components/shell/sidebar.tsx b/src/components/shell/sidebar.tsx
+index 7681d3f..42bc0eb 100644
+--- a/src/components/shell/sidebar.tsx
++++ b/src/components/shell/sidebar.tsx
+@@ -34,13 +34,18 @@ export function Sidebar({ logoPath }: { logoPath: string | null }) {
+                 <Link
+                   href={item.href}
+                   className={cn(
+-                    "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
++                    "relative flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                     isActive
+-                      ? "bg-[var(--color-canvas)] text-[var(--color-ink)]"
++                      ? "bg-[var(--color-highlight-subtle)] text-[var(--color-ink)]"
+                       : "text-[var(--color-ink-muted)] hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]",
+                   )}
+                 >
+-                  {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
++                  {isActive ? (
++                    <span className="absolute -left-2 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[var(--color-highlight)]" />
++                  ) : null}
++                  {Icon ? (
++                    <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--color-highlight)]" : "")} />
++                  ) : null}
+                   {item.label}
+                 </Link>
+                 {item.children && isActive ? (
