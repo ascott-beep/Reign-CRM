@@ -7,7 +7,7 @@
  * centrally from Settings without a rebuild).
  */
 @theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --color-canvas: #faf9f7;
@@ -19,7 +19,7 @@
   --color-border: #e4e2dd;
   --color-border-strong: #cfccc4;
 
-  --color-accent: var(--brand-accent, #1c2b4a);
+  --color-accent: var(--brand-accent, #101e33);
   --color-accent-ink: #ffffff;
   /* Derived tint, not a fixed hex, so it tracks the runtime-configurable
      brand accent and adapts automatically between light/dark surfaces. */

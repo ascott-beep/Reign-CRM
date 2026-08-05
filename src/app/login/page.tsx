@@ -10,11 +10,12 @@ export default async function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-canvas)] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-md bg-[var(--color-accent)] text-sm font-semibold text-[var(--color-accent-ink)]">
-            RP
+          <div className="mb-4 flex items-center justify-center gap-2.5">
+            {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
+            <img src="/brand/mark.svg" alt="" className="h-9 w-9" />
+            <span className="text-2xl font-bold tracking-tight text-[var(--color-ink)]">Reign</span>
           </div>
-          <h1 className="text-lg font-semibold text-[var(--color-ink)]">Reign Partners</h1>
-          <p className="text-sm text-[var(--color-ink-subtle)]">Sign in to the recruitment CRM</p>
+          <p className="text-sm text-[var(--color-ink-subtle)]">Sign in to the Reign Partners recruitment CRM</p>
         </div>
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
           <LoginForm />

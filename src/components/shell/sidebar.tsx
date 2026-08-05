@@ -13,10 +13,9 @@ export function Sidebar() {
   return (
     <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] md:flex">
       <div className="flex h-14 items-center gap-2 border-b border-[var(--color-border)] px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-accent)] text-xs font-semibold text-[var(--color-accent-ink)]">
-          RP
-        </div>
-        <span className="text-sm font-semibold text-[var(--color-ink)]">Reign Partners</span>
+        {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
+        <img src="/brand/mark.svg" alt="" className="h-7 w-7" />
+        <span className="text-base font-bold tracking-tight text-[var(--color-ink)]">Reign</span>
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="flex flex-col gap-0.5">

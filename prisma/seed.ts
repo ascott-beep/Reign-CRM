@@ -45,7 +45,7 @@ async function main() {
       slug: process.env.WORKSPACE_SLUG ?? "reign-partners",
       defaultCurrency: process.env.WORKSPACE_DEFAULT_CURRENCY ?? "GBP",
       defaultTimezone: process.env.WORKSPACE_DEFAULT_TIMEZONE ?? "Europe/London",
-      brandAccent: process.env.WORKSPACE_BRAND_ACCENT ?? "#1C2B4A",
+      brandAccent: process.env.WORKSPACE_BRAND_ACCENT ?? "#101E33",
     },
   });
   const wid = workspace.id;
@@ -151,14 +151,15 @@ async function main() {
     sectors[name] = existing ?? (await prisma.sector.create({ data: { workspaceId: wid, name, displayOrder: i } }));
   }
 
-  // Placeholder colours — swap for Reign Partners' real practice-area colour
-  // codes in Settings > Taxonomies once confirmed.
+  // Best-effort visual match to Reign Partners' own site palette (pale
+  // pastel category headers) — confirm exact hex codes in Settings >
+  // Taxonomies once available and nudge these if they're off.
   const PRACTICE_AREA_COLORS: Record<string, string> = {
-    Finance: "#2C4870",
-    Commercial: "#1F6F5C",
-    "Technology and Data": "#5B4B8A",
-    Transformation: "#B5651D",
-    Other: "#6B6B73",
+    Finance: "#CFE0F7",
+    Commercial: "#C9D9D3",
+    "Technology and Data": "#D7EED9",
+    Transformation: "#E1D9F4",
+    Other: "#E4E2DD",
   };
   const practiceAreas = await seedLookup(
     prisma.practiceArea,

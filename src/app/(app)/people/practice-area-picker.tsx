@@ -37,7 +37,7 @@ export function PracticeAreaPicker({
             )}
             style={
               selected
-                ? { borderColor: `${color}55`, backgroundColor: `${color}1a`, color }
+                ? { borderColor: "transparent", backgroundColor: color, color: "#101B2D" }
                 : { borderColor: "var(--color-border-strong)", color: "var(--color-ink-subtle)" }
             }
           >
