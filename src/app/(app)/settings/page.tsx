@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/iso";
 import { format } from "date-fns";
 import { updateWorkspaceAction, updateStaleThresholdsAction, updateStageProbabilitiesAction, toggleLookupItemAction, updatePracticeAreaColorAction } from "./actions";
 import { CreateUserDialog, CreateLookupItemDialog, CreateTagDialog, CreateCustomFieldDialog } from "./settings-dialogs";
@@ -109,7 +110,17 @@ export default async function SettingsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium uppercase tracking-wide text-[var(--color-ink-muted)]">Default currency</label>
-                    <input name="defaultCurrency" defaultValue={workspace.defaultCurrency} maxLength={3} className="h-9 rounded-md border border-[var(--color-border-strong)] px-3 text-sm" />
+                    <select
+                      name="defaultCurrency"
+                      defaultValue={workspace.defaultCurrency}
+                      className="h-9 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-sm"
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} — {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-medium uppercase tracking-wide text-[var(--color-ink-muted)]">Default timezone</label>

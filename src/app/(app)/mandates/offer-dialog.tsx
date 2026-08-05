@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CURRENCIES } from "@/lib/iso";
 import { createOfferAction } from "./candidate-process-actions";
 
 export function OfferDialog({
@@ -52,7 +54,18 @@ export function OfferDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="baseCurrency">Currency</Label>
-              <Input id="baseCurrency" name="baseCurrency" defaultValue="GBP" maxLength={3} />
+              <Select name="baseCurrency" defaultValue="GBP">
+                <SelectTrigger id="baseCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { label } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/iso";
 import { upsertCandidateProfileAction } from "./actions";
 
 /** Server components can't pass Prisma Decimal instances to client components — amounts are pre-serialized to strings. */
@@ -105,7 +106,18 @@ export function CandidateProfileDialog({ personId, profile }: { personId: string
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="currentBaseCurrency">Currency</Label>
-              <Input id="currentBaseCurrency" name="currentBaseCurrency" defaultValue={profile?.currentBaseCurrency ?? "GBP"} maxLength={3} />
+              <Select name="currentBaseCurrency" defaultValue={profile?.currentBaseCurrency ?? "GBP"}>
+                <SelectTrigger id="currentBaseCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -115,7 +127,18 @@ export function CandidateProfileDialog({ personId, profile }: { personId: string
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="expectedBaseCurrency">Currency</Label>
-              <Input id="expectedBaseCurrency" name="expectedBaseCurrency" defaultValue={profile?.expectedBaseCurrency ?? "GBP"} maxLength={3} />
+              <Select name="expectedBaseCurrency" defaultValue={profile?.expectedBaseCurrency ?? "GBP"}>
+                <SelectTrigger id="expectedBaseCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

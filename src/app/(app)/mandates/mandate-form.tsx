@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { label } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/iso";
 import type { MandateFormState } from "./actions";
 
 const PRIORITIES = ["CRITICAL", "HIGH", "NORMAL", "LOW"];
@@ -244,7 +245,18 @@ export function MandateForm({
             <Label htmlFor="maxBaseAmount">Max base</Label>
             <div className="flex gap-2">
               <Input id="maxBaseAmount" name="maxBaseAmount" type="number" min={0} defaultValue={values.maxBaseAmount} />
-              <Input name="baseCurrency" defaultValue={values.baseCurrency ?? "GBP"} maxLength={3} className="w-20" />
+              <Select name="baseCurrency" defaultValue={values.baseCurrency ?? "GBP"}>
+                <SelectTrigger className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex flex-col gap-1.5">

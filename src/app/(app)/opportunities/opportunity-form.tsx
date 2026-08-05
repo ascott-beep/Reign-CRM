@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { label } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/iso";
 import type { OpportunityFormState } from "./actions";
 
 const TYPES = ["RETAINED_SEARCH", "EXCLUSIVE_CONTINGENT", "CONTINGENT", "INTERIM_ASSIGNMENT", "TALENT_MAPPING", "ADVISORY", "UNKNOWN"];
@@ -174,7 +175,18 @@ export function OpportunityForm({
           <Label htmlFor="estimatedFeeAmount">Estimated fee</Label>
           <div className="flex gap-2">
             <Input id="estimatedFeeAmount" name="estimatedFeeAmount" type="number" min={0} defaultValue={values.estimatedFeeAmount} />
-            <Input name="estimatedFeeCurrency" defaultValue={values.estimatedFeeCurrency ?? "GBP"} maxLength={3} className="w-20" />
+            <Select name="estimatedFeeCurrency" defaultValue={values.estimatedFeeCurrency ?? "GBP"}>
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.code} value={c.code}>
+                    {c.code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <div className="flex flex-col gap-1.5">

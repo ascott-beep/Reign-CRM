@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { label } from "@/lib/labels";
+import { CURRENCIES } from "@/lib/iso";
 import { placeCandidateAction } from "./candidate-process-actions";
 
 const EMPLOYMENT_TYPES = ["PERMANENT", "INTERIM", "FRACTIONAL", "FIXED_TERM", "CONTRACT"];
@@ -116,7 +117,18 @@ export function PlaceCandidateDialog({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="agreedBaseCurrency">Currency</Label>
-              <Input id="agreedBaseCurrency" name="agreedBaseCurrency" defaultValue="GBP" maxLength={3} />
+              <Select name="agreedBaseCurrency" defaultValue="GBP">
+                <SelectTrigger id="agreedBaseCurrency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      {c.code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
