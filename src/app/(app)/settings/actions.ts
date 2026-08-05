@@ -123,6 +123,18 @@ export async function toggleLookupItemAction(kind: LookupKind, id: string, activ
   revalidatePath("/settings");
 }
 
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+
+export async function updatePracticeAreaColorAction(id: string, formData: FormData) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+  const colorHex = String(formData.get("colorHex") ?? "");
+  if (!HEX_COLOR.test(colorHex)) throw new Error("Colour must be a 6-digit hex code, e.g. #2C4870.");
+  await prisma.practiceArea.update({ where: { id }, data: { colorHex } });
+  revalidatePath("/settings");
+  revalidatePath("/people");
+}
+
 export async function createTagAction(formData: FormData) {
   const user = await requireUser();
   requireAdmin(user.role);

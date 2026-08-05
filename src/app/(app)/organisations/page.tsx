@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, ExternalLink, Download, Upload } from "lucide-react";
+import { Plus, ExternalLink, Download, Upload, LayoutGrid, List as ListIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canExport, canMutate } from "@/lib/permissions";
 import { organizationViewWhere } from "@/lib/saved-views";
@@ -12,7 +12,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
+import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
+import { OrganisationGrid, type GridOrganisation } from "./organisation-grid";
 import type { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 25;
@@ -38,6 +40,7 @@ export default async function OrganisationsPage({
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
   const page = Math.max(1, Number(sp.page) || 1);
+  const display = sp.display === "table" ? "table" : "grid";
 
   const [views, activeView] = await Promise.all([
     prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "ORGANIZATION" }, orderBy: { name: "asc" } }),
@@ -88,6 +91,33 @@ export default async function OrganisationsPage({
   const isPortfolioView = typeParam === "PORTFOLIO_COMPANY";
   const isFundView = typeParam === "PE_FUND";
 
+  function hrefWithDisplay(nextDisplay: "grid" | "table") {
+    const params = new URLSearchParams();
+    if (typeParam) params.set("type", typeParam);
+    if (q) params.set("q", q);
+    if (viewId) params.set("view", viewId);
+    params.set("display", nextDisplay);
+    return `?${params.toString()}`;
+  }
+
+  const gridData: GridOrganisation[] = organizations.map((org) => ({
+    id: org.id,
+    name: org.name,
+    type: org.type,
+    status: org.status,
+    accountPriority: org.accountPriority,
+    website: org.website,
+    hq: [org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", "),
+    sectorName: org.sectors[0]?.sector.name ?? null,
+    employeeRange: org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : null,
+    currentInvestors: org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", "),
+    holdStage: org.type === "PORTFOLIO_COMPANY" ? currentHoldStage(org.relationshipsAsTarget[0]?.investmentDate, org.investmentStageOverride) : null,
+    portfolioCount: org.type === "PE_FUND" ? org.relationshipsAsSource.length : null,
+    contactCount: org._count.personAssociations,
+    ownerName: org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : null,
+    lastVerifiedAt: org.lastVerifiedAt,
+  }));
+
   return (
     <div>
       <PageHeader
@@ -96,6 +126,20 @@ export default async function OrganisationsPage({
         actions={
           <>
             <SavedViewsMenu views={views} />
+            <div className="flex overflow-hidden rounded-md border border-[var(--color-border-strong)]">
+              <Link
+                href={hrefWithDisplay("grid")}
+                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs", display === "grid" ? "bg-[var(--color-canvas)]" : "")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> Grid
+              </Link>
+              <Link
+                href={hrefWithDisplay("table")}
+                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs border-l border-[var(--color-border-strong)]", display === "table" ? "bg-[var(--color-canvas)]" : "")}
+              >
+                <ListIcon className="h-3.5 w-3.5" /> Table
+              </Link>
+            </div>
             {canExport(user.role) ? (
               <Button variant="secondary" asChild>
                 <a href={`/api/export/organizations${typeParam ? `?type=${typeParam}` : ""}`}>
@@ -121,6 +165,7 @@ export default async function OrganisationsPage({
 
       <form className="mb-4 flex max-w-sm gap-2" action="/organisations" method="GET">
         {typeParam ? <input type="hidden" name="type" value={typeParam} /> : null}
+        <input type="hidden" name="display" value={display} />
         <Input name="q" defaultValue={q} placeholder="Search by name or domain…" />
         <Button type="submit" variant="secondary">
           Search
@@ -139,6 +184,8 @@ export default async function OrganisationsPage({
             </Button>
           }
         />
+      ) : display === "grid" ? (
+        <OrganisationGrid organisations={gridData} />
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           <Table>
@@ -240,12 +287,12 @@ export default async function OrganisationsPage({
           <div className="flex gap-2">
             {page > 1 ? (
               <Button variant="secondary" size="sm" asChild>
-                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), page: String(page - 1) })}`}>Previous</Link>
+                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), display, page: String(page - 1) })}`}>Previous</Link>
               </Button>
             ) : null}
             {page * PAGE_SIZE < total ? (
               <Button variant="secondary" size="sm" asChild>
-                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), page: String(page + 1) })}`}>Next</Link>
+                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), display, page: String(page + 1) })}`}>Next</Link>
               </Button>
             ) : null}
           </div>

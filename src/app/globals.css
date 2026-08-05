@@ -21,6 +21,9 @@
 
   --color-accent: var(--brand-accent, #1c2b4a);
   --color-accent-ink: #ffffff;
+  /* Derived tint, not a fixed hex, so it tracks the runtime-configurable
+     brand accent and adapts automatically between light/dark surfaces. */
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
 
   --color-status-success-bg: #eef3ea;
   --color-status-success-ink: #3c5c33;

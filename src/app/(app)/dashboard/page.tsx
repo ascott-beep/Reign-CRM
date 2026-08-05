@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { TrendingUp, Target, ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatMoney } from "@/lib/utils";
-import { OPPORTUNITY_STAGE_PROBABILITY, label } from "@/lib/labels";
+import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { formatDistanceToNow } from "date-fns";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -158,44 +161,66 @@ export default async function DashboardPage() {
 
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Recently updated opportunities</CardTitle>
+            <Link href="/opportunities" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
+          <CardContent className="flex flex-col divide-y divide-[var(--color-border)] p-0">
             {recentOpportunities.length === 0 ? (
-              <p className="text-sm text-[var(--color-ink-subtle)]">No opportunities yet.</p>
+              <p className="px-4 py-6 text-sm text-[var(--color-ink-subtle)]">No opportunities yet.</p>
             ) : (
               recentOpportunities.map((o) => (
                 <Link
                   key={o.id}
                   href={`/opportunities/${o.id}`}
-                  className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-[var(--color-canvas)]"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
                 >
-                  <span className="text-[var(--color-ink)]">{o.name}</span>
-                  <span className="text-xs text-[var(--color-ink-subtle)]">{label(o.stage)}</span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+                    <TrendingUp className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-[var(--color-ink)]">{o.name}</span>
+                    <span className="block truncate text-xs text-[var(--color-ink-subtle)]">
+                      {o.hiringOrganization.name} · updated {formatDistanceToNow(o.updatedAt, { addSuffix: true })}
+                    </span>
+                  </span>
+                  <StatusBadge value={o.stage} />
                 </Link>
               ))
             )}
           </CardContent>
         </Card>
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle>Recently updated mandates</CardTitle>
+            <Link href="/mandates" className="flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline">
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
+          <CardContent className="flex flex-col divide-y divide-[var(--color-border)] p-0">
             {recentMandates.length === 0 ? (
-              <p className="text-sm text-[var(--color-ink-subtle)]">No mandates yet.</p>
+              <p className="px-4 py-6 text-sm text-[var(--color-ink-subtle)]">No mandates yet.</p>
             ) : (
               recentMandates.map((m) => (
                 <Link
                   key={m.id}
                   href={`/mandates/${m.id}`}
-                  className="flex items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-[var(--color-canvas)]"
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--color-canvas)]"
                 >
-                  <span className="text-[var(--color-ink)]">
-                    {m.reference} — {m.title}
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-subtle)] text-[var(--color-accent)]">
+                    <Target className="h-4 w-4" />
                   </span>
-                  <span className="text-xs text-[var(--color-ink-subtle)]">{label(m.status)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-[var(--color-ink)]">
+                      {m.reference} — {m.title}
+                    </span>
+                    <span className="block truncate text-xs text-[var(--color-ink-subtle)]">
+                      {m.hiringOrganization.name} · updated {formatDistanceToNow(m.updatedAt, { addSuffix: true })}
+                    </span>
+                  </span>
+                  <StatusBadge value={m.status} />
                 </Link>
               ))
             )}

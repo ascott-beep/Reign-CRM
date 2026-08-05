@@ -724,6 +724,7 @@ model PracticeArea {
   workspaceId  String
   workspace    Workspace @relation(fields: [workspaceId], references: [id])
   name         String
+  colorHex     String?
   active       Boolean   @default(true)
   displayOrder Int       @default(0)
 
@@ -732,6 +733,7 @@ model PracticeArea {
   candidateProfiles   CandidateProfilePracticeArea[]
   opportunities       Opportunity[]
   mandates            Mandate[]
+  people              PersonPracticeArea[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -973,10 +975,24 @@ model Person {
   employmentHistoryInvestorRelevance EmploymentHistoryInvestor[]     @relation("EmploymentInvestorPerson")
   activityAsCreatedFollowUp          Activity[]                      @relation("ActivityRelatedPerson")
   customFieldValues                  CustomFieldValue[]
+  practiceAreas                      PersonPracticeArea[]
 
   @@unique([workspaceId, primaryEmail])
   @@index([workspaceId])
   @@index([linkedinUrl])
+}
+
+model PersonPracticeArea {
+  id             String       @id @default(cuid())
+  personId       String
+  person         Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  practiceAreaId String
+  practiceArea   PracticeArea @relation(fields: [practiceAreaId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([personId, practiceAreaId])
+  @@index([personId])
+  @@index([practiceAreaId])
 }
 
 model PersonOrganizationAssociation {

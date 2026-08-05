@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, Download, Upload } from "lucide-react";
+import { Plus, Download, Upload, LayoutGrid, List as ListIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canExport, canMutate } from "@/lib/permissions";
 import { personViewWhere } from "@/lib/saved-views";
@@ -9,9 +9,11 @@ import { SavedViewsMenu } from "@/components/shell/saved-views-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { PracticeAreaBadge } from "@/components/ui/practice-area-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { formatMoney } from "@/lib/utils";
+import { cn, formatMoney } from "@/lib/utils";
+import { PeopleGrid, type GridPerson } from "./people-grid";
 import type { Prisma, PersonType } from "@prisma/client";
 
 const PAGE_SIZE = 25;
@@ -37,6 +39,7 @@ export default async function PeoplePage({
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
   const page = Math.max(1, Number(sp.page) || 1);
+  const display = sp.display === "table" ? "table" : "grid";
 
   const [views, activeView] = await Promise.all([
     prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "PERSON" }, orderBy: { name: "asc" } }),
@@ -57,6 +60,15 @@ export default async function PeoplePage({
 
   const isCandidateView = filterKey === "candidates";
 
+  function hrefWithDisplay(nextDisplay: "grid" | "table") {
+    const params = new URLSearchParams();
+    if (filterKey) params.set("filter", filterKey);
+    if (q) params.set("q", q);
+    if (viewId) params.set("view", viewId);
+    params.set("display", nextDisplay);
+    return `?${params.toString()}`;
+  }
+
   const [total, people] = await Promise.all([
     prisma.person.count({ where }),
     prisma.person.findMany({
@@ -69,9 +81,30 @@ export default async function PeoplePage({
         currentOrganizationOverride: { select: { name: true } },
         candidateProfile: true,
         employmentHistories: { where: { isCurrent: true }, include: { organization: { select: { name: true } } }, take: 1 },
+        practiceAreas: { include: { practiceArea: true } },
       },
     }),
   ]);
+
+  const gridData: GridPerson[] = people.map((p) => {
+    const employment = p.employmentHistories[0];
+    return {
+      id: p.id,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      title: p.headlineOverride?.split(",")[0] ?? employment?.jobTitle ?? null,
+      organisationName: p.currentOrganizationOverride?.name ?? employment?.organization?.name ?? null,
+      city: p.city,
+      ownerName: p.relationshipOwner ? `${p.relationshipOwner.firstName} ${p.relationshipOwner.lastName}` : null,
+      statusValue: isCandidateView ? (p.candidateProfile?.status ?? null) : p.relationshipStatus,
+      candidateRating: isCandidateView && p.candidateProfile ? p.candidateProfile.rating : null,
+      compensation:
+        isCandidateView && p.candidateProfile?.expectedBaseAmount != null
+          ? formatMoney(p.candidateProfile.expectedBaseAmount, p.candidateProfile.expectedBaseCurrency)
+          : null,
+      practiceAreas: p.practiceAreas.map((pa) => ({ id: pa.practiceArea.id, name: pa.practiceArea.name, colorHex: pa.practiceArea.colorHex })),
+    };
+  });
 
   return (
     <div>
@@ -81,6 +114,20 @@ export default async function PeoplePage({
         actions={
           <>
             <SavedViewsMenu views={views} />
+            <div className="flex overflow-hidden rounded-md border border-[var(--color-border-strong)]">
+              <Link
+                href={hrefWithDisplay("grid")}
+                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs", display === "grid" ? "bg-[var(--color-canvas)]" : "")}
+              >
+                <LayoutGrid className="h-3.5 w-3.5" /> Grid
+              </Link>
+              <Link
+                href={hrefWithDisplay("table")}
+                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs border-l border-[var(--color-border-strong)]", display === "table" ? "bg-[var(--color-canvas)]" : "")}
+              >
+                <ListIcon className="h-3.5 w-3.5" /> Table
+              </Link>
+            </div>
             {canExport(user.role) ? (
               <Button variant="secondary" asChild>
                 <a href={`/api/export/people${filterKey ? `?filter=${filterKey}` : ""}`}>
@@ -106,6 +153,7 @@ export default async function PeoplePage({
 
       <form className="mb-4 flex max-w-sm gap-2" action="/people" method="GET">
         {filterKey ? <input type="hidden" name="filter" value={filterKey} /> : null}
+        <input type="hidden" name="display" value={display} />
         <Input name="q" defaultValue={q} placeholder="Search by name or email…" />
         <Button type="submit" variant="secondary">
           Search
@@ -123,6 +171,8 @@ export default async function PeoplePage({
             </Button>
           }
         />
+      ) : display === "grid" ? (
+        <PeopleGrid people={gridData} />
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           <Table>
@@ -132,6 +182,7 @@ export default async function PeoplePage({
                 <TableHead>Current title</TableHead>
                 <TableHead>Organisation</TableHead>
                 <TableHead>Location</TableHead>
+                <TableHead>Practice Areas</TableHead>
                 {isCandidateView ? (
                   <>
                     <TableHead>Candidate status</TableHead>
@@ -157,6 +208,17 @@ export default async function PeoplePage({
                     <TableCell>{p.headlineOverride?.split(",")[0] ?? employment?.jobTitle ?? "—"}</TableCell>
                     <TableCell>{p.currentOrganizationOverride?.name ?? employment?.organization?.name ?? "—"}</TableCell>
                     <TableCell>{p.city || "—"}</TableCell>
+                    <TableCell>
+                      {p.practiceAreas.length === 0 ? (
+                        "—"
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {p.practiceAreas.map((pa) => (
+                            <PracticeAreaBadge key={pa.practiceAreaId} name={pa.practiceArea.name} colorHex={pa.practiceArea.colorHex} />
+                          ))}
+                        </div>
+                      )}
+                    </TableCell>
                     {isCandidateView ? (
                       <>
                         <TableCell>{p.candidateProfile ? <StatusBadge value={p.candidateProfile.status} /> : "—"}</TableCell>

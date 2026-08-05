@@ -47,6 +47,8 @@ export default async function MandatesPage({
     ownerName: `${m.owner.firstName} ${m.owner.lastName}`,
     priority: m.priority,
     confidentiality: m.confidentiality,
+    candidateCount: m.candidateProcesses.length,
+    activeCandidateCount: m.candidateProcesses.filter((p) => !["PLACED", "REJECTED", "WITHDRAWN"].includes(p.stage)).length,
   }));
 
   return (
@@ -86,7 +88,10 @@ export default async function MandatesPage({
           }
         />
       ) : display === "board" ? (
-        <MandateBoard initialMandates={boardData} />
+        <MandateBoard
+          key={mandates.map((m) => `${m.id}:${m.status}`).join(",")}
+          initialMandates={boardData}
+        />
       ) : (
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
           <Table>

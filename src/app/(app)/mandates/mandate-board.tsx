@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
@@ -18,6 +19,8 @@ export type BoardMandate = {
   ownerName: string;
   priority: string;
   confidentiality: string;
+  candidateCount: number;
+  activeCandidateCount: number;
 };
 
 const STATUSES = ["BRIEF_RECEIVED", "SEARCH_ACTIVE", "LONGLISTING", "SHORTLISTING", "INTERVIEWING", "OFFER", "FILLED", "CANCELLED", "ON_HOLD"];
@@ -40,7 +43,12 @@ function Draggable({ m }: { m: BoardMandate }) {
             <Badge tone={m.priority === "CRITICAL" ? "danger" : m.priority === "HIGH" ? "warning" : "neutral"}>{label(m.priority)}</Badge>
             {m.confidentiality !== "OPEN" ? <Badge tone="info">{label(m.confidentiality)}</Badge> : null}
           </div>
-          <p className="mt-1 text-xs text-[var(--color-ink-subtle)]">{m.ownerName}</p>
+          <div className="mt-2 flex items-center justify-between border-t border-[var(--color-border)] pt-2">
+            <p className="text-xs text-[var(--color-ink-subtle)]">{m.ownerName}</p>
+            <span className="flex items-center gap-1 text-xs font-medium text-[var(--color-ink)]" title={`${m.candidateCount} total, ${m.activeCandidateCount} active in the pipeline`}>
+              <Users className="h-3 w-3" /> {m.activeCandidateCount}
+            </span>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -68,6 +76,10 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
   const [items, setItems] = useState(initialMandates);
   const [pendingMove, setPendingMove] = useState<{ id: string; toStatus: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Require a small pointer move before a drag activates, so a plain click
+  // on the reference link opens the mandate instead of being swallowed as a
+  // zero-distance drag.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const columns = useMemo(() => {
     const grouped: Record<string, BoardMandate[]> = Object.fromEntries(STATUSES.map((s) => [s, []]));
@@ -100,7 +112,7 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STATUSES.map((s) => (
             <Column key={s} status={s} items={columns[s] ?? []} />

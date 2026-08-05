@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ExternalLink, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canArchiveRecord, canRestoreArchived, canViewAuditLog, canMergeRecords } from "@/lib/permissions";
+import { requireUser, canArchiveRecord, canRestoreArchived, canViewAuditLog, canMergeRecords, canMutate } from "@/lib/permissions";
 import { findPersonDuplicates } from "@/lib/duplicates";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
@@ -20,6 +20,7 @@ import { archivePersonAction, restorePersonAction } from "../actions";
 import { EmploymentHistoryDialog } from "../employment-history-dialog";
 import { CandidateProfileDialog } from "../candidate-profile-dialog";
 import { MergeButton } from "../merge-button";
+import { PracticeAreaPicker } from "../practice-area-picker";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 
 export default async function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -35,6 +36,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
       currentOrganizationOverride: true,
       organizationAssociations: { include: { organization: true } },
       employmentHistories: { include: { organization: true }, orderBy: { startDate: "desc" } },
+      practiceAreas: { include: { practiceArea: true } },
     },
   });
   if (!person) notFound();
@@ -48,6 +50,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
     auditLogs,
     organizations,
     duplicates,
+    allPracticeAreas,
   ] = await Promise.all([
     prisma.candidateProcess.findMany({
       where: { candidatePersonId: person.id },
@@ -74,6 +77,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
     canMergeRecords(user.role)
       ? findPersonDuplicates(user.workspaceId, { firstName: person.firstName, lastName: person.lastName, primaryEmail: person.primaryEmail, linkedinUrl: person.linkedinUrl }, person.id)
       : Promise.resolve([]),
+    prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId, active: true }, orderBy: { displayOrder: "asc" } }),
   ]);
 
   const canArchive = canArchiveRecord(user, { relationshipOwnerId: person.relationshipOwnerId, createdById: person.createdById });
@@ -177,6 +181,20 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                   <div className="flex justify-between">
                     <dt className="text-[var(--color-ink-subtle)]">Source</dt>
                     <dd>{person.source || "—"}</dd>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <dt className="text-[var(--color-ink-subtle)]">Practice areas</dt>
+                    <dd>
+                      <PracticeAreaPicker
+                        personId={person.id}
+                        allPracticeAreas={allPracticeAreas}
+                        selectedIds={person.practiceAreas.map((pa) => pa.practiceAreaId)}
+                        readOnly={!canMutate(user.role)}
+                      />
+                      {person.practiceAreas.length === 0 && !canMutate(user.role) ? (
+                        <span className="text-[var(--color-ink-subtle)]">—</span>
+                      ) : null}
+                    </dd>
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-[var(--color-ink-subtle)]">Created by</dt>

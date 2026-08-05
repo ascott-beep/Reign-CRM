@@ -340,3 +340,23 @@ export async function mergePersonAction(survivorId: string, duplicateId: string)
   revalidatePath("/people");
   redirect(`/people/${survivorId}`);
 }
+
+export async function togglePersonPracticeAreaAction(personId: string, practiceAreaId: string) {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+
+  const person = await prisma.person.findFirst({ where: { id: personId, workspaceId: user.workspaceId } });
+  if (!person) throw new Error("Person not found.");
+
+  const existing = await prisma.personPracticeArea.findUnique({
+    where: { personId_practiceAreaId: { personId, practiceAreaId } },
+  });
+  if (existing) {
+    await prisma.personPracticeArea.delete({ where: { id: existing.id } });
+  } else {
+    await prisma.personPracticeArea.create({ data: { personId, practiceAreaId } });
+  }
+
+  revalidatePath(`/people/${personId}`);
+  revalidatePath("/people");
+}

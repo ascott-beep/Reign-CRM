@@ -151,13 +151,27 @@ async function main() {
     sectors[name] = existing ?? (await prisma.sector.create({ data: { workspaceId: wid, name, displayOrder: i } }));
   }
 
-  const practiceAreas = await seedLookup(prisma.practiceArea, "workspaceId_name", [
-    { name: "Finance" },
-    { name: "Commercial" },
-    { name: "Technology and Data" },
-    { name: "Transformation" },
-    { name: "Other" },
-  ]);
+  // Placeholder colours — swap for Reign Partners' real practice-area colour
+  // codes in Settings > Taxonomies once confirmed.
+  const PRACTICE_AREA_COLORS: Record<string, string> = {
+    Finance: "#2C4870",
+    Commercial: "#1F6F5C",
+    "Technology and Data": "#5B4B8A",
+    Transformation: "#B5651D",
+    Other: "#6B6B73",
+  };
+  const practiceAreas = await seedLookup(
+    prisma.practiceArea,
+    "workspaceId_name",
+    [
+      { name: "Finance" },
+      { name: "Commercial" },
+      { name: "Technology and Data" },
+      { name: "Transformation" },
+      { name: "Other" },
+    ],
+    (row) => ({ colorHex: PRACTICE_AREA_COLORS[row.name] }),
+  );
 
   const financeSpecialismNames = [
     "CFO / Finance Director",

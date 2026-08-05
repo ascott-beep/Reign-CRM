@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { format } from "date-fns";
-import { updateWorkspaceAction, updateStaleThresholdsAction, updateStageProbabilitiesAction, toggleLookupItemAction } from "./actions";
+import { updateWorkspaceAction, updateStaleThresholdsAction, updateStageProbabilitiesAction, toggleLookupItemAction, updatePracticeAreaColorAction } from "./actions";
 import { CreateUserDialog, CreateLookupItemDialog, CreateTagDialog, CreateCustomFieldDialog } from "./settings-dialogs";
 import { UserRowControls } from "./user-row-controls";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
@@ -199,9 +199,44 @@ export default async function SettingsPage() {
 
         <TabsContent value="taxonomies">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card>
+              <CardContent className="pt-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">Practice Area</h3>
+                  <CreateLookupItemDialog kind="practiceArea" label="Practice Area" />
+                </div>
+                <p className="mb-2 text-xs text-[var(--color-ink-subtle)]">
+                  Colours are used for practice-area tags across People and Mandates.
+                </p>
+                <ul className="flex flex-col gap-2">
+                  {practiceAreas.map((item) => (
+                    <li key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className={item.active ? "" : "text-[var(--color-ink-subtle)] line-through"}>{item.name}</span>
+                      <div className="flex items-center gap-2">
+                        <form action={updatePracticeAreaColorAction.bind(null, item.id)} className="flex items-center gap-1.5">
+                          <input
+                            type="color"
+                            name="colorHex"
+                            defaultValue={item.colorHex ?? "#8a8a94"}
+                            className="h-7 w-7 cursor-pointer rounded border border-[var(--color-border-strong)] bg-transparent p-0.5"
+                          />
+                          <button type="submit" className="text-xs text-[var(--color-accent)]">
+                            Save
+                          </button>
+                        </form>
+                        <form action={toggleLookupItemAction.bind(null, "practiceArea", item.id, !item.active)}>
+                          <button type="submit" className="text-xs text-[var(--color-accent)]">
+                            {item.active ? "Deactivate" : "Activate"}
+                          </button>
+                        </form>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
             {[
               { kind: "sector" as const, label: "Sector", items: sectors },
-              { kind: "practiceArea" as const, label: "Practice Area", items: practiceAreas },
               { kind: "functionalSpecialism" as const, label: "Functional Specialism", items: specialisms },
               { kind: "investorStrategy" as const, label: "Investor Strategy", items: investorStrategies },
               { kind: "ownershipType" as const, label: "Ownership", items: ownershipTypes },
