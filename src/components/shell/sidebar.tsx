@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { NAV_ITEMS } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
-export function Sidebar() {
+export function Sidebar({ logoPath }: { logoPath: string | null }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentHref = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
@@ -13,9 +13,16 @@ export function Sidebar() {
   return (
     <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border)] bg-[var(--color-surface)] md:flex">
       <div className="flex h-14 items-center gap-2 border-b border-[var(--color-border)] px-4">
-        {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
-        <img src="/brand/mark.svg" alt="" className="h-7 w-7" />
-        <span className="text-base font-bold tracking-tight text-[var(--color-ink)]">Reign</span>
+        {logoPath ? (
+          // eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed
+          <img src={logoPath} alt="Reign" className="h-6" />
+        ) : (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no optimization needed */}
+            <img src="/brand/mark.svg" alt="" className="h-7 w-7" />
+            <span className="text-base font-bold tracking-tight text-[var(--color-ink)]">Reign</span>
+          </>
+        )}
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="flex flex-col gap-0.5">
