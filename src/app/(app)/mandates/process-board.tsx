@@ -111,7 +111,7 @@ export function ProcessBoard({ initialProcesses }: { initialProcesses: BoardProc
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext id="process-board" sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-2 overflow-x-auto pb-4">
           {CANDIDATE_PROCESS_BOARD_STAGES.map((stage) => (
             <Column key={stage} stage={stage} items={columns[stage] ?? []} onOpen={setDetailId} />

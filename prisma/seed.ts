@@ -46,6 +46,12 @@ async function main() {
       defaultCurrency: process.env.WORKSPACE_DEFAULT_CURRENCY ?? "GBP",
       defaultTimezone: process.env.WORKSPACE_DEFAULT_TIMEZONE ?? "Europe/London",
       brandAccent: process.env.WORKSPACE_BRAND_ACCENT ?? "#101E33",
+      // Manually maintained approximate rates (no live FX feed) — keep in
+      // sync with src/lib/currency.ts's DEFAULT_EXCHANGE_RATES_TO_GBP.
+      exchangeRatesToGbp: {
+        GBP: 1, EUR: 0.86, USD: 0.79, CHF: 0.9, AED: 0.215,
+        SAR: 0.21, SGD: 0.59, JPY: 0.0053, AUD: 0.52, CAD: 0.58,
+      },
     },
   });
   const wid = workspace.id;

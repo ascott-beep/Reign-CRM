@@ -587,6 +587,10 @@ model Workspace {
   brandAccent                   String   @default("#1C2B4A")
   staleThresholds               Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
   opportunityStageProbabilities Json?
+  /// GBP value of 1 unit of each currency code, e.g. {"GBP":1,"USD":0.79}.
+  /// Manually maintained (no live FX feed) — used only to roll monetary
+  /// report totals into a single selected display currency.
+  exchangeRatesToGbp            Json?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 

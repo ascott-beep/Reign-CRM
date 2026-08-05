@@ -128,7 +128,7 @@ export function OpportunityBoard({ initialOpportunities }: { initialOpportunitie
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext id="opportunity-board" sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map((stage) => (
             <Column key={stage} stage={stage} items={columns[stage] ?? []} />

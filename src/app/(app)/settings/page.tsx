@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { label } from "@/lib/labels";
 import { CURRENCIES } from "@/lib/iso";
 import { format } from "date-fns";
-import { updateWorkspaceAction, updateStaleThresholdsAction, updateStageProbabilitiesAction, toggleLookupItemAction, updatePracticeAreaColorAction } from "./actions";
+import { updateWorkspaceAction, updateStaleThresholdsAction, updateStageProbabilitiesAction, toggleLookupItemAction, updatePracticeAreaColorAction, updateExchangeRatesAction } from "./actions";
+import { normalizeExchangeRates } from "@/lib/currency";
 import { CreateUserDialog, CreateLookupItemDialog, CreateTagDialog, CreateCustomFieldDialog } from "./settings-dialogs";
 import { UserRowControls } from "./user-row-controls";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
@@ -53,6 +54,7 @@ export default async function SettingsPage() {
   const stageProbabilities = (workspace.opportunityStageProbabilities as Record<string, number> | null) ?? OPPORTUNITY_STAGE_PROBABILITY;
   const staleThresholds = workspace.staleThresholds as { personDays: number; priorityOrgDays: number; opportunityDays: number; candidateProcessDays: number };
   const editableStages = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVERY_ARRANGED", "QUALIFIED", "PROPOSAL_OR_TERMS"];
+  const exchangeRates = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 
   return (
     <div>
@@ -134,13 +136,42 @@ export default async function SettingsPage() {
                     <span className="h-9 w-9 rounded-md border border-[var(--color-border)]" style={{ backgroundColor: workspace.brandAccent }} />
                   </div>
                   <p className="text-xs text-[var(--color-ink-subtle)]">
-                    Drives the primary accent colour across the app (buttons, active states). Reign Partners&apos; exact brand colour
-                    could not be fetched automatically — reign.partners was unreachable from this build environment&apos;s network
-                    policy — so this is a placeholder deep navy. Update it here once confirmed.
+                    Drives the primary accent colour across the app (buttons, active states). This is a best-effort visual
+                    match to the Reign logo from a reference screenshot — nudge it here once you have the exact hex code.
                   </p>
                 </div>
                 <div>
                   <Button type="submit">Save workspace settings</Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+
+          <Card className="mt-4 max-w-xl">
+            <CardContent className="pt-4">
+              <h3 className="mb-1 text-sm font-semibold">Exchange rates</h3>
+              <p className="mb-3 text-xs text-[var(--color-ink-subtle)]">
+                GBP value of 1 unit of each currency. Used only to convert Reports totals into a single selected display
+                currency — there is no live FX feed, so keep these current manually.
+              </p>
+              <form action={updateExchangeRatesAction} className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {CURRENCIES.map((c) => (
+                    <div key={c.code} className="flex flex-col gap-1">
+                      <label className="text-xs font-medium uppercase tracking-wide text-[var(--color-ink-muted)]">{c.code}</label>
+                      <input
+                        name={`rate_${c.code}`}
+                        type="number"
+                        step="0.0001"
+                        min={0}
+                        defaultValue={exchangeRates[c.code] ?? 1}
+                        className="h-9 rounded-md border border-[var(--color-border-strong)] px-3 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <Button type="submit">Save exchange rates</Button>
                 </div>
               </form>
             </CardContent>

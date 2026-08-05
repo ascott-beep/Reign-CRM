@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, requireAdmin } from "@/lib/permissions";
 import { createUserSchema, workspaceSettingsSchema, staleThresholdsSchema, lookupItemSchema } from "@/lib/validation/settings";
 import { writeAuditLog } from "@/lib/audit";
+import { CURRENCY_CODES } from "@/lib/currency";
 
 export type SettingsFormState = { errors?: Record<string, string[]>; success?: boolean };
 
@@ -61,6 +62,24 @@ export async function updateWorkspaceAction(formData: FormData) {
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: data });
   revalidatePath("/settings");
   revalidatePath("/");
+}
+
+export async function updateExchangeRatesAction(formData: FormData) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+
+  const rates: Record<string, number> = {};
+  for (const code of CURRENCY_CODES) {
+    const raw = formData.get(`rate_${code}`);
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) throw new Error(`${code} rate must be a positive number.`);
+    rates[code] = value;
+  }
+
+  await prisma.workspace.update({ where: { id: user.workspaceId }, data: { exchangeRatesToGbp: rates } });
+  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: { exchangeRatesToGbp: rates } });
+  revalidatePath("/settings");
+  revalidatePath("/reports");
 }
 
 export async function updateStaleThresholdsAction(formData: FormData) {

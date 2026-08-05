@@ -112,7 +112,7 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
   return (
     <div>
       {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext id="mandate-board" sensors={sensors} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STATUSES.map((s) => (
             <Column key={s} status={s} items={columns[s] ?? []} />
