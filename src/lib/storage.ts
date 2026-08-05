@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import { mkdir, writeFile, readFile, unlink } from "fs/promises";
 import path from "path";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 
 /**
  * File storage provider abstraction (spec 2 / 6.21). `local` writes to disk
@@ -65,23 +66,44 @@ class LocalStorageProvider implements StorageProvider {
 }
 
 /**
- * S3-compatible provider. Requires S3_BUCKET / S3_REGION / S3_ACCESS_KEY_ID /
- * S3_SECRET_ACCESS_KEY / S3_ENDPOINT (see .env.example). Not wired to an SDK
- * here to avoid an unused dependency when running locally with the default
- * `local` provider — swap in `@aws-sdk/client-s3` and implement put/get/delete
- * against S3_BUCKET when deploying with STORAGE_PROVIDER=s3.
+ * S3-compatible provider. Requires S3_BUCKET / S3_ACCESS_KEY_ID /
+ * S3_SECRET_ACCESS_KEY (see .env.example); S3_ENDPOINT and S3_REGION are
+ * optional overrides for non-AWS providers (e.g. Cloudflare R2, which uses
+ * an account-specific endpoint and region "auto").
  */
 class S3StorageProvider implements StorageProvider {
-  async put(): Promise<void> {
-    throw new Error(
-      "S3 storage provider is not configured. Set STORAGE_PROVIDER=local for development, or implement the S3 client in src/lib/storage.ts using your S3_* environment variables before enabling it in production.",
-    );
+  private client: S3Client;
+  private bucket: string;
+
+  constructor() {
+    const bucket = process.env.S3_BUCKET;
+    const accessKeyId = process.env.S3_ACCESS_KEY_ID;
+    const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+    if (!bucket || !accessKeyId || !secretAccessKey) {
+      throw new Error(
+        "S3 storage provider is not configured. Set S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY (and S3_ENDPOINT for non-AWS providers).",
+      );
+    }
+    this.bucket = bucket;
+    this.client = new S3Client({
+      region: process.env.S3_REGION || "auto",
+      endpoint: process.env.S3_ENDPOINT || undefined,
+      credentials: { accessKeyId, secretAccessKey },
+    });
   }
-  async get(): Promise<Buffer> {
-    throw new Error("S3 storage provider is not configured.");
+
+  async put(key: string, data: Buffer, contentType: string) {
+    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: data, ContentType: contentType }));
   }
-  async delete(): Promise<void> {
-    throw new Error("S3 storage provider is not configured.");
+
+  async get(key: string) {
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    if (!result.Body) throw new Error("Object has no body.");
+    return Buffer.from(await result.Body.transformToByteArray());
+  }
+
+  async delete(key: string) {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 }
 
