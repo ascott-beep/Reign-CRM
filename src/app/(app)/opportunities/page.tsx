@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatMoney, cn } from "@/lib/utils";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { nextActionStatus } from "@/lib/next-action-status";
+import { NextActionDot } from "@/components/ui/next-action-dot";
 import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
 import type { Prisma } from "@prisma/client";
 
@@ -49,7 +51,7 @@ export default async function OpportunitiesPage({
     probability: o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[o.stage] ?? 0),
     ownerName: `${o.owner.firstName} ${o.owner.lastName}`,
     expectedDecisionDate: o.expectedDecisionDate?.toISOString() ?? null,
-    hasOverdueTask: !o.primaryNextTaskId,
+    nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
   }));
 
   return (
@@ -128,7 +130,12 @@ export default async function OpportunitiesPage({
                   <TableCell>{o.isProbabilityOverridden ? o.probabilityOverride : o.stageProbabilityDefault}%</TableCell>
                   <TableCell>{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</TableCell>
                   <TableCell>{o.owner.firstName} {o.owner.lastName}</TableCell>
-                  <TableCell>{o.primaryNextTask ? o.primaryNextTask.title : <span className="text-[var(--color-status-warning-ink)]">No next action</span>}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <NextActionDot status={nextActionStatus(o.primaryNextTask?.dueDate)} />
+                      {o.primaryNextTask ? o.primaryNextTask.title : <span className="text-[var(--color-ink-subtle)]">No next action</span>}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

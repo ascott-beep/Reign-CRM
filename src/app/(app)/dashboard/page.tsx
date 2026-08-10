@@ -49,6 +49,8 @@ export default async function DashboardPage() {
     placementsThisMonth,
     orgsWithoutNextTask,
     stalePriorityOrgs,
+    recentOpportunities,
+    recentMandates,
   ] = await Promise.all([
     prisma.task.count({
       where: {
@@ -115,6 +117,18 @@ export default async function DashboardPage() {
         OR: [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) } }],
       },
     }),
+    prisma.opportunity.findMany({
+      where: { workspaceId: wid, archivedAt: null },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      include: { hiringOrganization: { select: { name: true } } },
+    }),
+    prisma.mandate.findMany({
+      where: { workspaceId: wid, archivedAt: null, ...mandateWhere },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      include: { hiringOrganization: { select: { name: true } } },
+    }),
   ]);
 
   const weightedValue = openOpportunitiesForForecast.reduce((sum, o) => {
@@ -158,21 +172,6 @@ export default async function DashboardPage() {
       icon: ClockAlert,
     },
   ];
-
-  const [recentOpportunities, recentMandates] = await Promise.all([
-    prisma.opportunity.findMany({
-      where: { workspaceId: wid, archivedAt: null },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-      include: { hiringOrganization: { select: { name: true } } },
-    }),
-    prisma.mandate.findMany({
-      where: { workspaceId: wid, archivedAt: null, ...mandateWhere },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-      include: { hiringOrganization: { select: { name: true } } },
-    }),
-  ]);
 
   return (
     <div>

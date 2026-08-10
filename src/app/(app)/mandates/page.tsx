@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { cn } from "@/lib/utils";
+import { nextActionStatus } from "@/lib/next-action-status";
+import { NextActionDot } from "@/components/ui/next-action-dot";
 import { MandateBoard, type BoardMandate } from "./mandate-board";
 import type { Prisma } from "@prisma/client";
 
@@ -35,7 +37,7 @@ export default async function MandatesPage({
   const mandates = await prisma.mandate.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: { hiringOrganization: true, owner: true, candidateProcesses: { select: { stage: true } } },
+    include: { hiringOrganization: true, owner: true, candidateProcesses: { select: { stage: true } }, primaryNextTask: true },
   });
 
   const boardData: BoardMandate[] = mandates.map((m) => ({
@@ -49,6 +51,7 @@ export default async function MandatesPage({
     confidentiality: m.confidentiality,
     candidateCount: m.candidateProcesses.length,
     activeCandidateCount: m.candidateProcesses.filter((p) => !["PLACED", "REJECTED", "WITHDRAWN"].includes(p.stage)).length,
+    nextActionStatus: nextActionStatus(m.primaryNextTask?.dueDate),
   }));
 
   return (
@@ -104,6 +107,7 @@ export default async function MandatesPage({
                 <TableHead>Priority</TableHead>
                 <TableHead>Pipeline</TableHead>
                 <TableHead>Owner</TableHead>
+                <TableHead>Next action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -122,6 +126,12 @@ export default async function MandatesPage({
                   <TableCell>{label(m.priority)}</TableCell>
                   <TableCell>{m.candidateProcesses.length} candidate{m.candidateProcesses.length === 1 ? "" : "s"}</TableCell>
                   <TableCell>{m.owner.firstName} {m.owner.lastName}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <NextActionDot status={nextActionStatus(m.primaryNextTask?.dueDate)} />
+                      {m.primaryNextTask ? m.primaryNextTask.title : <span className="text-[var(--color-ink-subtle)]">No next action</span>}
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>

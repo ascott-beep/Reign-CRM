@@ -1,0 +1,522 @@
+diff --git a/package.json b/package.json
+index 898f979..c8c0e2a 100644
+--- a/package.json
++++ b/package.json
+@@ -15,6 +15,7 @@
+     "db:migrate": "prisma migrate dev",
+     "db:migrate:deploy": "prisma migrate deploy",
+     "db:seed": "tsx prisma/seed.ts",
++    "db:backfill-next-task": "tsx prisma/backfill-next-task.ts",
+     "db:reset": "prisma migrate reset",
+     "db:studio": "prisma studio",
+     "test": "vitest run",
+diff --git a/prisma/backfill-next-task.ts b/prisma/backfill-next-task.ts
+new file mode 100644
+index 0000000..d8a2eb4
+--- /dev/null
++++ b/prisma/backfill-next-task.ts
+@@ -0,0 +1,64 @@
++/**
++ * One-time backfill for Opportunity/Mandate/CandidateProcess/IntelligenceItem
++ * .primaryNextTaskId, which was added to the schema but never actually
++ * written by any task action until src/lib/next-task.ts started maintaining
++ * it going forward. Existing records need this run once so the "next
++ * action" pipeline indicators aren't blank until someone happens to touch
++ * a task on each record. Safe to re-run — it's idempotent. Self-contained
++ * (doesn't import src/lib/next-task.ts) since that file is tagged
++ * "server-only" for the Next.js build and isn't resolvable from a bare
++ * tsx script run.
++ */
++import { PrismaClient, TaskStatus } from "@prisma/client";
++
++const prisma = new PrismaClient();
++
++const OPEN_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS"];
++
++async function earliestOpenTaskId(where: Record<string, unknown>) {
++  const task = await prisma.task.findFirst({
++    where: { archivedAt: null, status: { in: OPEN_STATUSES }, ...where },
++    orderBy: { dueDate: "asc" },
++    select: { id: true },
++  });
++  return task?.id ?? null;
++}
++
++async function main() {
++  const [opportunities, mandates, candidateProcesses, intelligenceItems] = await Promise.all([
++    prisma.opportunity.findMany({ select: { id: true } }),
++    prisma.mandate.findMany({ select: { id: true } }),
++    prisma.candidateProcess.findMany({ select: { id: true } }),
++    prisma.intelligenceItem.findMany({ select: { id: true } }),
++  ]);
++
++  console.log(
++    `Backfilling ${opportunities.length} opportunities, ${mandates.length} mandates, ${candidateProcesses.length} candidate processes, ${intelligenceItems.length} intelligence items…`,
++  );
++
++  for (const o of opportunities) {
++    const id = await earliestOpenTaskId({ opportunities: { some: { opportunityId: o.id } } });
++    await prisma.opportunity.update({ where: { id: o.id }, data: { primaryNextTaskId: id } });
++  }
++  for (const m of mandates) {
++    const id = await earliestOpenTaskId({ mandates: { some: { mandateId: m.id } } });
++    await prisma.mandate.update({ where: { id: m.id }, data: { primaryNextTaskId: id } });
++  }
++  for (const c of candidateProcesses) {
++    const id = await earliestOpenTaskId({ candidateProcesses: { some: { candidateProcessId: c.id } } });
++    await prisma.candidateProcess.update({ where: { id: c.id }, data: { primaryNextTaskId: id } });
++  }
++  for (const i of intelligenceItems) {
++    const id = await earliestOpenTaskId({ intelligenceItems: { some: { intelligenceItemId: i.id } } });
++    await prisma.intelligenceItem.update({ where: { id: i.id }, data: { primaryNextTaskId: id } });
++  }
++
++  console.log("Backfill complete.");
++}
++
++main()
++  .catch((e) => {
++    console.error(e);
++    process.exit(1);
++  })
++  .finally(() => prisma.$disconnect());
+diff --git a/src/app/(app)/activities/actions.ts b/src/app/(app)/activities/actions.ts
+index 7496092..c56678b 100644
+--- a/src/app/(app)/activities/actions.ts
++++ b/src/app/(app)/activities/actions.ts
+@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
+ import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
+ import { activityFormSchema } from "@/lib/validation/activity";
+ import { writeAuditLog } from "@/lib/audit";
++import { syncPrimaryNextTask } from "@/lib/next-task";
+ 
+ export type ActivityFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
+ 
+@@ -109,6 +110,15 @@ export async function createActivityAction(_prev: ActivityFormState, formData: F
+     changedFields: { type: activity.type, subject: activity.subject },
+   });
+ 
++  if (data.followUpRequired) {
++    await syncPrimaryNextTask({
++      opportunityId: data.opportunityId,
++      mandateId: data.mandateId,
++      candidateProcessId: data.candidateProcessId,
++      intelligenceItemId: data.intelligenceItemId,
++    });
++  }
++
+   revalidatePath("/tasks");
+   redirect(backLinkFor(data));
+ }
+diff --git a/src/app/(app)/dashboard/page.tsx b/src/app/(app)/dashboard/page.tsx
+index 803448c..125df60 100644
+--- a/src/app/(app)/dashboard/page.tsx
++++ b/src/app/(app)/dashboard/page.tsx
+@@ -49,6 +49,8 @@ export default async function DashboardPage() {
+     placementsThisMonth,
+     orgsWithoutNextTask,
+     stalePriorityOrgs,
++    recentOpportunities,
++    recentMandates,
+   ] = await Promise.all([
+     prisma.task.count({
+       where: {
+@@ -115,6 +117,18 @@ export default async function DashboardPage() {
+         OR: [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000) } }],
+       },
+     }),
++    prisma.opportunity.findMany({
++      where: { workspaceId: wid, archivedAt: null },
++      orderBy: { updatedAt: "desc" },
++      take: 5,
++      include: { hiringOrganization: { select: { name: true } } },
++    }),
++    prisma.mandate.findMany({
++      where: { workspaceId: wid, archivedAt: null, ...mandateWhere },
++      orderBy: { updatedAt: "desc" },
++      take: 5,
++      include: { hiringOrganization: { select: { name: true } } },
++    }),
+   ]);
+ 
+   const weightedValue = openOpportunitiesForForecast.reduce((sum, o) => {
+@@ -159,21 +173,6 @@ export default async function DashboardPage() {
+     },
+   ];
+ 
+-  const [recentOpportunities, recentMandates] = await Promise.all([
+-    prisma.opportunity.findMany({
+-      where: { workspaceId: wid, archivedAt: null },
+-      orderBy: { updatedAt: "desc" },
+-      take: 5,
+-      include: { hiringOrganization: { select: { name: true } } },
+-    }),
+-    prisma.mandate.findMany({
+-      where: { workspaceId: wid, archivedAt: null, ...mandateWhere },
+-      orderBy: { updatedAt: "desc" },
+-      take: 5,
+-      include: { hiringOrganization: { select: { name: true } } },
+-    }),
+-  ]);
+-
+   return (
+     <div>
+       <PageHeader title={`Welcome back, ${user.firstName}`} description="Here's what's moving across the desk." />
+diff --git a/src/app/(app)/mandates/mandate-board.tsx b/src/app/(app)/mandates/mandate-board.tsx
+index 2e9e8ab..e6e85bb 100644
+--- a/src/app/(app)/mandates/mandate-board.tsx
++++ b/src/app/(app)/mandates/mandate-board.tsx
+@@ -6,7 +6,9 @@ import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSe
+ import { Users } from "lucide-react";
+ import { Card, CardContent } from "@/components/ui/card";
+ import { Badge } from "@/components/ui/badge";
++import { NextActionDot } from "@/components/ui/next-action-dot";
+ import { label } from "@/lib/labels";
++import type { NextActionStatus } from "@/lib/next-action-status";
+ import { changeMandateStatusAction } from "./actions";
+ import { MandateStatusDialog } from "./mandate-status-dialog";
+ 
+@@ -21,6 +23,7 @@ export type BoardMandate = {
+   confidentiality: string;
+   candidateCount: number;
+   activeCandidateCount: number;
++  nextActionStatus: NextActionStatus;
+ };
+ 
+ const STATUSES = ["BRIEF_RECEIVED", "SEARCH_ACTIVE", "LONGLISTING", "SHORTLISTING", "INTERVIEWING", "OFFER", "FILLED", "CANCELLED", "ON_HOLD"];
+@@ -34,9 +37,12 @@ function Draggable({ m }: { m: BoardMandate }) {
+     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
+       <Card className="cursor-grab active:cursor-grabbing">
+         <CardContent className="p-3">
+-          <Link href={`/mandates/${m.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
+-            {m.reference}
+-          </Link>
++          <div className="flex items-start justify-between gap-2">
++            <Link href={`/mandates/${m.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
++              {m.reference}
++            </Link>
++            <NextActionDot status={m.nextActionStatus} className="mt-0.5" />
++          </div>
+           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{m.title}</p>
+           <p className="text-xs text-[var(--color-ink-subtle)]">{m.organizationName}</p>
+           <div className="mt-2 flex items-center justify-between text-xs">
+diff --git a/src/app/(app)/mandates/page.tsx b/src/app/(app)/mandates/page.tsx
+index 7a2f8bd..5f90fbc 100644
+--- a/src/app/(app)/mandates/page.tsx
++++ b/src/app/(app)/mandates/page.tsx
+@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label } from "@/lib/labels";
+ import { cn } from "@/lib/utils";
++import { nextActionStatus } from "@/lib/next-action-status";
++import { NextActionDot } from "@/components/ui/next-action-dot";
+ import { MandateBoard, type BoardMandate } from "./mandate-board";
+ import type { Prisma } from "@prisma/client";
+ 
+@@ -35,7 +37,7 @@ export default async function MandatesPage({
+   const mandates = await prisma.mandate.findMany({
+     where,
+     orderBy: { updatedAt: "desc" },
+-    include: { hiringOrganization: true, owner: true, candidateProcesses: { select: { stage: true } } },
++    include: { hiringOrganization: true, owner: true, candidateProcesses: { select: { stage: true } }, primaryNextTask: true },
+   });
+ 
+   const boardData: BoardMandate[] = mandates.map((m) => ({
+@@ -49,6 +51,7 @@ export default async function MandatesPage({
+     confidentiality: m.confidentiality,
+     candidateCount: m.candidateProcesses.length,
+     activeCandidateCount: m.candidateProcesses.filter((p) => !["PLACED", "REJECTED", "WITHDRAWN"].includes(p.stage)).length,
++    nextActionStatus: nextActionStatus(m.primaryNextTask?.dueDate),
+   }));
+ 
+   return (
+@@ -104,6 +107,7 @@ export default async function MandatesPage({
+                 <TableHead>Priority</TableHead>
+                 <TableHead>Pipeline</TableHead>
+                 <TableHead>Owner</TableHead>
++                <TableHead>Next action</TableHead>
+               </TableRow>
+             </TableHeader>
+             <TableBody>
+@@ -122,6 +126,12 @@ export default async function MandatesPage({
+                   <TableCell>{label(m.priority)}</TableCell>
+                   <TableCell>{m.candidateProcesses.length} candidate{m.candidateProcesses.length === 1 ? "" : "s"}</TableCell>
+                   <TableCell>{m.owner.firstName} {m.owner.lastName}</TableCell>
++                  <TableCell>
++                    <div className="flex items-center gap-2">
++                      <NextActionDot status={nextActionStatus(m.primaryNextTask?.dueDate)} />
++                      {m.primaryNextTask ? m.primaryNextTask.title : <span className="text-[var(--color-ink-subtle)]">No next action</span>}
++                    </div>
++                  </TableCell>
+                 </TableRow>
+               ))}
+             </TableBody>
+diff --git a/src/app/(app)/opportunities/opportunity-board.tsx b/src/app/(app)/opportunities/opportunity-board.tsx
+index 28cadca..4801564 100644
+--- a/src/app/(app)/opportunities/opportunity-board.tsx
++++ b/src/app/(app)/opportunities/opportunity-board.tsx
+@@ -5,9 +5,11 @@ import Link from "next/link";
+ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+ import { Card, CardContent } from "@/components/ui/card";
+ import { Badge } from "@/components/ui/badge";
++import { NextActionDot } from "@/components/ui/next-action-dot";
+ import { label } from "@/lib/labels";
+ import { formatMoney } from "@/lib/utils";
+ import { format } from "date-fns";
++import type { NextActionStatus } from "@/lib/next-action-status";
+ import { changeOpportunityStageAction } from "./actions";
+ import { StageChangeDialog } from "./stage-change-dialog";
+ 
+@@ -22,7 +24,7 @@ export type BoardOpportunity = {
+   probability: number;
+   ownerName: string;
+   expectedDecisionDate: string | null;
+-  hasOverdueTask: boolean;
++  nextActionStatus: NextActionStatus;
+ };
+ 
+ const STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVERY_ARRANGED", "QUALIFIED", "PROPOSAL_OR_TERMS", "WON", "LOST", "ON_HOLD"];
+@@ -36,9 +38,12 @@ function Draggable({ opp }: { opp: BoardOpportunity }) {
+     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
+       <Card className="cursor-grab active:cursor-grabbing">
+         <CardContent className="p-3">
+-          <Link href={`/opportunities/${opp.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
+-            {opp.name}
+-          </Link>
++          <div className="flex items-start justify-between gap-2">
++            <Link href={`/opportunities/${opp.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
++              {opp.name}
++            </Link>
++            <NextActionDot status={opp.nextActionStatus} className="mt-0.5" />
++          </div>
+           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{opp.organizationName}</p>
+           {opp.potentialRoleTitle ? <p className="text-xs text-[var(--color-ink-subtle)]">{opp.potentialRoleTitle}</p> : null}
+           <div className="mt-2 flex items-center justify-between text-xs">
+@@ -49,11 +54,6 @@ function Draggable({ opp }: { opp: BoardOpportunity }) {
+             <span>{opp.ownerName}</span>
+             {opp.expectedDecisionDate ? <span>{format(new Date(opp.expectedDecisionDate), "d MMM")}</span> : null}
+           </div>
+-          {opp.hasOverdueTask ? (
+-            <Badge tone="warning" className="mt-2">
+-              No next action
+-            </Badge>
+-          ) : null}
+         </CardContent>
+       </Card>
+     </div>
+diff --git a/src/app/(app)/opportunities/page.tsx b/src/app/(app)/opportunities/page.tsx
+index 45c114c..4158780 100644
+--- a/src/app/(app)/opportunities/page.tsx
++++ b/src/app/(app)/opportunities/page.tsx
+@@ -11,6 +11,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { formatMoney, cn } from "@/lib/utils";
+ import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
++import { nextActionStatus } from "@/lib/next-action-status";
++import { NextActionDot } from "@/components/ui/next-action-dot";
+ import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
+ import type { Prisma } from "@prisma/client";
+ 
+@@ -49,7 +51,7 @@ export default async function OpportunitiesPage({
+     probability: o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[o.stage] ?? 0),
+     ownerName: `${o.owner.firstName} ${o.owner.lastName}`,
+     expectedDecisionDate: o.expectedDecisionDate?.toISOString() ?? null,
+-    hasOverdueTask: !o.primaryNextTaskId,
++    nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
+   }));
+ 
+   return (
+@@ -128,7 +130,12 @@ export default async function OpportunitiesPage({
+                   <TableCell>{o.isProbabilityOverridden ? o.probabilityOverride : o.stageProbabilityDefault}%</TableCell>
+                   <TableCell>{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</TableCell>
+                   <TableCell>{o.owner.firstName} {o.owner.lastName}</TableCell>
+-                  <TableCell>{o.primaryNextTask ? o.primaryNextTask.title : <span className="text-[var(--color-status-warning-ink)]">No next action</span>}</TableCell>
++                  <TableCell>
++                    <div className="flex items-center gap-2">
++                      <NextActionDot status={nextActionStatus(o.primaryNextTask?.dueDate)} />
++                      {o.primaryNextTask ? o.primaryNextTask.title : <span className="text-[var(--color-ink-subtle)]">No next action</span>}
++                    </div>
++                  </TableCell>
+                 </TableRow>
+               ))}
+             </TableBody>
+diff --git a/src/app/(app)/tasks/actions.ts b/src/app/(app)/tasks/actions.ts
+index f8f611d..1037f39 100644
+--- a/src/app/(app)/tasks/actions.ts
++++ b/src/app/(app)/tasks/actions.ts
+@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
+ import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
+ import { taskFormSchema } from "@/lib/validation/task";
+ import { writeAuditLog } from "@/lib/audit";
++import { syncPrimaryNextTask, linksFromTask } from "@/lib/next-task";
+ 
+ export type TaskFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
+ 
+@@ -83,30 +84,40 @@ export async function createTaskAction(_prev: TaskFormState, formData: FormData)
+   });
+ 
+   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: task.id, action: "CREATE" });
++  await syncPrimaryNextTask({ opportunityId: data.opportunityId, mandateId: data.mandateId, candidateProcessId: data.candidateProcessId, intelligenceItemId: data.intelligenceItemId });
+ 
+   revalidatePath("/tasks");
+   redirect(backLinkFor(data));
+ }
+ 
++const TASK_LINK_INCLUDE = { opportunities: true, mandates: true, candidateProcesses: true, intelligenceItems: true } as const;
++
+ export async function completeTaskAction(taskId: string, completionNote?: string) {
+   const user = await requireUser();
+   if (!canMutate(user.role)) throw new PermissionError();
+-  await prisma.task.update({ where: { id: taskId }, data: { status: "COMPLETED", completedAt: new Date(), completionNote: completionNote || null } });
++  const task = await prisma.task.update({
++    where: { id: taskId },
++    data: { status: "COMPLETED", completedAt: new Date(), completionNote: completionNote || null },
++    include: TASK_LINK_INCLUDE,
++  });
+   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: taskId, action: "UPDATE", changedFields: { status: "COMPLETED" } });
++  await syncPrimaryNextTask(linksFromTask(task));
+   revalidatePath("/tasks");
+ }
+ 
+ export async function reopenTaskAction(taskId: string) {
+   const user = await requireUser();
+   if (!canMutate(user.role)) throw new PermissionError();
+-  await prisma.task.update({ where: { id: taskId }, data: { status: "TODO", completedAt: null } });
++  const task = await prisma.task.update({ where: { id: taskId }, data: { status: "TODO", completedAt: null }, include: TASK_LINK_INCLUDE });
++  await syncPrimaryNextTask(linksFromTask(task));
+   revalidatePath("/tasks");
+ }
+ 
+ export async function rescheduleTaskAction(taskId: string, dueDate: string) {
+   const user = await requireUser();
+   if (!canMutate(user.role)) throw new PermissionError();
+-  await prisma.task.update({ where: { id: taskId }, data: { dueDate: new Date(dueDate) } });
++  const task = await prisma.task.update({ where: { id: taskId }, data: { dueDate: new Date(dueDate) }, include: TASK_LINK_INCLUDE });
++  await syncPrimaryNextTask(linksFromTask(task));
+   revalidatePath("/tasks");
+ }
+ 
+diff --git a/src/components/ui/next-action-dot.tsx b/src/components/ui/next-action-dot.tsx
+new file mode 100644
+index 0000000..0b94e4a
+--- /dev/null
++++ b/src/components/ui/next-action-dot.tsx
+@@ -0,0 +1,27 @@
++import { ArrowUpRight } from "lucide-react";
++import { cn } from "@/lib/utils";
++import type { NextActionStatus } from "@/lib/next-action-status";
++
++const STYLES: Record<NextActionStatus, string> = {
++  overdue: "bg-[var(--color-status-danger-ink)] text-white",
++  today: "bg-[var(--color-status-success-ink)] text-white",
++  none: "bg-[var(--color-status-neutral-bg)] text-[var(--color-ink-subtle)]",
++};
++
++const LABELS: Record<NextActionStatus, string> = {
++  overdue: "Next action overdue",
++  today: "Next action due today",
++  none: "No action due",
++};
++
++export function NextActionDot({ status, className }: { status: NextActionStatus; className?: string }) {
++  return (
++    <span
++      title={LABELS[status]}
++      aria-label={LABELS[status]}
++      className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full", STYLES[status], className)}
++    >
++      <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
++    </span>
++  );
++}
+diff --git a/src/lib/next-action-status.ts b/src/lib/next-action-status.ts
+new file mode 100644
+index 0000000..4eaf449
+--- /dev/null
++++ b/src/lib/next-action-status.ts
+@@ -0,0 +1,12 @@
++import { isPast, isToday, startOfDay } from "date-fns";
++
++export type NextActionStatus = "overdue" | "today" | "none";
++
++/** "none" also covers a next action scheduled for a future date — only today/overdue get a called-out colour. */
++export function nextActionStatus(dueDate: Date | string | null | undefined): NextActionStatus {
++  if (!dueDate) return "none";
++  const date = typeof dueDate === "string" ? new Date(dueDate) : dueDate;
++  if (isToday(date)) return "today";
++  if (isPast(startOfDay(date))) return "overdue";
++  return "none";
++}
+diff --git a/src/lib/next-task.ts b/src/lib/next-task.ts
+new file mode 100644
+index 0000000..f62843b
+--- /dev/null
++++ b/src/lib/next-task.ts
+@@ -0,0 +1,67 @@
++import "server-only";
++import { prisma } from "@/lib/prisma";
++import type { TaskStatus } from "@prisma/client";
++
++const OPEN_STATUSES: TaskStatus[] = ["TODO", "IN_PROGRESS"];
++
++async function earliestOpenTaskId(where: Record<string, unknown>) {
++  const task = await prisma.task.findFirst({
++    where: { archivedAt: null, status: { in: OPEN_STATUSES }, ...where },
++    orderBy: { dueDate: "asc" },
++    select: { id: true },
++  });
++  return task?.id ?? null;
++}
++
++/**
++ * Recomputes and persists `primaryNextTaskId` (the earliest open task) on
++ * whichever of these records a task is linked to. Task create/complete/
++ * reopen/reschedule don't update the parent record automatically, so every
++ * call site that changes a task's status or due date needs to call this
++ * afterward for the pipeline "next action" indicator and the Reports
++ * "no next action" counts to stay accurate.
++ */
++export async function syncPrimaryNextTask(links: {
++  opportunityId?: string | null;
++  mandateId?: string | null;
++  candidateProcessId?: string | null;
++  intelligenceItemId?: string | null;
++}) {
++  await Promise.all([
++    links.opportunityId
++      ? earliestOpenTaskId({ opportunities: { some: { opportunityId: links.opportunityId } } }).then((id) =>
++          prisma.opportunity.update({ where: { id: links.opportunityId! }, data: { primaryNextTaskId: id } }),
++        )
++      : null,
++    links.mandateId
++      ? earliestOpenTaskId({ mandates: { some: { mandateId: links.mandateId } } }).then((id) =>
++          prisma.mandate.update({ where: { id: links.mandateId! }, data: { primaryNextTaskId: id } }),
++        )
++      : null,
++    links.candidateProcessId
++      ? earliestOpenTaskId({ candidateProcesses: { some: { candidateProcessId: links.candidateProcessId } } }).then((id) =>
++          prisma.candidateProcess.update({ where: { id: links.candidateProcessId! }, data: { primaryNextTaskId: id } }),
++        )
++      : null,
++    links.intelligenceItemId
++      ? earliestOpenTaskId({ intelligenceItems: { some: { intelligenceItemId: links.intelligenceItemId } } }).then((id) =>
++          prisma.intelligenceItem.update({ where: { id: links.intelligenceItemId! }, data: { primaryNextTaskId: id } }),
++        )
++      : null,
++  ]);
++}
++
++/** Links for a task fetched with its join rows included, in the shape `syncPrimaryNextTask` expects. */
++export function linksFromTask(task: {
++  opportunities: { opportunityId: string }[];
++  mandates: { mandateId: string }[];
++  candidateProcesses: { candidateProcessId: string }[];
++  intelligenceItems: { intelligenceItemId: string }[];
++}) {
++  return {
++    opportunityId: task.opportunities[0]?.opportunityId,
++    mandateId: task.mandates[0]?.mandateId,
++    candidateProcessId: task.candidateProcesses[0]?.candidateProcessId,
++    intelligenceItemId: task.intelligenceItems[0]?.intelligenceItemId,
++  };
++}

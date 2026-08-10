@@ -5,9 +5,11 @@ import Link from "next/link";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { NextActionDot } from "@/components/ui/next-action-dot";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { format } from "date-fns";
+import type { NextActionStatus } from "@/lib/next-action-status";
 import { changeOpportunityStageAction } from "./actions";
 import { StageChangeDialog } from "./stage-change-dialog";
 
@@ -22,7 +24,7 @@ export type BoardOpportunity = {
   probability: number;
   ownerName: string;
   expectedDecisionDate: string | null;
-  hasOverdueTask: boolean;
+  nextActionStatus: NextActionStatus;
 };
 
 const STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVERY_ARRANGED", "QUALIFIED", "PROPOSAL_OR_TERMS", "WON", "LOST", "ON_HOLD"];
@@ -36,9 +38,12 @@ function Draggable({ opp }: { opp: BoardOpportunity }) {
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
       <Card className="cursor-grab active:cursor-grabbing">
         <CardContent className="p-3">
-          <Link href={`/opportunities/${opp.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
-            {opp.name}
-          </Link>
+          <div className="flex items-start justify-between gap-2">
+            <Link href={`/opportunities/${opp.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
+              {opp.name}
+            </Link>
+            <NextActionDot status={opp.nextActionStatus} className="mt-0.5" />
+          </div>
           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{opp.organizationName}</p>
           {opp.potentialRoleTitle ? <p className="text-xs text-[var(--color-ink-subtle)]">{opp.potentialRoleTitle}</p> : null}
           <div className="mt-2 flex items-center justify-between text-xs">
@@ -49,11 +54,6 @@ function Draggable({ opp }: { opp: BoardOpportunity }) {
             <span>{opp.ownerName}</span>
             {opp.expectedDecisionDate ? <span>{format(new Date(opp.expectedDecisionDate), "d MMM")}</span> : null}
           </div>
-          {opp.hasOverdueTask ? (
-            <Badge tone="warning" className="mt-2">
-              No next action
-            </Badge>
-          ) : null}
         </CardContent>
       </Card>
     </div>

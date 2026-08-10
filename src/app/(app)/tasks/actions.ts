@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { taskFormSchema } from "@/lib/validation/task";
 import { writeAuditLog } from "@/lib/audit";
+import { syncPrimaryNextTask, linksFromTask } from "@/lib/next-task";
 
 export type TaskFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
 
@@ -83,30 +84,40 @@ export async function createTaskAction(_prev: TaskFormState, formData: FormData)
   });
 
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: task.id, action: "CREATE" });
+  await syncPrimaryNextTask({ opportunityId: data.opportunityId, mandateId: data.mandateId, candidateProcessId: data.candidateProcessId, intelligenceItemId: data.intelligenceItemId });
 
   revalidatePath("/tasks");
   redirect(backLinkFor(data));
 }
 
+const TASK_LINK_INCLUDE = { opportunities: true, mandates: true, candidateProcesses: true, intelligenceItems: true } as const;
+
 export async function completeTaskAction(taskId: string, completionNote?: string) {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
-  await prisma.task.update({ where: { id: taskId }, data: { status: "COMPLETED", completedAt: new Date(), completionNote: completionNote || null } });
+  const task = await prisma.task.update({
+    where: { id: taskId },
+    data: { status: "COMPLETED", completedAt: new Date(), completionNote: completionNote || null },
+    include: TASK_LINK_INCLUDE,
+  });
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: taskId, action: "UPDATE", changedFields: { status: "COMPLETED" } });
+  await syncPrimaryNextTask(linksFromTask(task));
   revalidatePath("/tasks");
 }
 
 export async function reopenTaskAction(taskId: string) {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
-  await prisma.task.update({ where: { id: taskId }, data: { status: "TODO", completedAt: null } });
+  const task = await prisma.task.update({ where: { id: taskId }, data: { status: "TODO", completedAt: null }, include: TASK_LINK_INCLUDE });
+  await syncPrimaryNextTask(linksFromTask(task));
   revalidatePath("/tasks");
 }
 
 export async function rescheduleTaskAction(taskId: string, dueDate: string) {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
-  await prisma.task.update({ where: { id: taskId }, data: { dueDate: new Date(dueDate) } });
+  const task = await prisma.task.update({ where: { id: taskId }, data: { dueDate: new Date(dueDate) }, include: TASK_LINK_INCLUDE });
+  await syncPrimaryNextTask(linksFromTask(task));
   revalidatePath("/tasks");
 }
 

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { activityFormSchema } from "@/lib/validation/activity";
 import { writeAuditLog } from "@/lib/audit";
+import { syncPrimaryNextTask } from "@/lib/next-task";
 
 export type ActivityFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
 
@@ -108,6 +109,15 @@ export async function createActivityAction(_prev: ActivityFormState, formData: F
     action: "CREATE",
     changedFields: { type: activity.type, subject: activity.subject },
   });
+
+  if (data.followUpRequired) {
+    await syncPrimaryNextTask({
+      opportunityId: data.opportunityId,
+      mandateId: data.mandateId,
+      candidateProcessId: data.candidateProcessId,
+      intelligenceItemId: data.intelligenceItemId,
+    });
+  }
 
   revalidatePath("/tasks");
   redirect(backLinkFor(data));

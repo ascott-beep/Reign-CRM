@@ -6,7 +6,9 @@ import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSe
 import { Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { NextActionDot } from "@/components/ui/next-action-dot";
 import { label } from "@/lib/labels";
+import type { NextActionStatus } from "@/lib/next-action-status";
 import { changeMandateStatusAction } from "./actions";
 import { MandateStatusDialog } from "./mandate-status-dialog";
 
@@ -21,6 +23,7 @@ export type BoardMandate = {
   confidentiality: string;
   candidateCount: number;
   activeCandidateCount: number;
+  nextActionStatus: NextActionStatus;
 };
 
 const STATUSES = ["BRIEF_RECEIVED", "SEARCH_ACTIVE", "LONGLISTING", "SHORTLISTING", "INTERVIEWING", "OFFER", "FILLED", "CANCELLED", "ON_HOLD"];
@@ -34,9 +37,12 @@ function Draggable({ m }: { m: BoardMandate }) {
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
       <Card className="cursor-grab active:cursor-grabbing">
         <CardContent className="p-3">
-          <Link href={`/mandates/${m.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
-            {m.reference}
-          </Link>
+          <div className="flex items-start justify-between gap-2">
+            <Link href={`/mandates/${m.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
+              {m.reference}
+            </Link>
+            <NextActionDot status={m.nextActionStatus} className="mt-0.5" />
+          </div>
           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{m.title}</p>
           <p className="text-xs text-[var(--color-ink-subtle)]">{m.organizationName}</p>
           <div className="mt-2 flex items-center justify-between text-xs">
