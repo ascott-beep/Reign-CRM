@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,12 +32,21 @@ const STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVE
 const TERMINAL_STAGES = new Set(["WON", "LOST", "ON_HOLD"]);
 
 function Draggable({ opp }: { opp: BoardOpportunity }) {
+  const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 20 } : undefined;
 
+  function handleClick(e: React.MouseEvent) {
+    if (isDragging || (e.target as HTMLElement).closest("a")) return;
+    router.push(`/opportunities/${opp.id}`);
+  }
+
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
-      <Card className="cursor-grab active:cursor-grabbing">
+      <Card
+        onClick={handleClick}
+        className="cursor-grab transition-all hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)] active:cursor-grabbing active:translate-y-0 active:bg-[var(--color-highlight-subtle)]"
+      >
         <CardContent className="p-3">
           <div className="flex items-start justify-between gap-2">
             <Link href={`/opportunities/${opp.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>

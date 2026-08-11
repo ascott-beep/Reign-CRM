@@ -28,7 +28,10 @@ function Draggable({ p, onOpen }: { p: BoardProcess; onOpen: (id: string) => voi
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
-      <Card className="cursor-grab active:cursor-grabbing" onClick={() => !isDragging && onOpen(p.id)}>
+      <Card
+        onClick={() => !isDragging && onOpen(p.id)}
+        className="cursor-grab transition-all hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)] active:cursor-grabbing active:translate-y-0 active:bg-[var(--color-highlight-subtle)]"
+      >
         <CardContent className="p-2.5">
           <p className="text-sm font-medium text-[var(--color-ink)]">{p.candidateName}</p>
           <div className="mt-1 flex items-center gap-1.5">
