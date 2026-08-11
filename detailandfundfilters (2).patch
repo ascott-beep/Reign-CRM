@@ -1,0 +1,2368 @@
+diff --git a/src/app/(app)/activities/log-activity-dialog.tsx b/src/app/(app)/activities/log-activity-dialog.tsx
+new file mode 100644
+index 0000000..964f3e1
+--- /dev/null
++++ b/src/app/(app)/activities/log-activity-dialog.tsx
+@@ -0,0 +1,45 @@
++"use client";
++
++import { useState } from "react";
++import { MessageSquarePlus } from "lucide-react";
++import { Button } from "@/components/ui/button";
++import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
++import { ActivityForm } from "./activity-form";
++
++type LinkContext = {
++  organizationId?: string;
++  personId?: string;
++  opportunityId?: string;
++  mandateId?: string;
++  candidateProcessId?: string;
++  intelligenceItemId?: string;
++  label?: string;
++};
++
++export function LogActivityDialog({
++  users,
++  currentUserId,
++  linkContext,
++}: {
++  users: { id: string; firstName: string; lastName: string }[];
++  currentUserId: string;
++  linkContext: LinkContext;
++}) {
++  const [open, setOpen] = useState(false);
++
++  return (
++    <Dialog open={open} onOpenChange={setOpen}>
++      <DialogTrigger asChild>
++        <Button size="sm" variant="secondary">
++          <MessageSquarePlus className="h-4 w-4" /> Log activity
++        </Button>
++      </DialogTrigger>
++      <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
++        <DialogHeader>
++          <DialogTitle>Log activity</DialogTitle>
++        </DialogHeader>
++        <ActivityForm users={users} currentUserId={currentUserId} linkContext={linkContext} />
++      </DialogContent>
++    </Dialog>
++  );
++}
+diff --git a/src/app/(app)/mandates/[id]/page.tsx b/src/app/(app)/mandates/[id]/page.tsx
+index c19e317..bacc8f8 100644
+--- a/src/app/(app)/mandates/[id]/page.tsx
++++ b/src/app/(app)/mandates/[id]/page.tsx
+@@ -9,15 +9,19 @@ import { Button } from "@/components/ui/button";
+ import { Badge } from "@/components/ui/badge";
+ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Card, CardContent } from "@/components/ui/card";
++import { NextActionCard } from "@/components/ui/next-action-card";
++import { Timeline } from "@/components/ui/timeline";
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label } from "@/lib/labels";
+ import { formatMoney } from "@/lib/utils";
++import { getMandateTimeline } from "@/lib/timeline";
+ import { format } from "date-fns";
+ import { archiveMandateAction } from "../actions";
+ import { ProcessBoard, type BoardProcess } from "../process-board";
+ import { AddCandidateDialog } from "../add-candidate-dialog";
+ import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
++import { LogActivityDialog } from "../../activities/log-activity-dialog";
+ import { MandateStatusSelect } from "../status-select";
+ 
+ export default async function MandateDetailPage({ params }: { params: Promise<{ id: string }> }) {
+@@ -39,22 +43,20 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+       relatedFunds: { include: { organization: true } },
+       stakeholders: { include: { person: true } },
+       assignedUsers: { include: { user: true } },
+-      statusHistory: { include: { changedBy: true }, orderBy: { changedAt: "desc" } },
+       candidateProcesses: { include: { candidatePerson: { include: { candidateProfile: true } } }, orderBy: { updatedAt: "desc" } },
++      primaryNextTask: { include: { assignedUser: true } },
+     },
+   });
+   if (!mandate) notFound();
+ 
+-  const [interviews, activityLinks, taskLinks, documents, offLimits, auditLogs, allCandidates] = await Promise.all([
++  const [timeline, interviews, documents, auditLogs, allCandidates, users] = await Promise.all([
++    getMandateTimeline(mandate.id),
+     prisma.interview.findMany({
+       where: { candidateProcess: { mandateId: mandate.id } },
+       include: { candidateProcess: { include: { candidatePerson: true } } },
+       orderBy: { scheduledStart: "desc" },
+     }),
+-    prisma.activityMandate.findMany({ where: { mandateId: mandate.id }, include: { activity: { include: { createdBy: true } } }, orderBy: { activity: { occurredAt: "desc" } } }),
+-    prisma.taskMandate.findMany({ where: { mandateId: mandate.id }, include: { task: { include: { assignedUser: true } } }, orderBy: { task: { dueDate: "asc" } } }),
+     prisma.documentMandate.findMany({ where: { mandateId: mandate.id }, include: { document: true } }),
+-    prisma.offLimitsRestriction.findMany({ where: { OR: [{ organizationId: mandate.hiringOrganizationId }, { mandateId: mandate.id }] } }),
+     canViewAuditLog(user.role)
+       ? prisma.auditLog.findMany({ where: { entityType: "Mandate", entityId: mandate.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
+       : Promise.resolve([]),
+@@ -63,6 +65,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+       select: { id: true, firstName: true, lastName: true },
+       orderBy: { lastName: "asc" },
+     }),
++    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+   ]);
+ 
+   const boardData: BoardProcess[] = mandate.candidateProcesses.map((p) => ({
+@@ -101,9 +104,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+         actions={
+           <>
+             <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
+-            <Button variant="secondary" size="sm" asChild>
+-              <Link href={`/activities/new?mandateId=${mandate.id}`}>Log activity</Link>
+-            </Button>
++            <LogActivityDialog
++              users={users}
++              currentUserId={user.id}
++              linkContext={{ mandateId: mandate.id, label: `${mandate.reference} — ${mandate.title}` }}
++            />
+             <Button variant="secondary" size="sm" asChild>
+               <Link href={`/tasks/new?mandateId=${mandate.id}`}>Add task</Link>
+             </Button>
+@@ -121,49 +126,92 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+         }
+       />
+ 
+-      <Tabs defaultValue="pipeline">
++      <Tabs defaultValue="overview">
+         <TabsList>
+-          <TabsTrigger value="brief">Brief</TabsTrigger>
++          <TabsTrigger value="overview">Overview</TabsTrigger>
+           <TabsTrigger value="pipeline">Candidate Pipeline ({mandate.candidateProcesses.length})</TabsTrigger>
+-          <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
++          <TabsTrigger value="brief">Brief</TabsTrigger>
+           <TabsTrigger value="interviews">Interviews ({interviews.length})</TabsTrigger>
+           <TabsTrigger value="commercial">Commercial</TabsTrigger>
+-          <TabsTrigger value="activity">Activity</TabsTrigger>
+-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+-          <TabsTrigger value="documents">Documents</TabsTrigger>
+-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
++          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
+         </TabsList>
+ 
+-        <TabsContent value="brief">
++        <TabsContent value="overview">
+           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+-            <Card className="lg:col-span-2">
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Role summary</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.roleSummary || "—"}</p>
+-                <h3 className="mb-2 mt-4 text-sm font-semibold">Business context</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.businessContext || "—"}</p>
+-                <h3 className="mb-2 mt-4 text-sm font-semibold">Required experience</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.requiredExperience || "—"}</p>
+-                <h3 className="mb-2 mt-4 text-sm font-semibold">Assessment criteria</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.assessmentCriteria || "—"}</p>
+-              </CardContent>
+-            </Card>
+-            <Card>
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
+-                <dl className="grid grid-cols-1 gap-2 text-sm">
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Seniority</dt><dd>{mandate.seniority ? label(mandate.seniority) : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Employment type</dt><dd>{label(mandate.employmentType)}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Location</dt><dd>{mandate.city || "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Work arrangement</dt><dd>{mandate.workArrangement ? label(mandate.workArrangement) : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Number of hires</dt><dd>{mandate.numberOfHires}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Hiring manager</dt><dd>{mandate.hiringManagerPerson ? `${mandate.hiringManagerPerson.firstName} ${mandate.hiringManagerPerson.lastName}` : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Internal talent/HR</dt><dd>{mandate.internalTalentPerson ? `${mandate.internalTalentPerson.firstName} ${mandate.internalTalentPerson.lastName}` : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+-                </dl>
+-              </CardContent>
+-            </Card>
++            <div className="flex flex-col gap-4 lg:col-span-2">
++              <NextActionCard
++                task={
++                  mandate.primaryNextTask
++                    ? {
++                        id: mandate.primaryNextTask.id,
++                        title: mandate.primaryNextTask.title,
++                        dueDate: mandate.primaryNextTask.dueDate,
++                        status: mandate.primaryNextTask.status,
++                        assigneeName: `${mandate.primaryNextTask.assignedUser.firstName} ${mandate.primaryNextTask.assignedUser.lastName}`,
++                      }
++                    : null
++                }
++                newTaskHref={`/tasks/new?mandateId=${mandate.id}`}
++              />
++
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
++                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
++                </CardContent>
++              </Card>
++            </div>
++
++            <div className="flex flex-col gap-4">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
++                  <dl className="grid grid-cols-1 gap-2 text-sm">
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Seniority</dt><dd>{mandate.seniority ? label(mandate.seniority) : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Employment type</dt><dd>{label(mandate.employmentType)}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Location</dt><dd>{mandate.city || "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Work arrangement</dt><dd>{mandate.workArrangement ? label(mandate.workArrangement) : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Number of hires</dt><dd>{mandate.numberOfHires}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Hiring manager</dt><dd>{mandate.hiringManagerPerson ? `${mandate.hiringManagerPerson.firstName} ${mandate.hiringManagerPerson.lastName}` : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Internal talent/HR</dt><dd>{mandate.internalTalentPerson ? `${mandate.internalTalentPerson.firstName} ${mandate.internalTalentPerson.lastName}` : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
++                  </dl>
++                </CardContent>
++              </Card>
++
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Stakeholders ({mandate.stakeholders.length})</h3>
++                  {mandate.stakeholders.length === 0 ? (
++                    <p className="text-sm text-[var(--color-ink-subtle)]">No stakeholders recorded.</p>
++                  ) : (
++                    <ul className="flex flex-col gap-2">
++                      {mandate.stakeholders.map((s) => (
++                        <li key={s.id} className="flex items-center justify-between text-sm">
++                          <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
++                            {s.person.firstName} {s.person.lastName}
++                          </Link>
++                          <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                  {mandate.assignedUsers.length > 0 ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Assigned team</h3>
++                      <div className="flex flex-wrap gap-1.5">
++                        {mandate.assignedUsers.map((a) => (
++                          <Badge key={a.id} tone="neutral">
++                            {a.user.firstName} {a.user.lastName}
++                          </Badge>
++                        ))}
++                      </div>
++                    </>
++                  ) : null}
++                </CardContent>
++              </Card>
++            </div>
+           </div>
+         </TabsContent>
+ 
+@@ -191,43 +239,19 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="stakeholders">
+-          {mandate.stakeholders.length === 0 ? (
+-            <EmptyState title="No stakeholders recorded" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Name</TableHead>
+-                  <TableHead>Role</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {mandate.stakeholders.map((s) => (
+-                  <TableRow key={s.id}>
+-                    <TableCell>
+-                      <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)]">
+-                        {s.person.firstName} {s.person.lastName}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>{label(s.role)}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-          {mandate.assignedUsers.length > 0 ? (
+-            <div className="mt-4">
+-              <h3 className="mb-2 text-sm font-semibold">Assigned team</h3>
+-              <div className="flex gap-2">
+-                {mandate.assignedUsers.map((a) => (
+-                  <Badge key={a.id} tone="neutral">
+-                    {a.user.firstName} {a.user.lastName}
+-                  </Badge>
+-                ))}
+-              </div>
+-            </div>
+-          ) : null}
++        <TabsContent value="brief">
++          <Card>
++            <CardContent className="pt-4">
++              <h3 className="mb-2 text-sm font-semibold">Role summary</h3>
++              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.roleSummary || "—"}</p>
++              <h3 className="mb-2 mt-4 text-sm font-semibold">Business context</h3>
++              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.businessContext || "—"}</p>
++              <h3 className="mb-2 mt-4 text-sm font-semibold">Required experience</h3>
++              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.requiredExperience || "—"}</p>
++              <h3 className="mb-2 mt-4 text-sm font-semibold">Assessment criteria</h3>
++              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.assessmentCriteria || "—"}</p>
++            </CardContent>
++          </Card>
+         </TabsContent>
+ 
+         <TabsContent value="interviews">
+@@ -276,67 +300,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+               </dl>
+             </CardContent>
+           </Card>
+-          <div className="mt-4">
+-            <h3 className="mb-2 text-sm font-semibold">Status history</h3>
+-            <ul className="flex flex-col gap-1.5">
+-              {mandate.statusHistory.map((h) => (
+-                <li key={h.id} className="flex items-center justify-between text-sm">
+-                  <span>
+-                    {h.fromStatus ? `${label(h.fromStatus)} → ` : ""}
+-                    {label(h.toStatus)}
+-                  </span>
+-                  <span className="text-xs text-[var(--color-ink-subtle)]">
+-                    {format(h.changedAt, "d MMM yyyy HH:mm")} · {h.changedBy.firstName} {h.changedBy.lastName}
+-                  </span>
+-                </li>
+-              ))}
+-            </ul>
+-          </div>
+-        </TabsContent>
+-
+-        <TabsContent value="activity">
+-          {activityLinks.length === 0 ? (
+-            <EmptyState title="No activity logged yet" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {activityLinks.map((link) => (
+-                <Card key={link.id}>
+-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
+-                    <div>
+-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
+-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
+-                    </div>
+-                    <p className="whitespace-nowrap text-xs text-[var(--color-ink-subtle)]">{format(link.activity.occurredAt, "d MMM yyyy")}</p>
+-                  </CardContent>
+-                </Card>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
+-
+-        <TabsContent value="tasks">
+-          {taskLinks.length === 0 ? (
+-            <EmptyState title="No tasks linked" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Title</TableHead>
+-                  <TableHead>Status</TableHead>
+-                  <TableHead>Due</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {taskLinks.map((link) => (
+-                  <TableRow key={link.id}>
+-                    <TableCell>{link.task.title}</TableCell>
+-                    <TableCell><StatusBadge value={link.task.status} /></TableCell>
+-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+         </TabsContent>
+ 
+         <TabsContent value="documents">
+@@ -369,20 +332,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="offlimits">
+-          {offLimits.length === 0 ? (
+-            <EmptyState title="No off-limits restrictions" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {offLimits.map((o) => (
+-                <Badge key={o.id} tone={o.severity === "BLOCK" ? "danger" : "warning"}>
+-                  {label(o.type)}: {o.reason}
+-                </Badge>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
+-
+         {canViewAuditLog(user.role) ? (
+           <TabsContent value="audit">
+             {auditLogs.length === 0 ? (
+diff --git a/src/app/(app)/opportunities/[id]/page.tsx b/src/app/(app)/opportunities/[id]/page.tsx
+index ca90947..00f14b1 100644
+--- a/src/app/(app)/opportunities/[id]/page.tsx
++++ b/src/app/(app)/opportunities/[id]/page.tsx
+@@ -6,16 +6,19 @@ import { requireUser, canViewAuditLog } from "@/lib/permissions";
+ import { PageHeader } from "@/components/shell/page-header";
+ import { EmptyState } from "@/components/shell/states";
+ import { Button } from "@/components/ui/button";
+-import { Badge } from "@/components/ui/badge";
+ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Card, CardContent } from "@/components/ui/card";
++import { NextActionCard } from "@/components/ui/next-action-card";
++import { Timeline } from "@/components/ui/timeline";
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+ import { formatMoney } from "@/lib/utils";
++import { getOpportunityTimeline } from "@/lib/timeline";
+ import { format } from "date-fns";
+ import { convertOpportunityToMandateAction } from "../actions";
+ import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
++import { LogActivityDialog } from "../../activities/log-activity-dialog";
+ import { StageSelect } from "../stage-select";
+ 
+ export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
+@@ -32,24 +35,19 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
+       sourcePerson: true,
+       relatedFunds: { include: { organization: true } },
+       stakeholders: { include: { person: true } },
+-      stageHistory: { include: { changedBy: true }, orderBy: { changedAt: "desc" } },
+       wonMandate: true,
++      primaryNextTask: { include: { assignedUser: true } },
+     },
+   });
+   if (!opportunity) notFound();
+ 
+-  const [activityLinks, taskLinks, documents, offLimits, auditLogs] = await Promise.all([
+-    prisma.activityOpportunity.findMany({
+-      where: { opportunityId: opportunity.id },
+-      include: { activity: { include: { createdBy: true } } },
+-      orderBy: { activity: { occurredAt: "desc" } },
+-    }),
+-    prisma.taskOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { task: { include: { assignedUser: true } } }, orderBy: { task: { dueDate: "asc" } } }),
++  const [timeline, documents, auditLogs, users] = await Promise.all([
++    getOpportunityTimeline(opportunity.id),
+     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
+-    prisma.offLimitsRestriction.findMany({ where: { organizationId: opportunity.hiringOrganizationId }, take: 5 }),
+     canViewAuditLog(user.role)
+       ? prisma.auditLog.findMany({ where: { entityType: "Opportunity", entityId: opportunity.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
+       : Promise.resolve([]),
++    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+   ]);
+ 
+   const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
+@@ -88,6 +86,11 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
+                 <Link href={`/mandates/${opportunity.wonMandateId}`}>View Mandate</Link>
+               </Button>
+             ) : null}
++            <LogActivityDialog
++              users={users}
++              currentUserId={user.id}
++              linkContext={{ opportunityId: opportunity.id, label: opportunity.name }}
++            />
+             <Button variant="secondary" size="sm" asChild>
+               <Link href={`/opportunities/${opportunity.id}/edit`}>
+                 <Pencil className="h-4 w-4" /> Edit
+@@ -100,142 +103,96 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
+       <Tabs defaultValue="overview">
+         <TabsList>
+           <TabsTrigger value="overview">Overview</TabsTrigger>
+-          <TabsTrigger value="stakeholders">Stakeholders ({opportunity.stakeholders.length})</TabsTrigger>
+-          <TabsTrigger value="activity">Activity</TabsTrigger>
+-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+-          <TabsTrigger value="documents">Documents</TabsTrigger>
+-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
++          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
+         </TabsList>
+ 
+         <TabsContent value="overview">
+           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+-            <Card className="lg:col-span-2">
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Next step</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
+-                <h3 className="mb-2 mt-4 text-sm font-semibold">Notes</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
+-                {opportunity.stage === "LOST" ? (
+-                  <>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Loss reason</h3>
+-                    <p className="text-sm text-[var(--color-ink-muted)]">
+-                      {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
+-                    </p>
+-                  </>
+-                ) : null}
+-                {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
+-                  <>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
+-                    <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
+-                  </>
+-                ) : null}
++            <div className="flex flex-col gap-4 lg:col-span-2">
++              <NextActionCard
++                task={
++                  opportunity.primaryNextTask
++                    ? {
++                        id: opportunity.primaryNextTask.id,
++                        title: opportunity.primaryNextTask.title,
++                        dueDate: opportunity.primaryNextTask.dueDate,
++                        status: opportunity.primaryNextTask.status,
++                        assigneeName: `${opportunity.primaryNextTask.assignedUser.firstName} ${opportunity.primaryNextTask.assignedUser.lastName}`,
++                      }
++                    : null
++                }
++                newTaskHref={`/tasks/new?opportunityId=${opportunity.id}`}
++              />
+ 
+-                <h3 className="mb-2 mt-4 text-sm font-semibold">Stage history</h3>
+-                <ul className="flex flex-col gap-1.5">
+-                  {opportunity.stageHistory.map((h) => (
+-                    <li key={h.id} className="flex items-center justify-between text-sm">
+-                      <span>
+-                        {h.fromStage ? `${label(h.fromStage)} → ` : ""}
+-                        {label(h.toStage)}
+-                      </span>
+-                      <span className="text-xs text-[var(--color-ink-subtle)]">
+-                        {format(h.changedAt, "d MMM yyyy HH:mm")} · {h.changedBy.firstName} {h.changedBy.lastName}
+-                      </span>
+-                    </li>
+-                  ))}
+-                </ul>
+-              </CardContent>
+-            </Card>
+-            <Card>
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
+-                <dl className="grid grid-cols-1 gap-2 text-sm">
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Lead contact</dt><dd>{opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Expected decision</dt><dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd></div>
+-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
+-                </dl>
+-              </CardContent>
+-            </Card>
+-          </div>
+-        </TabsContent>
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
++                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
++                </CardContent>
++              </Card>
++            </div>
+ 
+-        <TabsContent value="stakeholders">
+-          {opportunity.stakeholders.length === 0 ? (
+-            <EmptyState title="No stakeholders recorded" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Name</TableHead>
+-                  <TableHead>Role</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {opportunity.stakeholders.map((s) => (
+-                  <TableRow key={s.id}>
+-                    <TableCell>
+-                      <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)]">
+-                        {s.person.firstName} {s.person.lastName}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>{label(s.role)}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
++            <div className="flex flex-col gap-4">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
++                  <dl className="grid grid-cols-1 gap-2 text-sm">
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Lead contact</dt><dd>{opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Expected decision</dt><dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd></div>
++                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
++                  </dl>
++                </CardContent>
++              </Card>
+ 
+-        <TabsContent value="activity">
+-          {activityLinks.length === 0 ? (
+-            <EmptyState title="No activity logged yet" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {activityLinks.map((link) => (
+-                <Card key={link.id}>
+-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
+-                    <div>
+-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
+-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
+-                    </div>
+-                    <div className="whitespace-nowrap text-right text-xs text-[var(--color-ink-subtle)]">
+-                      <p>{format(link.activity.occurredAt, "d MMM yyyy")}</p>
+-                    </div>
+-                  </CardContent>
+-                </Card>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Stakeholders ({opportunity.stakeholders.length})</h3>
++                  {opportunity.stakeholders.length === 0 ? (
++                    <p className="text-sm text-[var(--color-ink-subtle)]">No stakeholders recorded.</p>
++                  ) : (
++                    <ul className="flex flex-col gap-2">
++                      {opportunity.stakeholders.map((s) => (
++                        <li key={s.id} className="flex items-center justify-between text-sm">
++                          <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
++                            {s.person.firstName} {s.person.lastName}
++                          </Link>
++                          <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                </CardContent>
++              </Card>
+ 
+-        <TabsContent value="tasks">
+-          {taskLinks.length === 0 ? (
+-            <EmptyState title="No tasks linked" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Title</TableHead>
+-                  <TableHead>Status</TableHead>
+-                  <TableHead>Due</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {taskLinks.map((link) => (
+-                  <TableRow key={link.id}>
+-                    <TableCell>{link.task.title}</TableCell>
+-                    <TableCell><StatusBadge value={link.task.status} /></TableCell>
+-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Next step</h3>
++                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
++                  <h3 className="mb-2 mt-4 text-sm font-semibold">Notes</h3>
++                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
++                  {opportunity.stage === "LOST" ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Loss reason</h3>
++                      <p className="text-sm text-[var(--color-ink-muted)]">
++                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
++                      </p>
++                    </>
++                  ) : null}
++                  {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
++                      <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
++                    </>
++                  ) : null}
++                </CardContent>
++              </Card>
++            </div>
++          </div>
+         </TabsContent>
+ 
+         <TabsContent value="documents">
+@@ -268,20 +225,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="offlimits">
+-          {offLimits.length === 0 ? (
+-            <EmptyState title="No off-limits restrictions on this organisation" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {offLimits.map((o) => (
+-                <Badge key={o.id} tone={o.severity === "BLOCK" ? "danger" : "warning"}>
+-                  {label(o.type)}: {o.reason}
+-                </Badge>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
+-
+         {canViewAuditLog(user.role) ? (
+           <TabsContent value="audit">
+             {auditLogs.length === 0 ? (
+diff --git a/src/app/(app)/organisations/[id]/page.tsx b/src/app/(app)/organisations/[id]/page.tsx
+index 32fb100..eaf92c7 100644
+--- a/src/app/(app)/organisations/[id]/page.tsx
++++ b/src/app/(app)/organisations/[id]/page.tsx
+@@ -9,17 +9,20 @@ import { Button } from "@/components/ui/button";
+ import { Badge } from "@/components/ui/badge";
+ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Card, CardContent } from "@/components/ui/card";
++import { Timeline } from "@/components/ui/timeline";
++import { RelatedOrgCard } from "@/components/ui/related-org-card";
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label } from "@/lib/labels";
+-import { countryName, CURRENCIES } from "@/lib/iso";
++import { countryName } from "@/lib/iso";
+ import { formatMoney } from "@/lib/utils";
++import { getOrganizationTimeline } from "@/lib/timeline";
+ import { format } from "date-fns";
+ import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
+ import { archiveOrganizationAction, restoreOrganizationAction } from "../actions";
+ import { AddRelationshipDialog } from "../add-relationship-dialog";
+ import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
+-void CURRENCIES;
++import { LogActivityDialog } from "../../activities/log-activity-dialog";
+ 
+ export default async function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const user = await requireUser();
+@@ -41,38 +44,45 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
+   });
+   if (!org) notFound();
+ 
+-  const [opportunities, mandates, intelligence, activityLinks, taskLinks, documents, offLimits, auditLogs, allOrgsForRelationship] =
+-    await Promise.all([
+-      prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
+-      prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
+-      prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null }, orderBy: { dateReceived: "desc" } }),
+-      prisma.activityOrganization.findMany({
+-        where: { organizationId: org.id },
+-        include: { activity: { include: { createdBy: true } } },
+-        orderBy: { activity: { occurredAt: "desc" } },
+-        take: 30,
+-      }),
+-      prisma.taskOrganization.findMany({
+-        where: { organizationId: org.id },
+-        include: { task: { include: { assignedUser: true } } },
+-        orderBy: { task: { dueDate: "asc" } },
+-      }),
+-      prisma.documentOrganization.findMany({ where: { organizationId: org.id }, include: { document: true } }),
+-      prisma.offLimitsRestriction.findMany({ where: { organizationId: org.id }, orderBy: { createdAt: "desc" } }),
+-      canViewAuditLog(user.role)
+-        ? prisma.auditLog.findMany({
+-            where: { entityType: "Organization", entityId: org.id },
+-            include: { actor: true },
+-            orderBy: { timestamp: "desc" },
+-            take: 50,
+-          })
+-        : Promise.resolve([]),
+-      prisma.organization.findMany({
+-        where: { workspaceId: user.workspaceId, archivedAt: null, id: { not: org.id } },
+-        select: { id: true, name: true, type: true },
+-        orderBy: { name: "asc" },
+-      }),
+-    ]);
++  const investorFundIds = org.relationshipsAsTarget.map((r) => r.sourceOrganizationId);
++
++  const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships] = await Promise.all([
++    getOrganizationTimeline(org.id),
++    prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
++    prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
++    prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null }, orderBy: { dateReceived: "desc" } }),
++    prisma.documentOrganization.findMany({ where: { organizationId: org.id }, include: { document: true } }),
++    canViewAuditLog(user.role)
++      ? prisma.auditLog.findMany({
++          where: { entityType: "Organization", entityId: org.id },
++          include: { actor: true },
++          orderBy: { timestamp: "desc" },
++          take: 50,
++        })
++      : Promise.resolve([]),
++    prisma.organization.findMany({
++      where: { workspaceId: user.workspaceId, archivedAt: null, id: { not: org.id } },
++      select: { id: true, name: true, type: true },
++      orderBy: { name: "asc" },
++    }),
++    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
++    investorFundIds.length > 0
++      ? prisma.organizationRelationship.findMany({
++          where: { sourceOrganizationId: { in: investorFundIds }, targetOrganizationId: { not: org.id } },
++          include: { targetOrganization: true, sourceOrganization: true },
++          orderBy: { createdAt: "desc" },
++        })
++      : Promise.resolve([]),
++  ]);
++
++  // A sibling portco can show up once per shared investor fund — keep only the first (most recent) row per company.
++  // Filtered to actual portfolio companies since a fund's outbound relationships can also include things like
++  // co-investor funds, which don't belong under "other portfolio companies."
++  const siblingPortcos = Array.from(
++    new Map(
++      siblingRelationships.filter((r) => r.targetOrganization.type === "PORTFOLIO_COMPANY").map((r) => [r.targetOrganizationId, r]),
++    ).values(),
++  );
+ 
+   const canArchive = canArchiveRecord(user, { relationshipOwnerId: org.relationshipOwnerId, createdById: org.createdById });
+   const canRestore = canRestoreArchived(user.role);
+@@ -111,9 +121,11 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
+         }
+         actions={
+           <>
+-            <Button variant="secondary" size="sm" asChild>
+-              <Link href={`/activities/new?organizationId=${org.id}`}>Log activity</Link>
+-            </Button>
++            <LogActivityDialog
++              users={users}
++              currentUserId={user.id}
++              linkContext={{ organizationId: org.id, label: org.name }}
++            />
+             <Button variant="secondary" size="sm" asChild>
+               <Link href={`/people/new?organizationId=${org.id}`}>Add person</Link>
+             </Button>
+@@ -135,172 +147,190 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
+       <Tabs defaultValue="overview">
+         <TabsList>
+           <TabsTrigger value="overview">Overview</TabsTrigger>
+-          <TabsTrigger value="people">People ({org.personAssociations.length})</TabsTrigger>
+           <TabsTrigger value="relationships">Investments &amp; Relationships</TabsTrigger>
+           <TabsTrigger value="opportunities">Opportunities ({opportunities.length})</TabsTrigger>
+           <TabsTrigger value="mandates">Mandates ({mandates.length})</TabsTrigger>
+           <TabsTrigger value="intelligence">Intelligence ({intelligence.length})</TabsTrigger>
+-          <TabsTrigger value="activity">Activity</TabsTrigger>
+-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+-          <TabsTrigger value="documents">Documents</TabsTrigger>
+-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
++          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
+         </TabsList>
+ 
+         <TabsContent value="overview">
+           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+-            <Card className="lg:col-span-2">
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Description</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.description || "No description yet."}</p>
+-                {org.internalSummary ? (
+-                  <>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Internal summary</h3>
+-                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.internalSummary}</p>
+-                  </>
+-                ) : null}
+-
+-                {org.type === "PE_FUND" ? (
+-                  <>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Fund</h3>
+-                    <dl className="grid grid-cols-2 gap-2 text-sm">
+-                      <dt className="text-[var(--color-ink-subtle)]">Current fund / vintage</dt>
+-                      <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
+-                      <dt className="text-[var(--color-ink-subtle)]">AUM</dt>
+-                      <dd>{formatMoney(org.aumAmount, org.aumCurrency)}</dd>
+-                      <dt className="text-[var(--color-ink-subtle)]">Strategies</dt>
+-                      <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
+-                    </dl>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; exited portfolio</h3>
+-                    {org.relationshipsAsSource.length === 0 ? (
+-                      <p className="text-sm text-[var(--color-ink-subtle)]">No portfolio relationships recorded yet.</p>
+-                    ) : (
+-                      <ul className="flex flex-col gap-1">
+-                        {org.relationshipsAsSource.map((r) => (
+-                          <li key={r.id} className="flex items-center justify-between text-sm">
+-                            <Link href={`/organisations/${r.targetOrganizationId}`} className="text-[var(--color-accent)]">
+-                              {r.targetOrganization.name}
+-                            </Link>
+-                            <span className="text-xs text-[var(--color-ink-subtle)]">
+-                              {forwardRelationshipLabel(r.type)}
+-                              {r.investmentDate ? ` · ${format(r.investmentDate, "MMM yyyy")}` : ""}
+-                            </span>
+-                          </li>
+-                        ))}
+-                      </ul>
+-                    )}
+-                  </>
+-                ) : null}
++            <div className="flex flex-col gap-4 lg:col-span-2">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Description</h3>
++                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.description || "No description yet."}</p>
++                  {org.internalSummary ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Internal summary</h3>
++                      <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.internalSummary}</p>
++                    </>
++                  ) : null}
+ 
+-                {org.type === "PORTFOLIO_COMPANY" ? (
+-                  <>
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; former investors</h3>
+-                    {org.relationshipsAsTarget.length === 0 ? (
+-                      <p className="text-sm text-[var(--color-ink-subtle)]">No investor relationships recorded yet.</p>
+-                    ) : (
+-                      <ul className="flex flex-col gap-1">
+-                        {org.relationshipsAsTarget.map((r) => (
+-                          <li key={r.id} className="flex items-center justify-between text-sm">
+-                            <Link href={`/organisations/${r.sourceOrganizationId}`} className="text-[var(--color-accent)]">
+-                              {r.sourceOrganization.name}
+-                            </Link>
+-                            <span className="text-xs text-[var(--color-ink-subtle)]">
+-                              {inverseRelationshipLabel(r.type)}
+-                              {r.investmentDate ? ` · ${format(r.investmentDate, "MMM yyyy")}` : ""}
+-                            </span>
+-                          </li>
+-                        ))}
+-                      </ul>
+-                    )}
+-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Investment thesis</h3>
+-                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.investmentThesisSummary || "—"}</p>
+-                  </>
+-                ) : null}
+-              </CardContent>
+-            </Card>
+-            <Card>
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
+-                <dl className="grid grid-cols-1 gap-2 text-sm">
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Headquarters</dt>
+-                    <dd>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Employees</dt>
+-                    <dd>{org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Ownership</dt>
+-                    <dd>{org.ownershipType?.name || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Sector</dt>
+-                    <dd>{org.sectors.map((s) => s.sector.name).join(", ") || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Source</dt>
+-                    <dd>{org.source || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Created by</dt>
+-                    <dd>{org.createdBy.firstName} {org.createdBy.lastName}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Last verified</dt>
+-                    <dd>{org.lastVerifiedAt ? format(org.lastVerifiedAt, "d MMM yyyy") : "Never"}</dd>
+-                  </div>
+-                </dl>
+-                <div className="mt-4 flex flex-col gap-2">
+-                  {canArchive && !org.archivedAt ? (
+-                    <form action={archiveOrganizationAction.bind(null, org.id)}>
+-                      <Button type="submit" variant="outline" size="sm" className="w-full">
+-                        <Archive className="h-4 w-4" /> Archive
+-                      </Button>
+-                    </form>
++                  {org.type === "PE_FUND" ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Fund</h3>
++                      <dl className="grid grid-cols-2 gap-2 text-sm">
++                        <dt className="text-[var(--color-ink-subtle)]">Current fund / vintage</dt>
++                        <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
++                        <dt className="text-[var(--color-ink-subtle)]">AUM</dt>
++                        <dd>{formatMoney(org.aumAmount, org.aumCurrency)}</dd>
++                        <dt className="text-[var(--color-ink-subtle)]">Strategies</dt>
++                        <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
++                      </dl>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; exited portfolio</h3>
++                      {org.relationshipsAsSource.length === 0 ? (
++                        <p className="text-sm text-[var(--color-ink-subtle)]">No portfolio relationships recorded yet.</p>
++                      ) : (
++                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
++                          {org.relationshipsAsSource.map((r) => (
++                            <RelatedOrgCard
++                              key={r.id}
++                              id={r.targetOrganizationId}
++                              name={r.targetOrganization.name}
++                              type={r.targetOrganization.type}
++                              subtitle={forwardRelationshipLabel(r.type)}
++                              investmentStatus={r.investmentStatus}
++                              date={r.investmentDate}
++                            />
++                          ))}
++                        </div>
++                      )}
++                    </>
+                   ) : null}
+-                  {canRestore && org.archivedAt ? (
+-                    <form action={restoreOrganizationAction.bind(null, org.id)}>
+-                      <Button type="submit" variant="outline" size="sm" className="w-full">
+-                        <ArchiveRestore className="h-4 w-4" /> Restore
+-                      </Button>
+-                    </form>
++
++                  {org.type === "PORTFOLIO_COMPANY" ? (
++                    <>
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; former investors</h3>
++                      {org.relationshipsAsTarget.length === 0 ? (
++                        <p className="text-sm text-[var(--color-ink-subtle)]">No investor relationships recorded yet.</p>
++                      ) : (
++                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
++                          {org.relationshipsAsTarget.map((r) => (
++                            <RelatedOrgCard
++                              key={r.id}
++                              id={r.sourceOrganizationId}
++                              name={r.sourceOrganization.name}
++                              type={r.sourceOrganization.type}
++                              subtitle={inverseRelationshipLabel(r.type)}
++                              investmentStatus={r.investmentStatus}
++                              date={r.investmentDate}
++                            />
++                          ))}
++                        </div>
++                      )}
++
++                      {siblingPortcos.length > 0 ? (
++                        <>
++                          <h3 className="mb-2 mt-4 text-sm font-semibold">Other portfolio companies from the same investor{siblingPortcos.length === 1 ? "" : "s"}</h3>
++                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
++                            {siblingPortcos.map((r) => (
++                              <RelatedOrgCard
++                                key={r.id}
++                                id={r.targetOrganizationId}
++                                name={r.targetOrganization.name}
++                                type={r.targetOrganization.type}
++                                subtitle={`via ${r.sourceOrganization.name}`}
++                                investmentStatus={r.investmentStatus}
++                                date={r.investmentDate}
++                              />
++                            ))}
++                          </div>
++                        </>
++                      ) : null}
++
++                      <h3 className="mb-2 mt-4 text-sm font-semibold">Investment thesis</h3>
++                      <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.investmentThesisSummary || "—"}</p>
++                    </>
+                   ) : null}
+-                </div>
+-              </CardContent>
+-            </Card>
+-          </div>
+-        </TabsContent>
++                </CardContent>
++              </Card>
+ 
+-        <TabsContent value="people">
+-          {org.personAssociations.length === 0 ? (
+-            <EmptyState title="No people linked" description="Add a stakeholder to track relationships at this organisation." />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Name</TableHead>
+-                  <TableHead>Stakeholder role</TableHead>
+-                  <TableHead>Primary</TableHead>
+-                  <TableHead>Current</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {org.personAssociations.map((a) => (
+-                  <TableRow key={a.id}>
+-                    <TableCell>
+-                      <Link href={`/people/${a.personId}`} className="text-[var(--color-accent)]">
+-                        {a.person.firstName} {a.person.lastName}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>{a.stakeholderRoles.map((r) => label(r)).join(", ") || "—"}</TableCell>
+-                    <TableCell>{a.isPrimaryContact ? "Yes" : ""}</TableCell>
+-                    <TableCell>{a.isCurrent ? "Current" : "Past"}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
++                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
++                </CardContent>
++              </Card>
++            </div>
++
++            <div className="flex flex-col gap-4">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
++                  <dl className="grid grid-cols-1 gap-2 text-sm">
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Headquarters</dt>
++                      <dd>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Employees</dt>
++                      <dd>{org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Ownership</dt>
++                      <dd>{org.ownershipType?.name || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Sector</dt>
++                      <dd>{org.sectors.map((s) => s.sector.name).join(", ") || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Source</dt>
++                      <dd>{org.source || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Created by</dt>
++                      <dd>{org.createdBy.firstName} {org.createdBy.lastName}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Last verified</dt>
++                      <dd>{org.lastVerifiedAt ? format(org.lastVerifiedAt, "d MMM yyyy") : "Never"}</dd>
++                    </div>
++                  </dl>
++                  <div className="mt-4 flex flex-col gap-2">
++                    {canArchive && !org.archivedAt ? (
++                      <form action={archiveOrganizationAction.bind(null, org.id)}>
++                        <Button type="submit" variant="outline" size="sm" className="w-full">
++                          <Archive className="h-4 w-4" /> Archive
++                        </Button>
++                      </form>
++                    ) : null}
++                    {canRestore && org.archivedAt ? (
++                      <form action={restoreOrganizationAction.bind(null, org.id)}>
++                        <Button type="submit" variant="outline" size="sm" className="w-full">
++                          <ArchiveRestore className="h-4 w-4" /> Restore
++                        </Button>
++                      </form>
++                    ) : null}
++                  </div>
++                </CardContent>
++              </Card>
++
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">People ({org.personAssociations.length})</h3>
++                  {org.personAssociations.length === 0 ? (
++                    <p className="text-sm text-[var(--color-ink-subtle)]">No people linked.</p>
++                  ) : (
++                    <ul className="flex flex-col gap-2">
++                      {org.personAssociations.map((a) => (
++                        <li key={a.id} className="flex items-center justify-between gap-2 text-sm">
++                          <Link href={`/people/${a.personId}`} className="min-w-0 truncate text-[var(--color-accent)] hover:underline">
++                            {a.person.firstName} {a.person.lastName}
++                            {a.isPrimaryContact ? <span className="ml-1.5 text-xs text-[var(--color-ink-subtle)]">(Primary)</span> : null}
++                          </Link>
++                          <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{a.stakeholderRoles.map((r) => label(r)).join(", ") || "—"}</span>
++                        </li>
++                      ))}
++                    </ul>
++                  )}
++                </CardContent>
++              </Card>
++            </div>
++          </div>
+         </TabsContent>
+ 
+         <TabsContent value="relationships">
+@@ -448,62 +478,6 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="activity">
+-          {activityLinks.length === 0 ? (
+-            <EmptyState title="No activity logged yet" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {activityLinks.map((link) => (
+-                <Card key={link.id}>
+-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
+-                    <div>
+-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
+-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
+-                    </div>
+-                    <div className="whitespace-nowrap text-right text-xs text-[var(--color-ink-subtle)]">
+-                      <p>{format(link.activity.occurredAt, "d MMM yyyy")}</p>
+-                      <p>{link.activity.createdBy.firstName} {link.activity.createdBy.lastName}</p>
+-                    </div>
+-                  </CardContent>
+-                </Card>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
+-
+-        <TabsContent value="tasks">
+-          {taskLinks.length === 0 ? (
+-            <EmptyState title="No tasks linked" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Title</TableHead>
+-                  <TableHead>Status</TableHead>
+-                  <TableHead>Due</TableHead>
+-                  <TableHead>Assigned to</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {taskLinks.map((link) => (
+-                  <TableRow key={link.id}>
+-                    <TableCell>
+-                      <Link href="/tasks" className="text-[var(--color-accent)]">
+-                        {link.task.title}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>
+-                      <StatusBadge value={link.task.status} />
+-                    </TableCell>
+-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
+-                    <TableCell>{link.task.assignedUser.firstName} {link.task.assignedUser.lastName}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+         <TabsContent value="documents">
+           <div className="mb-3 flex justify-end">
+             <UploadDocumentDialog linkField="organizationId" linkId={org.id} />
+@@ -541,35 +515,6 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="offlimits">
+-          {offLimits.length === 0 ? (
+-            <EmptyState title="No off-limits restrictions" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Type</TableHead>
+-                  <TableHead>Severity</TableHead>
+-                  <TableHead>Reason</TableHead>
+-                  <TableHead>Active</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {offLimits.map((o) => (
+-                  <TableRow key={o.id}>
+-                    <TableCell>{label(o.type)}</TableCell>
+-                    <TableCell>
+-                      <Badge tone={o.severity === "BLOCK" ? "danger" : "warning"}>{label(o.severity)}</Badge>
+-                    </TableCell>
+-                    <TableCell className="max-w-md">{o.reason}</TableCell>
+-                    <TableCell>{(o.activeOverride ?? (!o.endDate || o.endDate > new Date())) ? "Active" : "Expired"}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+         {canViewAuditLog(user.role) ? (
+           <TabsContent value="audit">
+             {auditLogs.length === 0 ? (
+diff --git a/src/app/(app)/people/[id]/page.tsx b/src/app/(app)/people/[id]/page.tsx
+index 616f9d4..bf16a78 100644
+--- a/src/app/(app)/people/[id]/page.tsx
++++ b/src/app/(app)/people/[id]/page.tsx
+@@ -10,11 +10,13 @@ import { Button } from "@/components/ui/button";
+ import { Badge } from "@/components/ui/badge";
+ import { StatusBadge } from "@/components/ui/status-badge";
+ import { Card, CardContent } from "@/components/ui/card";
++import { Timeline } from "@/components/ui/timeline";
+ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label } from "@/lib/labels";
+ import { countryName } from "@/lib/iso";
+ import { formatMoney } from "@/lib/utils";
++import { getPersonTimeline } from "@/lib/timeline";
+ import { format } from "date-fns";
+ import { archivePersonAction, restorePersonAction } from "../actions";
+ import { EmploymentHistoryDialog } from "../employment-history-dialog";
+@@ -22,6 +24,7 @@ import { CandidateProfileDialog } from "../candidate-profile-dialog";
+ import { MergeButton } from "../merge-button";
+ import { PracticeAreaPicker } from "../practice-area-picker";
+ import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
++import { LogActivityDialog } from "../../activities/log-activity-dialog";
+ 
+ export default async function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
+   const user = await requireUser();
+@@ -41,35 +44,14 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+   });
+   if (!person) notFound();
+ 
+-  const [
+-    processes,
+-    activityLinks,
+-    taskLinks,
+-    documents,
+-    offLimits,
+-    auditLogs,
+-    organizations,
+-    duplicates,
+-    allPracticeAreas,
+-  ] = await Promise.all([
++  const [timeline, processes, documents, auditLogs, organizations, duplicates, allPracticeAreas, users] = await Promise.all([
++    getPersonTimeline(person.id),
+     prisma.candidateProcess.findMany({
+       where: { candidatePersonId: person.id },
+       include: { mandate: { include: { hiringOrganization: true } } },
+       orderBy: { updatedAt: "desc" },
+     }),
+-    prisma.activityPerson.findMany({
+-      where: { personId: person.id },
+-      include: { activity: { include: { createdBy: true } } },
+-      orderBy: { activity: { occurredAt: "desc" } },
+-      take: 30,
+-    }),
+-    prisma.taskPerson.findMany({
+-      where: { personId: person.id },
+-      include: { task: { include: { assignedUser: true } } },
+-      orderBy: { task: { dueDate: "asc" } },
+-    }),
+     prisma.documentPerson.findMany({ where: { personId: person.id }, include: { document: true } }),
+-    prisma.offLimitsRestriction.findMany({ where: { personId: person.id }, orderBy: { createdAt: "desc" } }),
+     canViewAuditLog(user.role)
+       ? prisma.auditLog.findMany({ where: { entityType: "Person", entityId: person.id }, include: { actor: true }, orderBy: { timestamp: "desc" }, take: 50 })
+       : Promise.resolve([]),
+@@ -78,6 +60,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+       ? findPersonDuplicates(user.workspaceId, { firstName: person.firstName, lastName: person.lastName, primaryEmail: person.primaryEmail, linkedinUrl: person.linkedinUrl }, person.id)
+       : Promise.resolve([]),
+     prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId, active: true }, orderBy: { displayOrder: "asc" } }),
++    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+   ]);
+ 
+   const canArchive = canArchiveRecord(user, { relationshipOwnerId: person.relationshipOwnerId, createdById: person.createdById });
+@@ -109,9 +92,11 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+         }
+         actions={
+           <>
+-            <Button variant="secondary" size="sm" asChild>
+-              <Link href={`/activities/new?personId=${person.id}`}>Log activity</Link>
+-            </Button>
++            <LogActivityDialog
++              users={users}
++              currentUserId={user.id}
++              linkContext={{ personId: person.id, label: `${person.firstName} ${person.lastName}` }}
++            />
+             <Button variant="secondary" size="sm" asChild>
+               <Link href={`/tasks/new?personId=${person.id}`}>Add task</Link>
+             </Button>
+@@ -129,96 +114,145 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+           <TabsTrigger value="overview">Overview</TabsTrigger>
+           {isCandidate ? <TabsTrigger value="candidate">Candidate Profile</TabsTrigger> : null}
+           <TabsTrigger value="employment">Employment History</TabsTrigger>
+-          <TabsTrigger value="processes">Processes ({processes.length})</TabsTrigger>
+-          <TabsTrigger value="relationships">Relationships</TabsTrigger>
+-          <TabsTrigger value="activity">Activity</TabsTrigger>
+-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
+-          <TabsTrigger value="documents">Documents</TabsTrigger>
+-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
++          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
+           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
+         </TabsList>
+ 
+         <TabsContent value="overview">
+           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+-            <Card className="lg:col-span-2">
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Summary</h3>
+-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{person.summary || "No summary yet."}</p>
++            <div className="flex flex-col gap-4 lg:col-span-2">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Summary</h3>
++                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{person.summary || "No summary yet."}</p>
++
++                  {duplicates.length > 0 ? (
++                    <div className="mt-4 rounded-md border border-[var(--color-status-warning-ink)] bg-[var(--color-status-warning-bg)] p-3">
++                      <p className="mb-2 text-sm font-medium text-[var(--color-status-warning-ink)]">Possible duplicate records</p>
++                      <ul className="flex flex-col gap-2">
++                        {duplicates.map((d) => (
++                          <li key={d.id} className="flex items-center justify-between text-sm">
++                            <Link href={`/people/${d.id}`} className="text-[var(--color-accent)]">
++                              {d.firstName} {d.lastName} — {d.reason}
++                            </Link>
++                            <MergeButton survivorId={person.id} duplicateId={d.id} duplicateName={`${d.firstName} ${d.lastName}`} />
++                          </li>
++                        ))}
++                      </ul>
++                    </div>
++                  ) : null}
++                </CardContent>
++              </Card>
++
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
++                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
++                </CardContent>
++              </Card>
++            </div>
++
++            <div className="flex flex-col gap-4">
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
++                  <dl className="grid grid-cols-1 gap-2 text-sm">
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Email</dt>
++                      <dd>{person.primaryEmail || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Phone</dt>
++                      <dd>{person.primaryPhone || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Location</dt>
++                      <dd>{[person.city, person.countryCode ? countryName(person.countryCode) : null].filter(Boolean).join(", ") || "—"}</dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Source</dt>
++                      <dd>{person.source || "—"}</dd>
++                    </div>
++                    <div className="flex flex-col gap-1.5">
++                      <dt className="text-[var(--color-ink-subtle)]">Practice areas</dt>
++                      <dd>
++                        <PracticeAreaPicker
++                          personId={person.id}
++                          allPracticeAreas={allPracticeAreas}
++                          selectedIds={person.practiceAreas.map((pa) => pa.practiceAreaId)}
++                          readOnly={!canMutate(user.role)}
++                        />
++                        {person.practiceAreas.length === 0 && !canMutate(user.role) ? (
++                          <span className="text-[var(--color-ink-subtle)]">—</span>
++                        ) : null}
++                      </dd>
++                    </div>
++                    <div className="flex justify-between">
++                      <dt className="text-[var(--color-ink-subtle)]">Created by</dt>
++                      <dd>{person.createdBy.firstName} {person.createdBy.lastName}</dd>
++                    </div>
++                  </dl>
++                  <div className="mt-4 flex flex-col gap-2">
++                    {canArchive && !person.archivedAt ? (
++                      <form action={archivePersonAction.bind(null, person.id)}>
++                        <Button type="submit" variant="outline" size="sm" className="w-full">
++                          <Archive className="h-4 w-4" /> Archive
++                        </Button>
++                      </form>
++                    ) : null}
++                    {canRestore && person.archivedAt ? (
++                      <form action={restorePersonAction.bind(null, person.id)}>
++                        <Button type="submit" variant="outline" size="sm" className="w-full">
++                          <ArchiveRestore className="h-4 w-4" /> Restore
++                        </Button>
++                      </form>
++                    ) : null}
++                  </div>
++                </CardContent>
++              </Card>
+ 
+-                {duplicates.length > 0 ? (
+-                  <div className="mt-4 rounded-md border border-[var(--color-status-warning-ink)] bg-[var(--color-status-warning-bg)] p-3">
+-                    <p className="mb-2 text-sm font-medium text-[var(--color-status-warning-ink)]">Possible duplicate records</p>
++              <Card>
++                <CardContent className="pt-4">
++                  <h3 className="mb-2 text-sm font-semibold">Organisation relationships ({person.organizationAssociations.length})</h3>
++                  {person.organizationAssociations.length === 0 ? (
++                    <p className="text-sm text-[var(--color-ink-subtle)]">No organisation relationships.</p>
++                  ) : (
+                     <ul className="flex flex-col gap-2">
+-                      {duplicates.map((d) => (
+-                        <li key={d.id} className="flex items-center justify-between text-sm">
+-                          <Link href={`/people/${d.id}`} className="text-[var(--color-accent)]">
+-                            {d.firstName} {d.lastName} — {d.reason}
++                      {person.organizationAssociations.map((a) => (
++                        <li key={a.id} className="flex items-center justify-between text-sm">
++                          <Link href={`/organisations/${a.organizationId}`} className="text-[var(--color-accent)] hover:underline">
++                            {a.organization.name}
+                           </Link>
+-                          <MergeButton survivorId={person.id} duplicateId={d.id} duplicateName={`${d.firstName} ${d.lastName}`} />
++                          <span className="text-xs text-[var(--color-ink-subtle)]">{a.isCurrent ? "Current" : "Past"}</span>
+                         </li>
+                       ))}
+                     </ul>
+-                  </div>
+-                ) : null}
+-              </CardContent>
+-            </Card>
+-            <Card>
+-              <CardContent className="pt-4">
+-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
+-                <dl className="grid grid-cols-1 gap-2 text-sm">
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Email</dt>
+-                    <dd>{person.primaryEmail || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Phone</dt>
+-                    <dd>{person.primaryPhone || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Location</dt>
+-                    <dd>{[person.city, person.countryCode ? countryName(person.countryCode) : null].filter(Boolean).join(", ") || "—"}</dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Source</dt>
+-                    <dd>{person.source || "—"}</dd>
+-                  </div>
+-                  <div className="flex flex-col gap-1.5">
+-                    <dt className="text-[var(--color-ink-subtle)]">Practice areas</dt>
+-                    <dd>
+-                      <PracticeAreaPicker
+-                        personId={person.id}
+-                        allPracticeAreas={allPracticeAreas}
+-                        selectedIds={person.practiceAreas.map((pa) => pa.practiceAreaId)}
+-                        readOnly={!canMutate(user.role)}
+-                      />
+-                      {person.practiceAreas.length === 0 && !canMutate(user.role) ? (
+-                        <span className="text-[var(--color-ink-subtle)]">—</span>
+-                      ) : null}
+-                    </dd>
+-                  </div>
+-                  <div className="flex justify-between">
+-                    <dt className="text-[var(--color-ink-subtle)]">Created by</dt>
+-                    <dd>{person.createdBy.firstName} {person.createdBy.lastName}</dd>
+-                  </div>
+-                </dl>
+-                <div className="mt-4 flex flex-col gap-2">
+-                  {canArchive && !person.archivedAt ? (
+-                    <form action={archivePersonAction.bind(null, person.id)}>
+-                      <Button type="submit" variant="outline" size="sm" className="w-full">
+-                        <Archive className="h-4 w-4" /> Archive
+-                      </Button>
+-                    </form>
+-                  ) : null}
+-                  {canRestore && person.archivedAt ? (
+-                    <form action={restorePersonAction.bind(null, person.id)}>
+-                      <Button type="submit" variant="outline" size="sm" className="w-full">
+-                        <ArchiveRestore className="h-4 w-4" /> Restore
+-                      </Button>
+-                    </form>
+-                  ) : null}
+-                </div>
+-              </CardContent>
+-            </Card>
++                  )}
++                </CardContent>
++              </Card>
++
++              {isCandidate ? (
++                <Card>
++                  <CardContent className="pt-4">
++                    <h3 className="mb-2 text-sm font-semibold">Candidate processes ({processes.length})</h3>
++                    {processes.length === 0 ? (
++                      <p className="text-sm text-[var(--color-ink-subtle)]">Not on any candidate pipelines yet.</p>
++                    ) : (
++                      <ul className="flex flex-col gap-2">
++                        {processes.map((p) => (
++                          <li key={p.id} className="flex items-center justify-between gap-2 text-sm">
++                            <Link href={`/mandates/${p.mandateId}`} className="min-w-0 truncate text-[var(--color-accent)] hover:underline">
++                              {p.mandate.reference} — {p.mandate.title}
++                            </Link>
++                            <StatusBadge value={p.stage} />
++                          </li>
++                        ))}
++                      </ul>
++                    )}
++                  </CardContent>
++                </Card>
++              ) : null}
++            </div>
+           </div>
+         </TabsContent>
+ 
+@@ -324,120 +358,6 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="processes">
+-          {processes.length === 0 ? (
+-            <EmptyState title="Not on any candidate pipelines yet" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Mandate</TableHead>
+-                  <TableHead>Organisation</TableHead>
+-                  <TableHead>Stage</TableHead>
+-                  <TableHead>Updated</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {processes.map((p) => (
+-                  <TableRow key={p.id}>
+-                    <TableCell>
+-                      <Link href={`/mandates/${p.mandateId}`} className="text-[var(--color-accent)]">
+-                        {p.mandate.reference} — {p.mandate.title}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>{p.mandate.hiringOrganization.name}</TableCell>
+-                    <TableCell>
+-                      <StatusBadge value={p.stage} />
+-                    </TableCell>
+-                    <TableCell>{format(p.updatedAt, "d MMM yyyy")}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+-        <TabsContent value="relationships">
+-          {person.organizationAssociations.length === 0 ? (
+-            <EmptyState title="No organisation relationships" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Organisation</TableHead>
+-                  <TableHead>Stakeholder role</TableHead>
+-                  <TableHead>Current</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {person.organizationAssociations.map((a) => (
+-                  <TableRow key={a.id}>
+-                    <TableCell>
+-                      <Link href={`/organisations/${a.organizationId}`} className="text-[var(--color-accent)]">
+-                        {a.organization.name}
+-                      </Link>
+-                    </TableCell>
+-                    <TableCell>{a.stakeholderRoles.map((r) => label(r)).join(", ") || "—"}</TableCell>
+-                    <TableCell>{a.isCurrent ? "Current" : "Past"}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+-        <TabsContent value="activity">
+-          {activityLinks.length === 0 ? (
+-            <EmptyState title="No activity logged yet" />
+-          ) : (
+-            <div className="flex flex-col gap-2">
+-              {activityLinks.map((link) => (
+-                <Card key={link.id}>
+-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
+-                    <div>
+-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
+-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
+-                    </div>
+-                    <div className="whitespace-nowrap text-right text-xs text-[var(--color-ink-subtle)]">
+-                      <p>{format(link.activity.occurredAt, "d MMM yyyy")}</p>
+-                      <p>{link.activity.createdBy.firstName} {link.activity.createdBy.lastName}</p>
+-                    </div>
+-                  </CardContent>
+-                </Card>
+-              ))}
+-            </div>
+-          )}
+-        </TabsContent>
+-
+-        <TabsContent value="tasks">
+-          {taskLinks.length === 0 ? (
+-            <EmptyState title="No tasks linked" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Title</TableHead>
+-                  <TableHead>Status</TableHead>
+-                  <TableHead>Due</TableHead>
+-                  <TableHead>Assigned to</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {taskLinks.map((link) => (
+-                  <TableRow key={link.id}>
+-                    <TableCell>{link.task.title}</TableCell>
+-                    <TableCell>
+-                      <StatusBadge value={link.task.status} />
+-                    </TableCell>
+-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
+-                    <TableCell>{link.task.assignedUser.firstName} {link.task.assignedUser.lastName}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+         <TabsContent value="documents">
+           <div className="mb-3 flex justify-end">
+             <UploadDocumentDialog linkField="personId" linkId={person.id} />
+@@ -472,33 +392,6 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
+           )}
+         </TabsContent>
+ 
+-        <TabsContent value="offlimits">
+-          {offLimits.length === 0 ? (
+-            <EmptyState title="No off-limits restrictions" />
+-          ) : (
+-            <Table>
+-              <TableHeader>
+-                <TableRow>
+-                  <TableHead>Type</TableHead>
+-                  <TableHead>Severity</TableHead>
+-                  <TableHead>Reason</TableHead>
+-                </TableRow>
+-              </TableHeader>
+-              <TableBody>
+-                {offLimits.map((o) => (
+-                  <TableRow key={o.id}>
+-                    <TableCell>{label(o.type)}</TableCell>
+-                    <TableCell>
+-                      <Badge tone={o.severity === "BLOCK" ? "danger" : "warning"}>{label(o.severity)}</Badge>
+-                    </TableCell>
+-                    <TableCell className="max-w-md">{o.reason}</TableCell>
+-                  </TableRow>
+-                ))}
+-              </TableBody>
+-            </Table>
+-          )}
+-        </TabsContent>
+-
+         {canViewAuditLog(user.role) ? (
+           <TabsContent value="audit">
+             {auditLogs.length === 0 ? (
+diff --git a/src/app/(app)/people/page.tsx b/src/app/(app)/people/page.tsx
+index e514522..52120fb 100644
+--- a/src/app/(app)/people/page.tsx
++++ b/src/app/(app)/people/page.tsx
+@@ -13,8 +13,21 @@ import { PracticeAreaBadge } from "@/components/ui/practice-area-badge";
+ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+ import { label } from "@/lib/labels";
+ import { cn, formatMoney } from "@/lib/utils";
++import { PeopleFilters } from "./people-filters";
+ import { PeopleGrid, type GridPerson } from "./people-grid";
+-import type { Prisma, PersonType } from "@prisma/client";
++import type { Prisma, PersonType, Seniority } from "@prisma/client";
++
++const SENIORITY_VALUES: Seniority[] = [
++  "BOARD_OR_C_SUITE",
++  "N_MINUS_1",
++  "DIRECTOR_OR_VP",
++  "HEAD_OF",
++  "SENIOR_MANAGER",
++  "MANAGER",
++  "INDIVIDUAL_CONTRIBUTOR",
++  "CONSULTANT_OR_INTERIM",
++  "OTHER",
++];
+ 
+ const PAGE_SIZE = 25;
+ 
+@@ -40,23 +53,40 @@ export default async function PeoplePage({
+   const viewId = typeof sp.view === "string" ? sp.view : undefined;
+   const page = Math.max(1, Number(sp.page) || 1);
+   const display = sp.display === "table" ? "table" : "grid";
++  const practiceAreaId = typeof sp.practiceAreaId === "string" ? sp.practiceAreaId : undefined;
++  const seniority = typeof sp.seniority === "string" && SENIORITY_VALUES.includes(sp.seniority as Seniority) ? (sp.seniority as Seniority) : undefined;
+ 
+-  const [views, activeView] = await Promise.all([
++  const [views, activeView, practiceAreas] = await Promise.all([
+     prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "PERSON" }, orderBy: { name: "asc" } }),
+     viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
++    prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId, active: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true } }),
+   ]);
+ 
+   const where: Prisma.PersonWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
+   if (filter?.personType) where.personTypes = { has: filter.personType };
++  if (activeView) Object.assign(where, personViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
++
++  const andConditions: Prisma.PersonWhereInput[] = [];
+   if (q) {
+-    where.OR = [
+-      { firstName: { contains: q, mode: "insensitive" } },
+-      { lastName: { contains: q, mode: "insensitive" } },
+-      { primaryEmail: { contains: q, mode: "insensitive" } },
+-      { headlineOverride: { contains: q, mode: "insensitive" } },
+-    ];
++    andConditions.push({
++      OR: [
++        { firstName: { contains: q, mode: "insensitive" } },
++        { lastName: { contains: q, mode: "insensitive" } },
++        { primaryEmail: { contains: q, mode: "insensitive" } },
++        { headlineOverride: { contains: q, mode: "insensitive" } },
++      ],
++    });
+   }
+-  if (activeView) Object.assign(where, personViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
++  if (practiceAreaId) andConditions.push({ practiceAreas: { some: { practiceAreaId } } });
++  if (seniority) {
++    andConditions.push({
++      OR: [
++        { employmentHistories: { some: { isCurrent: true, seniority } } },
++        { candidateProfile: { seniorityValues: { has: seniority } } },
++      ],
++    });
++  }
++  if (andConditions.length > 0) where.AND = andConditions;
+ 
+   const isCandidateView = filterKey === "candidates";
+ 
+@@ -64,6 +94,8 @@ export default async function PeoplePage({
+     const params = new URLSearchParams();
+     if (filterKey) params.set("filter", filterKey);
+     if (q) params.set("q", q);
++    if (practiceAreaId) params.set("practiceAreaId", practiceAreaId);
++    if (seniority) params.set("seniority", seniority);
+     if (viewId) params.set("view", viewId);
+     params.set("display", nextDisplay);
+     return `?${params.toString()}`;
+@@ -151,14 +183,19 @@ export default async function PeoplePage({
+         }
+       />
+ 
+-      <form className="mb-4 flex max-w-sm gap-2" action="/people" method="GET">
+-        {filterKey ? <input type="hidden" name="filter" value={filterKey} /> : null}
+-        <input type="hidden" name="display" value={display} />
+-        <Input name="q" defaultValue={q} placeholder="Search by name or email…" />
+-        <Button type="submit" variant="secondary">
+-          Search
+-        </Button>
+-      </form>
++      <div className="mb-4 flex flex-wrap items-center gap-2">
++        <form className="flex max-w-sm flex-1 gap-2" action="/people" method="GET">
++          {filterKey ? <input type="hidden" name="filter" value={filterKey} /> : null}
++          <input type="hidden" name="display" value={display} />
++          {practiceAreaId ? <input type="hidden" name="practiceAreaId" value={practiceAreaId} /> : null}
++          {seniority ? <input type="hidden" name="seniority" value={seniority} /> : null}
++          <Input name="q" defaultValue={q} placeholder="Search by name or email…" />
++          <Button type="submit" variant="secondary">
++            Search
++          </Button>
++        </form>
++        <PeopleFilters practiceAreas={practiceAreas} currentPracticeAreaId={practiceAreaId ?? "all"} currentSeniority={seniority ?? "all"} />
++      </div>
+ 
+       {people.length === 0 ? (
+         <EmptyState
+diff --git a/src/app/(app)/people/people-filters.tsx b/src/app/(app)/people/people-filters.tsx
+new file mode 100644
+index 0000000..3cee808
+--- /dev/null
++++ b/src/app/(app)/people/people-filters.tsx
+@@ -0,0 +1,69 @@
++"use client";
++
++import { useRouter, useSearchParams } from "next/navigation";
++import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
++import { label } from "@/lib/labels";
++
++const SENIORITY_VALUES = [
++  "BOARD_OR_C_SUITE",
++  "N_MINUS_1",
++  "DIRECTOR_OR_VP",
++  "HEAD_OF",
++  "SENIOR_MANAGER",
++  "MANAGER",
++  "INDIVIDUAL_CONTRIBUTOR",
++  "CONSULTANT_OR_INTERIM",
++  "OTHER",
++];
++
++export function PeopleFilters({
++  practiceAreas,
++  currentPracticeAreaId,
++  currentSeniority,
++}: {
++  practiceAreas: { id: string; name: string }[];
++  currentPracticeAreaId: string;
++  currentSeniority: string;
++}) {
++  const router = useRouter();
++  const searchParams = useSearchParams();
++
++  function setParam(key: string, value: string) {
++    const params = new URLSearchParams(searchParams.toString());
++    if (value === "all") params.delete(key);
++    else params.set(key, value);
++    params.delete("page");
++    router.push(`?${params.toString()}`);
++  }
++
++  return (
++    <div className="flex flex-wrap items-center gap-2">
++      <Select value={currentPracticeAreaId} onValueChange={(v) => setParam("practiceAreaId", v)}>
++        <SelectTrigger className="w-44" aria-label="Filter by practice area">
++          <SelectValue placeholder="Practice area" />
++        </SelectTrigger>
++        <SelectContent>
++          <SelectItem value="all">All practice areas</SelectItem>
++          {practiceAreas.map((pa) => (
++            <SelectItem key={pa.id} value={pa.id}>
++              {pa.name}
++            </SelectItem>
++          ))}
++        </SelectContent>
++      </Select>
++      <Select value={currentSeniority} onValueChange={(v) => setParam("seniority", v)}>
++        <SelectTrigger className="w-44" aria-label="Filter by seniority">
++          <SelectValue placeholder="Seniority" />
++        </SelectTrigger>
++        <SelectContent>
++          <SelectItem value="all">All seniorities</SelectItem>
++          {SENIORITY_VALUES.map((s) => (
++            <SelectItem key={s} value={s}>
++              {label(s)}
++            </SelectItem>
++          ))}
++        </SelectContent>
++      </Select>
++    </div>
++  );
++}
+diff --git a/src/components/ui/next-action-card.tsx b/src/components/ui/next-action-card.tsx
+new file mode 100644
+index 0000000..21a0172
+--- /dev/null
++++ b/src/components/ui/next-action-card.tsx
+@@ -0,0 +1,44 @@
++import Link from "next/link";
++import { format } from "date-fns";
++import { Card, CardContent } from "@/components/ui/card";
++import { NextActionDot } from "@/components/ui/next-action-dot";
++import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
++import { nextActionStatus } from "@/lib/next-action-status";
++
++export function NextActionCard({
++  task,
++  newTaskHref,
++}: {
++  task: { id: string; title: string; dueDate: Date; status: string; assigneeName: string } | null;
++  newTaskHref: string;
++}) {
++  if (!task) {
++    return (
++      <Card>
++        <CardContent className="flex items-center justify-between gap-3 py-3.5">
++          <p className="text-sm text-[var(--color-ink-subtle)]">No next action scheduled.</p>
++          <Link href={newTaskHref} className="text-sm font-medium text-[var(--color-highlight)] hover:underline">
++            Add task
++          </Link>
++        </CardContent>
++      </Card>
++    );
++  }
++
++  const status = nextActionStatus(task.dueDate);
++
++  return (
++    <Card>
++      <CardContent className="flex items-center gap-3 py-3.5">
++        <NextActionDot status={status} className="h-7 w-7" />
++        <div className="min-w-0 flex-1">
++          <p className="truncate text-sm font-medium text-[var(--color-ink)]">{task.title}</p>
++          <p className="text-xs text-[var(--color-ink-subtle)]">
++            Due {format(task.dueDate, "d MMM yyyy")} · {task.assigneeName}
++          </p>
++        </div>
++        <TaskRowActions taskId={task.id} status={task.status} />
++      </CardContent>
++    </Card>
++  );
++}
+diff --git a/src/components/ui/related-org-card.tsx b/src/components/ui/related-org-card.tsx
+new file mode 100644
+index 0000000..1b8c392
+--- /dev/null
++++ b/src/components/ui/related-org-card.tsx
+@@ -0,0 +1,42 @@
++import Link from "next/link";
++import { Building2, Landmark } from "lucide-react";
++import { Card, CardContent } from "@/components/ui/card";
++import { Badge } from "@/components/ui/badge";
++import { label } from "@/lib/labels";
++import { format } from "date-fns";
++
++export function RelatedOrgCard({
++  id,
++  name,
++  type,
++  subtitle,
++  investmentStatus,
++  date,
++}: {
++  id: string;
++  name: string;
++  type: string;
++  subtitle?: string | null;
++  investmentStatus?: string | null;
++  date?: Date | null;
++}) {
++  return (
++    <Link href={`/organisations/${id}`} className="block">
++      <Card className="h-full transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]">
++        <CardContent className="flex items-start gap-2.5 p-3">
++          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]">
++            {type === "PE_FUND" ? <Landmark className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
++          </span>
++          <div className="min-w-0 flex-1">
++            <p className="truncate text-sm font-medium text-[var(--color-ink)]">{name}</p>
++            <p className="truncate text-xs text-[var(--color-ink-subtle)]">{subtitle ?? label(type)}</p>
++            <div className="mt-1.5 flex items-center gap-1.5">
++              {investmentStatus ? <Badge tone={investmentStatus === "CURRENT" ? "success" : "neutral"}>{label(investmentStatus)}</Badge> : null}
++              {date ? <span className="text-xs text-[var(--color-ink-subtle)]">{format(date, "MMM yyyy")}</span> : null}
++            </div>
++          </div>
++        </CardContent>
++      </Card>
++    </Link>
++  );
++}
+diff --git a/src/components/ui/timeline.tsx b/src/components/ui/timeline.tsx
+new file mode 100644
+index 0000000..bda4c72
+--- /dev/null
++++ b/src/components/ui/timeline.tsx
+@@ -0,0 +1,120 @@
++import {
++  Phone,
++  Mail,
++  Users,
++  Share2,
++  MessageCircle,
++  StickyNote,
++  Video,
++  RefreshCw,
++  Zap,
++  Activity as ActivityIcon,
++  CheckCircle2,
++  Circle,
++  ArrowRightCircle,
++  type LucideIcon,
++} from "lucide-react";
++import { format, isToday, isYesterday } from "date-fns";
++import { cn } from "@/lib/utils";
++import { label } from "@/lib/labels";
++import type { TimelineItem } from "@/lib/timeline";
++
++const ACTIVITY_ICONS: Record<string, LucideIcon> = {
++  CALL: Phone,
++  EMAIL: Mail,
++  MEETING: Users,
++  LINKEDIN_MESSAGE: Share2,
++  WHATSAPP: MessageCircle,
++  NOTE: StickyNote,
++  INTERVIEW: Video,
++  INTERNAL_UPDATE: RefreshCw,
++  SYSTEM_EVENT: Zap,
++  OTHER: ActivityIcon,
++};
++
++function friendlyDate(date: Date) {
++  if (isToday(date)) return `Today, ${format(date, "HH:mm")}`;
++  if (isYesterday(date)) return `Yesterday, ${format(date, "HH:mm")}`;
++  return format(date, "d MMM yyyy, HH:mm");
++}
++
++function IconBubble({ icon: Icon, tone }: { icon: LucideIcon; tone: "highlight" | "success" | "neutral" }) {
++  const toneClass =
++    tone === "highlight"
++      ? "bg-[var(--color-highlight-subtle)] text-[var(--color-highlight)]"
++      : tone === "success"
++        ? "bg-[var(--color-status-success-bg)] text-[var(--color-status-success-ink)]"
++        : "bg-[var(--color-status-neutral-bg)] text-[var(--color-ink-subtle)]";
++  return (
++    <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full", toneClass)}>
++      <Icon className="h-3.5 w-3.5" />
++    </span>
++  );
++}
++
++function TimelineRow({ item }: { item: TimelineItem }) {
++  if (item.kind === "activity") {
++    const Icon = ACTIVITY_ICONS[item.activityType] ?? ActivityIcon;
++    return (
++      <div className="flex gap-3">
++        <IconBubble icon={Icon} tone="highlight" />
++        <div className="min-w-0 flex-1 pb-1">
++          <div className="flex items-baseline justify-between gap-2">
++            <p className="text-sm font-medium text-[var(--color-ink)]">{item.subject || label(item.activityType)}</p>
++            <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
++          </div>
++          {item.summary ? <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">{item.summary}</p> : null}
++          <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
++            {label(item.activityType)} · {item.actorName}
++            {item.outcome ? ` · ${label(item.outcome)}` : ""}
++          </p>
++        </div>
++      </div>
++    );
++  }
++
++  if (item.kind === "task") {
++    return (
++      <div className="flex gap-3">
++        <IconBubble icon={item.completed ? CheckCircle2 : Circle} tone={item.completed ? "success" : "neutral"} />
++        <div className="min-w-0 flex-1 pb-1">
++          <div className="flex items-baseline justify-between gap-2">
++            <p className="text-sm font-medium text-[var(--color-ink)]">{item.title}</p>
++            <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
++          </div>
++          <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
++            {item.completed ? "Completed" : "Due"} · {item.assigneeName}
++          </p>
++        </div>
++      </div>
++    );
++  }
++
++  return (
++    <div className="flex gap-3">
++      <IconBubble icon={ArrowRightCircle} tone="neutral" />
++      <div className="min-w-0 flex-1 pb-1">
++        <div className="flex items-baseline justify-between gap-2">
++          <p className="text-sm font-medium text-[var(--color-ink)]">
++            {item.fromLabel ? `${label(item.fromLabel)} → ${label(item.toLabel)}` : `Set to ${label(item.toLabel)}`}
++          </p>
++          <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
++        </div>
++        <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">Stage changed · {item.actorName}</p>
++      </div>
++    </div>
++  );
++}
++
++export function Timeline({ items, emptyLabel }: { items: TimelineItem[]; emptyLabel: string }) {
++  if (items.length === 0) {
++    return <p className="text-sm text-[var(--color-ink-subtle)]">{emptyLabel}</p>;
++  }
++  return (
++    <div className="flex flex-col gap-3.5">
++      {items.map((item) => (
++        <TimelineRow key={`${item.kind}-${item.id}`} item={item} />
++      ))}
++    </div>
++  );
++}
+diff --git a/src/lib/timeline.ts b/src/lib/timeline.ts
+new file mode 100644
+index 0000000..da56b8b
+--- /dev/null
++++ b/src/lib/timeline.ts
+@@ -0,0 +1,211 @@
++import "server-only";
++import { prisma } from "@/lib/prisma";
++
++export type TimelineItem =
++  | {
++      kind: "activity";
++      id: string;
++      date: Date;
++      activityType: string;
++      direction: string;
++      outcome: string | null;
++      subject: string | null;
++      summary: string | null;
++      actorName: string;
++    }
++  | {
++      kind: "task";
++      id: string;
++      date: Date;
++      title: string;
++      status: string;
++      completed: boolean;
++      assigneeName: string;
++    }
++  | {
++      kind: "stage_change";
++      id: string;
++      date: Date;
++      fromLabel: string | null;
++      toLabel: string;
++      actorName: string;
++    };
++
++/** Opportunity-specific for now — extend with mandate/person/org variants as those pages adopt the same timeline. */
++export async function getOpportunityTimeline(opportunityId: string): Promise<TimelineItem[]> {
++  const [activityLinks, taskLinks, stageHistory] = await Promise.all([
++    prisma.activityOpportunity.findMany({
++      where: { opportunityId },
++      include: { activity: { include: { createdBy: true } } },
++    }),
++    prisma.taskOpportunity.findMany({
++      where: { opportunityId },
++      include: { task: { include: { assignedUser: true } } },
++    }),
++    prisma.opportunityStageHistory.findMany({
++      where: { opportunityId },
++      include: { changedBy: true },
++    }),
++  ]);
++
++  const items: TimelineItem[] = [
++    ...activityLinks.map((l): TimelineItem => ({
++      kind: "activity",
++      id: l.activity.id,
++      date: l.activity.occurredAt,
++      activityType: l.activity.type,
++      direction: l.activity.direction,
++      outcome: l.activity.outcome,
++      subject: l.activity.subject,
++      summary: l.activity.summary,
++      actorName: `${l.activity.createdBy.firstName} ${l.activity.createdBy.lastName}`,
++    })),
++    ...taskLinks.map((l): TimelineItem => ({
++      kind: "task",
++      id: l.task.id,
++      date: l.task.completedAt ?? l.task.dueDate,
++      title: l.task.title,
++      status: l.task.status,
++      completed: l.task.status === "COMPLETED",
++      assigneeName: `${l.task.assignedUser.firstName} ${l.task.assignedUser.lastName}`,
++    })),
++    ...stageHistory.map((h): TimelineItem => ({
++      kind: "stage_change",
++      id: h.id,
++      date: h.changedAt,
++      fromLabel: h.fromStage,
++      toLabel: h.toStage,
++      actorName: `${h.changedBy.firstName} ${h.changedBy.lastName}`,
++    })),
++  ];
++
++  return items.sort((a, b) => b.date.getTime() - a.date.getTime());
++}
++
++export async function getPersonTimeline(personId: string): Promise<TimelineItem[]> {
++  const [activityLinks, taskLinks] = await Promise.all([
++    prisma.activityPerson.findMany({
++      where: { personId },
++      include: { activity: { include: { createdBy: true } } },
++      take: 50,
++    }),
++    prisma.taskPerson.findMany({
++      where: { personId },
++      include: { task: { include: { assignedUser: true } } },
++    }),
++  ]);
++
++  const items: TimelineItem[] = [
++    ...activityLinks.map((l): TimelineItem => ({
++      kind: "activity",
++      id: l.activity.id,
++      date: l.activity.occurredAt,
++      activityType: l.activity.type,
++      direction: l.activity.direction,
++      outcome: l.activity.outcome,
++      subject: l.activity.subject,
++      summary: l.activity.summary,
++      actorName: `${l.activity.createdBy.firstName} ${l.activity.createdBy.lastName}`,
++    })),
++    ...taskLinks.map((l): TimelineItem => ({
++      kind: "task",
++      id: l.task.id,
++      date: l.task.completedAt ?? l.task.dueDate,
++      title: l.task.title,
++      status: l.task.status,
++      completed: l.task.status === "COMPLETED",
++      assigneeName: `${l.task.assignedUser.firstName} ${l.task.assignedUser.lastName}`,
++    })),
++  ];
++
++  return items.sort((a, b) => b.date.getTime() - a.date.getTime());
++}
++
++export async function getOrganizationTimeline(organizationId: string): Promise<TimelineItem[]> {
++  const [activityLinks, taskLinks] = await Promise.all([
++    prisma.activityOrganization.findMany({
++      where: { organizationId },
++      include: { activity: { include: { createdBy: true } } },
++      take: 50,
++    }),
++    prisma.taskOrganization.findMany({
++      where: { organizationId },
++      include: { task: { include: { assignedUser: true } } },
++    }),
++  ]);
++
++  const items: TimelineItem[] = [
++    ...activityLinks.map((l): TimelineItem => ({
++      kind: "activity",
++      id: l.activity.id,
++      date: l.activity.occurredAt,
++      activityType: l.activity.type,
++      direction: l.activity.direction,
++      outcome: l.activity.outcome,
++      subject: l.activity.subject,
++      summary: l.activity.summary,
++      actorName: `${l.activity.createdBy.firstName} ${l.activity.createdBy.lastName}`,
++    })),
++    ...taskLinks.map((l): TimelineItem => ({
++      kind: "task",
++      id: l.task.id,
++      date: l.task.completedAt ?? l.task.dueDate,
++      title: l.task.title,
++      status: l.task.status,
++      completed: l.task.status === "COMPLETED",
++      assigneeName: `${l.task.assignedUser.firstName} ${l.task.assignedUser.lastName}`,
++    })),
++  ];
++
++  return items.sort((a, b) => b.date.getTime() - a.date.getTime());
++}
++
++export async function getMandateTimeline(mandateId: string): Promise<TimelineItem[]> {
++  const [activityLinks, taskLinks, statusHistory] = await Promise.all([
++    prisma.activityMandate.findMany({
++      where: { mandateId },
++      include: { activity: { include: { createdBy: true } } },
++    }),
++    prisma.taskMandate.findMany({
++      where: { mandateId },
++      include: { task: { include: { assignedUser: true } } },
++    }),
++    prisma.mandateStatusHistory.findMany({
++      where: { mandateId },
++      include: { changedBy: true },
++    }),
++  ]);
++
++  const items: TimelineItem[] = [
++    ...activityLinks.map((l): TimelineItem => ({
++      kind: "activity",
++      id: l.activity.id,
++      date: l.activity.occurredAt,
++      activityType: l.activity.type,
++      direction: l.activity.direction,
++      outcome: l.activity.outcome,
++      subject: l.activity.subject,
++      summary: l.activity.summary,
++      actorName: `${l.activity.createdBy.firstName} ${l.activity.createdBy.lastName}`,
++    })),
++    ...taskLinks.map((l): TimelineItem => ({
++      kind: "task",
++      id: l.task.id,
++      date: l.task.completedAt ?? l.task.dueDate,
++      title: l.task.title,
++      status: l.task.status,
++      completed: l.task.status === "COMPLETED",
++      assigneeName: `${l.task.assignedUser.firstName} ${l.task.assignedUser.lastName}`,
++    })),
++    ...statusHistory.map((h): TimelineItem => ({
++      kind: "stage_change",
++      id: h.id,
++      date: h.changedAt,
++      fromLabel: h.fromStatus,
++      toLabel: h.toStatus,
++      actorName: `${h.changedBy.firstName} ${h.changedBy.lastName}`,
++    })),
++  ];
++
++  return items.sort((a, b) => b.date.getTime() - a.date.getTime());
++}

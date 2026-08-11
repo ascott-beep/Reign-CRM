@@ -6,16 +6,19 @@ import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { NextActionCard } from "@/components/ui/next-action-card";
+import { Timeline } from "@/components/ui/timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
+import { getOpportunityTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { convertOpportunityToMandateAction } from "../actions";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
+import { LogActivityDialog } from "../../activities/log-activity-dialog";
 import { StageSelect } from "../stage-select";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,24 +35,19 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       sourcePerson: true,
       relatedFunds: { include: { organization: true } },
       stakeholders: { include: { person: true } },
-      stageHistory: { include: { changedBy: true }, orderBy: { changedAt: "desc" } },
       wonMandate: true,
+      primaryNextTask: { include: { assignedUser: true } },
     },
   });
   if (!opportunity) notFound();
 
-  const [activityLinks, taskLinks, documents, offLimits, auditLogs] = await Promise.all([
-    prisma.activityOpportunity.findMany({
-      where: { opportunityId: opportunity.id },
-      include: { activity: { include: { createdBy: true } } },
-      orderBy: { activity: { occurredAt: "desc" } },
-    }),
-    prisma.taskOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { task: { include: { assignedUser: true } } }, orderBy: { task: { dueDate: "asc" } } }),
+  const [timeline, documents, auditLogs, users] = await Promise.all([
+    getOpportunityTimeline(opportunity.id),
     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
-    prisma.offLimitsRestriction.findMany({ where: { organizationId: opportunity.hiringOrganizationId }, take: 5 }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Opportunity", entityId: opportunity.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
+    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
 
   const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
@@ -88,6 +86,11 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 <Link href={`/mandates/${opportunity.wonMandateId}`}>View Mandate</Link>
               </Button>
             ) : null}
+            <LogActivityDialog
+              users={users}
+              currentUserId={user.id}
+              linkContext={{ opportunityId: opportunity.id, label: opportunity.name }}
+            />
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/opportunities/${opportunity.id}/edit`}>
                 <Pencil className="h-4 w-4" /> Edit
@@ -100,142 +103,96 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="stakeholders">Stakeholders ({opportunity.stakeholders.length})</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
+          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
         </TabsList>
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardContent className="pt-4">
-                <h3 className="mb-2 text-sm font-semibold">Next step</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
-                <h3 className="mb-2 mt-4 text-sm font-semibold">Notes</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
-                {opportunity.stage === "LOST" ? (
-                  <>
-                    <h3 className="mb-2 mt-4 text-sm font-semibold">Loss reason</h3>
-                    <p className="text-sm text-[var(--color-ink-muted)]">
-                      {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
-                    </p>
-                  </>
-                ) : null}
-                {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
-                  <>
-                    <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
-                    <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
-                  </>
-                ) : null}
+            <div className="flex flex-col gap-4 lg:col-span-2">
+              <NextActionCard
+                task={
+                  opportunity.primaryNextTask
+                    ? {
+                        id: opportunity.primaryNextTask.id,
+                        title: opportunity.primaryNextTask.title,
+                        dueDate: opportunity.primaryNextTask.dueDate,
+                        status: opportunity.primaryNextTask.status,
+                        assigneeName: `${opportunity.primaryNextTask.assignedUser.firstName} ${opportunity.primaryNextTask.assignedUser.lastName}`,
+                      }
+                    : null
+                }
+                newTaskHref={`/tasks/new?opportunityId=${opportunity.id}`}
+              />
 
-                <h3 className="mb-2 mt-4 text-sm font-semibold">Stage history</h3>
-                <ul className="flex flex-col gap-1.5">
-                  {opportunity.stageHistory.map((h) => (
-                    <li key={h.id} className="flex items-center justify-between text-sm">
-                      <span>
-                        {h.fromStage ? `${label(h.fromStage)} → ` : ""}
-                        {label(h.toStage)}
-                      </span>
-                      <span className="text-xs text-[var(--color-ink-subtle)]">
-                        {format(h.changedAt, "d MMM yyyy HH:mm")} · {h.changedBy.firstName} {h.changedBy.lastName}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
-                <dl className="grid grid-cols-1 gap-2 text-sm">
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Lead contact</dt><dd>{opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Expected decision</dt><dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
-                </dl>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="stakeholders">
-          {opportunity.stakeholders.length === 0 ? (
-            <EmptyState title="No stakeholders recorded" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {opportunity.stakeholders.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)]">
-                        {s.person.firstName} {s.person.lastName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{label(s.role)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="activity">
-          {activityLinks.length === 0 ? (
-            <EmptyState title="No activity logged yet" />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {activityLinks.map((link) => (
-                <Card key={link.id}>
-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
-                    <div>
-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
-                    </div>
-                    <div className="whitespace-nowrap text-right text-xs text-[var(--color-ink-subtle)]">
-                      <p>{format(link.activity.occurredAt, "d MMM yyyy")}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
+                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+                </CardContent>
+              </Card>
             </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="tasks">
-          {taskLinks.length === 0 ? (
-            <EmptyState title="No tasks linked" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Due</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {taskLinks.map((link) => (
-                  <TableRow key={link.id}>
-                    <TableCell>{link.task.title}</TableCell>
-                    <TableCell><StatusBadge value={link.task.status} /></TableCell>
-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+            <div className="flex flex-col gap-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
+                  <dl className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Lead contact</dt><dd>{opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Expected decision</dt><dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
+                  </dl>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-2 text-sm font-semibold">Stakeholders ({opportunity.stakeholders.length})</h3>
+                  {opportunity.stakeholders.length === 0 ? (
+                    <p className="text-sm text-[var(--color-ink-subtle)]">No stakeholders recorded.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {opportunity.stakeholders.map((s) => (
+                        <li key={s.id} className="flex items-center justify-between text-sm">
+                          <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
+                            {s.person.firstName} {s.person.lastName}
+                          </Link>
+                          <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-2 text-sm font-semibold">Next step</h3>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
+                  <h3 className="mb-2 mt-4 text-sm font-semibold">Notes</h3>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
+                  {opportunity.stage === "LOST" ? (
+                    <>
+                      <h3 className="mb-2 mt-4 text-sm font-semibold">Loss reason</h3>
+                      <p className="text-sm text-[var(--color-ink-muted)]">
+                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
+                      </p>
+                    </>
+                  ) : null}
+                  {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
+                    <>
+                      <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
+                      <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
+                    </>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="documents">
@@ -265,20 +222,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 ))}
               </TableBody>
             </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="offlimits">
-          {offLimits.length === 0 ? (
-            <EmptyState title="No off-limits restrictions on this organisation" />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {offLimits.map((o) => (
-                <Badge key={o.id} tone={o.severity === "BLOCK" ? "danger" : "warning"}>
-                  {label(o.type)}: {o.reason}
-                </Badge>
-              ))}
-            </div>
           )}
         </TabsContent>
 

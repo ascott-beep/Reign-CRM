@@ -9,15 +9,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { NextActionCard } from "@/components/ui/next-action-card";
+import { Timeline } from "@/components/ui/timeline";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
+import { getMandateTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { archiveMandateAction } from "../actions";
 import { ProcessBoard, type BoardProcess } from "../process-board";
 import { AddCandidateDialog } from "../add-candidate-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
+import { LogActivityDialog } from "../../activities/log-activity-dialog";
 import { MandateStatusSelect } from "../status-select";
 
 export default async function MandateDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,22 +43,20 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       relatedFunds: { include: { organization: true } },
       stakeholders: { include: { person: true } },
       assignedUsers: { include: { user: true } },
-      statusHistory: { include: { changedBy: true }, orderBy: { changedAt: "desc" } },
       candidateProcesses: { include: { candidatePerson: { include: { candidateProfile: true } } }, orderBy: { updatedAt: "desc" } },
+      primaryNextTask: { include: { assignedUser: true } },
     },
   });
   if (!mandate) notFound();
 
-  const [interviews, activityLinks, taskLinks, documents, offLimits, auditLogs, allCandidates] = await Promise.all([
+  const [timeline, interviews, documents, auditLogs, allCandidates, users] = await Promise.all([
+    getMandateTimeline(mandate.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
       include: { candidateProcess: { include: { candidatePerson: true } } },
       orderBy: { scheduledStart: "desc" },
     }),
-    prisma.activityMandate.findMany({ where: { mandateId: mandate.id }, include: { activity: { include: { createdBy: true } } }, orderBy: { activity: { occurredAt: "desc" } } }),
-    prisma.taskMandate.findMany({ where: { mandateId: mandate.id }, include: { task: { include: { assignedUser: true } } }, orderBy: { task: { dueDate: "asc" } } }),
     prisma.documentMandate.findMany({ where: { mandateId: mandate.id }, include: { document: true } }),
-    prisma.offLimitsRestriction.findMany({ where: { OR: [{ organizationId: mandate.hiringOrganizationId }, { mandateId: mandate.id }] } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Mandate", entityId: mandate.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
@@ -63,6 +65,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       select: { id: true, firstName: true, lastName: true },
       orderBy: { lastName: "asc" },
     }),
+    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
 
   const boardData: BoardProcess[] = mandate.candidateProcesses.map((p) => ({
@@ -101,9 +104,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         actions={
           <>
             <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
-            <Button variant="secondary" size="sm" asChild>
-              <Link href={`/activities/new?mandateId=${mandate.id}`}>Log activity</Link>
-            </Button>
+            <LogActivityDialog
+              users={users}
+              currentUserId={user.id}
+              linkContext={{ mandateId: mandate.id, label: `${mandate.reference} — ${mandate.title}` }}
+            />
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/tasks/new?mandateId=${mandate.id}`}>Add task</Link>
             </Button>
@@ -121,49 +126,92 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         }
       />
 
-      <Tabs defaultValue="pipeline">
+      <Tabs defaultValue="overview">
         <TabsList>
-          <TabsTrigger value="brief">Brief</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="pipeline">Candidate Pipeline ({mandate.candidateProcesses.length})</TabsTrigger>
-          <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
+          <TabsTrigger value="brief">Brief</TabsTrigger>
           <TabsTrigger value="interviews">Interviews ({interviews.length})</TabsTrigger>
           <TabsTrigger value="commercial">Commercial</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="offlimits">Off Limits</TabsTrigger>
+          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
         </TabsList>
 
-        <TabsContent value="brief">
+        <TabsContent value="overview">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardContent className="pt-4">
-                <h3 className="mb-2 text-sm font-semibold">Role summary</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.roleSummary || "—"}</p>
-                <h3 className="mb-2 mt-4 text-sm font-semibold">Business context</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.businessContext || "—"}</p>
-                <h3 className="mb-2 mt-4 text-sm font-semibold">Required experience</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.requiredExperience || "—"}</p>
-                <h3 className="mb-2 mt-4 text-sm font-semibold">Assessment criteria</h3>
-                <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.assessmentCriteria || "—"}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-4">
-                <h3 className="mb-2 text-sm font-semibold">Details</h3>
-                <dl className="grid grid-cols-1 gap-2 text-sm">
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Seniority</dt><dd>{mandate.seniority ? label(mandate.seniority) : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Employment type</dt><dd>{label(mandate.employmentType)}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Location</dt><dd>{mandate.city || "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Work arrangement</dt><dd>{mandate.workArrangement ? label(mandate.workArrangement) : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Number of hires</dt><dd>{mandate.numberOfHires}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Hiring manager</dt><dd>{mandate.hiringManagerPerson ? `${mandate.hiringManagerPerson.firstName} ${mandate.hiringManagerPerson.lastName}` : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Internal talent/HR</dt><dd>{mandate.internalTalentPerson ? `${mandate.internalTalentPerson.firstName} ${mandate.internalTalentPerson.lastName}` : "—"}</dd></div>
-                  <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
-                </dl>
-              </CardContent>
-            </Card>
+            <div className="flex flex-col gap-4 lg:col-span-2">
+              <NextActionCard
+                task={
+                  mandate.primaryNextTask
+                    ? {
+                        id: mandate.primaryNextTask.id,
+                        title: mandate.primaryNextTask.title,
+                        dueDate: mandate.primaryNextTask.dueDate,
+                        status: mandate.primaryNextTask.status,
+                        assigneeName: `${mandate.primaryNextTask.assignedUser.firstName} ${mandate.primaryNextTask.assignedUser.lastName}`,
+                      }
+                    : null
+                }
+                newTaskHref={`/tasks/new?mandateId=${mandate.id}`}
+              />
+
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
+                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
+                  <dl className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Seniority</dt><dd>{mandate.seniority ? label(mandate.seniority) : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Employment type</dt><dd>{label(mandate.employmentType)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Location</dt><dd>{mandate.city || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Work arrangement</dt><dd>{mandate.workArrangement ? label(mandate.workArrangement) : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Number of hires</dt><dd>{mandate.numberOfHires}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Hiring manager</dt><dd>{mandate.hiringManagerPerson ? `${mandate.hiringManagerPerson.firstName} ${mandate.hiringManagerPerson.lastName}` : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Internal talent/HR</dt><dd>{mandate.internalTalentPerson ? `${mandate.internalTalentPerson.firstName} ${mandate.internalTalentPerson.lastName}` : "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+                  </dl>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardContent className="pt-4">
+                  <h3 className="mb-2 text-sm font-semibold">Stakeholders ({mandate.stakeholders.length})</h3>
+                  {mandate.stakeholders.length === 0 ? (
+                    <p className="text-sm text-[var(--color-ink-subtle)]">No stakeholders recorded.</p>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {mandate.stakeholders.map((s) => (
+                        <li key={s.id} className="flex items-center justify-between text-sm">
+                          <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
+                            {s.person.firstName} {s.person.lastName}
+                          </Link>
+                          <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {mandate.assignedUsers.length > 0 ? (
+                    <>
+                      <h3 className="mb-2 mt-4 text-sm font-semibold">Assigned team</h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {mandate.assignedUsers.map((a) => (
+                          <Badge key={a.id} tone="neutral">
+                            {a.user.firstName} {a.user.lastName}
+                          </Badge>
+                        ))}
+                      </div>
+                    </>
+                  ) : null}
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
@@ -191,43 +239,19 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           )}
         </TabsContent>
 
-        <TabsContent value="stakeholders">
-          {mandate.stakeholders.length === 0 ? (
-            <EmptyState title="No stakeholders recorded" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mandate.stakeholders.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)]">
-                        {s.person.firstName} {s.person.lastName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{label(s.role)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          {mandate.assignedUsers.length > 0 ? (
-            <div className="mt-4">
-              <h3 className="mb-2 text-sm font-semibold">Assigned team</h3>
-              <div className="flex gap-2">
-                {mandate.assignedUsers.map((a) => (
-                  <Badge key={a.id} tone="neutral">
-                    {a.user.firstName} {a.user.lastName}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          ) : null}
+        <TabsContent value="brief">
+          <Card>
+            <CardContent className="pt-4">
+              <h3 className="mb-2 text-sm font-semibold">Role summary</h3>
+              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.roleSummary || "—"}</p>
+              <h3 className="mb-2 mt-4 text-sm font-semibold">Business context</h3>
+              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.businessContext || "—"}</p>
+              <h3 className="mb-2 mt-4 text-sm font-semibold">Required experience</h3>
+              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.requiredExperience || "—"}</p>
+              <h3 className="mb-2 mt-4 text-sm font-semibold">Assessment criteria</h3>
+              <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{mandate.assessmentCriteria || "—"}</p>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="interviews">
@@ -276,67 +300,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </dl>
             </CardContent>
           </Card>
-          <div className="mt-4">
-            <h3 className="mb-2 text-sm font-semibold">Status history</h3>
-            <ul className="flex flex-col gap-1.5">
-              {mandate.statusHistory.map((h) => (
-                <li key={h.id} className="flex items-center justify-between text-sm">
-                  <span>
-                    {h.fromStatus ? `${label(h.fromStatus)} → ` : ""}
-                    {label(h.toStatus)}
-                  </span>
-                  <span className="text-xs text-[var(--color-ink-subtle)]">
-                    {format(h.changedAt, "d MMM yyyy HH:mm")} · {h.changedBy.firstName} {h.changedBy.lastName}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="activity">
-          {activityLinks.length === 0 ? (
-            <EmptyState title="No activity logged yet" />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {activityLinks.map((link) => (
-                <Card key={link.id}>
-                  <CardContent className="flex items-start justify-between gap-4 pt-4 text-sm">
-                    <div>
-                      <p className="font-medium">{link.activity.subject || label(link.activity.type)}</p>
-                      <p className="mt-0.5 text-[var(--color-ink-subtle)]">{link.activity.summary}</p>
-                    </div>
-                    <p className="whitespace-nowrap text-xs text-[var(--color-ink-subtle)]">{format(link.activity.occurredAt, "d MMM yyyy")}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="tasks">
-          {taskLinks.length === 0 ? (
-            <EmptyState title="No tasks linked" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Due</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {taskLinks.map((link) => (
-                  <TableRow key={link.id}>
-                    <TableCell>{link.task.title}</TableCell>
-                    <TableCell><StatusBadge value={link.task.status} /></TableCell>
-                    <TableCell>{format(link.task.dueDate, "d MMM yyyy")}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
         </TabsContent>
 
         <TabsContent value="documents">
@@ -366,20 +329,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 ))}
               </TableBody>
             </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="offlimits">
-          {offLimits.length === 0 ? (
-            <EmptyState title="No off-limits restrictions" />
-          ) : (
-            <div className="flex flex-col gap-2">
-              {offLimits.map((o) => (
-                <Badge key={o.id} tone={o.severity === "BLOCK" ? "danger" : "warning"}>
-                  {label(o.type)}: {o.reason}
-                </Badge>
-              ))}
-            </div>
           )}
         </TabsContent>
 

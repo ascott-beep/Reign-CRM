@@ -13,8 +13,21 @@ import { PracticeAreaBadge } from "@/components/ui/practice-area-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { cn, formatMoney } from "@/lib/utils";
+import { PeopleFilters } from "./people-filters";
 import { PeopleGrid, type GridPerson } from "./people-grid";
-import type { Prisma, PersonType } from "@prisma/client";
+import type { Prisma, PersonType, Seniority } from "@prisma/client";
+
+const SENIORITY_VALUES: Seniority[] = [
+  "BOARD_OR_C_SUITE",
+  "N_MINUS_1",
+  "DIRECTOR_OR_VP",
+  "HEAD_OF",
+  "SENIOR_MANAGER",
+  "MANAGER",
+  "INDIVIDUAL_CONTRIBUTOR",
+  "CONSULTANT_OR_INTERIM",
+  "OTHER",
+];
 
 const PAGE_SIZE = 25;
 
@@ -40,23 +53,40 @@ export default async function PeoplePage({
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
   const page = Math.max(1, Number(sp.page) || 1);
   const display = sp.display === "table" ? "table" : "grid";
+  const practiceAreaId = typeof sp.practiceAreaId === "string" ? sp.practiceAreaId : undefined;
+  const seniority = typeof sp.seniority === "string" && SENIORITY_VALUES.includes(sp.seniority as Seniority) ? (sp.seniority as Seniority) : undefined;
 
-  const [views, activeView] = await Promise.all([
+  const [views, activeView, practiceAreas] = await Promise.all([
     prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "PERSON" }, orderBy: { name: "asc" } }),
     viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
+    prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId, active: true }, orderBy: { displayOrder: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const where: Prisma.PersonWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
   if (filter?.personType) where.personTypes = { has: filter.personType };
-  if (q) {
-    where.OR = [
-      { firstName: { contains: q, mode: "insensitive" } },
-      { lastName: { contains: q, mode: "insensitive" } },
-      { primaryEmail: { contains: q, mode: "insensitive" } },
-      { headlineOverride: { contains: q, mode: "insensitive" } },
-    ];
-  }
   if (activeView) Object.assign(where, personViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
+
+  const andConditions: Prisma.PersonWhereInput[] = [];
+  if (q) {
+    andConditions.push({
+      OR: [
+        { firstName: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { primaryEmail: { contains: q, mode: "insensitive" } },
+        { headlineOverride: { contains: q, mode: "insensitive" } },
+      ],
+    });
+  }
+  if (practiceAreaId) andConditions.push({ practiceAreas: { some: { practiceAreaId } } });
+  if (seniority) {
+    andConditions.push({
+      OR: [
+        { employmentHistories: { some: { isCurrent: true, seniority } } },
+        { candidateProfile: { seniorityValues: { has: seniority } } },
+      ],
+    });
+  }
+  if (andConditions.length > 0) where.AND = andConditions;
 
   const isCandidateView = filterKey === "candidates";
 
@@ -64,6 +94,8 @@ export default async function PeoplePage({
     const params = new URLSearchParams();
     if (filterKey) params.set("filter", filterKey);
     if (q) params.set("q", q);
+    if (practiceAreaId) params.set("practiceAreaId", practiceAreaId);
+    if (seniority) params.set("seniority", seniority);
     if (viewId) params.set("view", viewId);
     params.set("display", nextDisplay);
     return `?${params.toString()}`;
@@ -151,14 +183,19 @@ export default async function PeoplePage({
         }
       />
 
-      <form className="mb-4 flex max-w-sm gap-2" action="/people" method="GET">
-        {filterKey ? <input type="hidden" name="filter" value={filterKey} /> : null}
-        <input type="hidden" name="display" value={display} />
-        <Input name="q" defaultValue={q} placeholder="Search by name or email…" />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-      </form>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <form className="flex max-w-sm flex-1 gap-2" action="/people" method="GET">
+          {filterKey ? <input type="hidden" name="filter" value={filterKey} /> : null}
+          <input type="hidden" name="display" value={display} />
+          {practiceAreaId ? <input type="hidden" name="practiceAreaId" value={practiceAreaId} /> : null}
+          {seniority ? <input type="hidden" name="seniority" value={seniority} /> : null}
+          <Input name="q" defaultValue={q} placeholder="Search by name or email…" />
+          <Button type="submit" variant="secondary">
+            Search
+          </Button>
+        </form>
+        <PeopleFilters practiceAreas={practiceAreas} currentPracticeAreaId={practiceAreaId ?? "all"} currentSeniority={seniority ?? "all"} />
+      </div>
 
       {people.length === 0 ? (
         <EmptyState
