@@ -1478,6 +1478,8 @@ model CandidateProcess {
   rejectionExplanation          String?
   withdrawalReason              WithdrawalReason?
   withdrawalExplanation         String?
+  // d04 "Take candidate off search": who made the call — client, candidate or Reign.
+  exitDecidedBy                 String?
   primaryNextTaskId             String?                 @unique
   primaryNextTask               Task?                   @relation("ProcessPrimaryNextTask", fields: [primaryNextTaskId], references: [id])
   submittedAt                   DateTime?

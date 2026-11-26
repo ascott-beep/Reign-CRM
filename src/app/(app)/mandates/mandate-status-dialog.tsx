@@ -32,7 +32,7 @@ export function MandateStatusDialog({
           <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
           <Button

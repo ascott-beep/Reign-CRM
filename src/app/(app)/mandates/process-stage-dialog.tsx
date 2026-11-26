@@ -4,103 +4,171 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { label } from "@/lib/labels";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 
-const REJECTION_REASONS = [
-  "FUNCTIONAL_FIT",
-  "SECTOR_FIT",
-  "PE_EXPERIENCE",
-  "SENIORITY",
-  "COMPENSATION",
-  "LOCATION",
-  "AVAILABILITY",
-  "CULTURAL_FIT",
-  "CLIENT_PREFERENCE",
-  "ROLE_CHANGED",
-  "NO_RESPONSE",
-  "OTHER",
+const OUTCOMES = [
+  { value: "REJECTED", label: "Rejected" },
+  { value: "WITHDRAWN", label: "Withdrawn" },
+  { value: "ON_HOLD", label: "On hold" },
+] as const;
+
+const DECIDERS = [
+  { value: "Client", label: "Client" },
+  { value: "Candidate", label: "Candidate" },
+  { value: "Reign", label: "Reign" },
+] as const;
+
+// A short, plain-language set shown as tags, mapped onto the existing
+// ProcessRejectionReason / WithdrawalReason enums behind the scenes.
+const REJECTION_REASON_TAGS: { value: string; label: string }[] = [
+  { value: "FUNCTIONAL_FIT", label: "Experience gap" },
+  { value: "COMPENSATION", label: "Salary expectations" },
+  { value: "CULTURAL_FIT", label: "Culture fit" },
+  { value: "CLIENT_PREFERENCE", label: "Client preference" },
+  { value: "LOCATION", label: "Location" },
+  { value: "OTHER", label: "Other" },
 ];
-const WITHDRAWAL_REASONS = [
-  "ACCEPTED_OTHER_ROLE",
-  "COUNTEROFFER",
-  "COMPENSATION",
-  "LOCATION",
-  "TIMING",
-  "LOST_INTEREST",
-  "PERSONAL_CIRCUMSTANCES",
-  "CONCERNS_ABOUT_COMPANY",
-  "OTHER",
+const WITHDRAWAL_REASON_TAGS: { value: string; label: string }[] = [
+  { value: "ACCEPTED_OTHER_ROLE", label: "Accepted another role" },
+  { value: "COMPENSATION", label: "Salary expectations" },
+  { value: "LOCATION", label: "Location" },
+  { value: "LOST_INTEREST", label: "Lost interest" },
+  { value: "PERSONAL_CIRCUMSTANCES", label: "Personal circumstances" },
+  { value: "OTHER", label: "Other" },
 ];
 
+export type ProcessStageDialogResult = {
+  toStage: "REJECTED" | "WITHDRAWN" | "ON_HOLD";
+  rejectionReason?: string;
+  rejectionExplanation?: string;
+  withdrawalReason?: string;
+  withdrawalExplanation?: string;
+  exitDecidedBy?: string;
+};
+
+/** d04 "Take candidate off search". */
 export function ProcessStageDialog({
   open,
-  toStage,
+  candidateFirstName,
+  context,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
-  toStage: string | null;
+  /** First name only, for "Take <name> off this search" / "Keep <name> in mind". */
+  candidateFirstName?: string;
+  /** e.g. "Final interview · Chief Financial Officer, Vantage Logistics Group" */
+  context?: string;
   onCancel: () => void;
-  onConfirm: (extra: { rejectionReason?: string; rejectionExplanation?: string; withdrawalReason?: string; withdrawalExplanation?: string }) => void;
+  onConfirm: (result: ProcessStageDialogResult) => void;
 }) {
+  const [outcome, setOutcome] = useState<(typeof OUTCOMES)[number]["value"]>("REJECTED");
+  const [decidedBy, setDecidedBy] = useState<(typeof DECIDERS)[number]["value"]>("Client");
   const [reason, setReason] = useState("");
-  const [explanation, setExplanation] = useState("");
+  const [note, setNote] = useState("");
+  const [keepInMind, setKeepInMind] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!toStage || (toStage !== "REJECTED" && toStage !== "WITHDRAWN")) return null;
+  if (!open) return null;
 
-  function handleConfirm() {
-    if (!reason) {
-      setError(`A ${toStage === "REJECTED" ? "rejection" : "withdrawal"} reason is required.`);
-      return;
-    }
-    onConfirm(
-      toStage === "REJECTED"
-        ? { rejectionReason: reason, rejectionExplanation: explanation }
-        : { withdrawalReason: reason, withdrawalExplanation: explanation },
-    );
+  const reasonTags = outcome === "REJECTED" ? REJECTION_REASON_TAGS : outcome === "WITHDRAWN" ? WITHDRAWAL_REASON_TAGS : null;
+  const name = candidateFirstName ?? "this candidate";
+
+  function reset() {
+    setOutcome("REJECTED");
+    setDecidedBy("Client");
     setReason("");
-    setExplanation("");
+    setNote("");
+    setKeepInMind(false);
     setError(null);
   }
 
-  const reasons = toStage === "REJECTED" ? REJECTION_REASONS : WITHDRAWAL_REASONS;
+  function handleConfirm() {
+    if (reasonTags && !reason) {
+      setError("A reason is required.");
+      return;
+    }
+    const explanation = keepInMind ? `${note ? `${note} ` : ""}(Keep in mind for future searches.)` : note;
+    onConfirm({
+      toStage: outcome,
+      exitDecidedBy: decidedBy,
+      ...(outcome === "REJECTED" ? { rejectionReason: reason, rejectionExplanation: explanation } : {}),
+      ...(outcome === "WITHDRAWN" ? { withdrawalReason: reason, withdrawalExplanation: explanation } : {}),
+    });
+    reset();
+  }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) {
+          onCancel();
+          reset();
+        }
+      }}
+    >
+      <DialogContent className="max-w-[580px]">
         <DialogHeader>
-          <DialogTitle>Move to {label(toStage)}</DialogTitle>
+          <DialogTitle>Take {name} off this search</DialogTitle>
+          {context ? <DialogDescription>{context}</DialogDescription> : null}
         </DialogHeader>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label>Reason</Label>
-            <Select value={reason} onValueChange={setReason}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {reasons.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {label(r)}
-                  </SelectItem>
+        <div className="flex flex-col gap-[18px] py-1">
+          <div>
+            <Label>Outcome</Label>
+            <SegmentedToggle
+              options={OUTCOMES}
+              value={outcome}
+              onChange={(v) => {
+                setOutcome(v);
+                setReason("");
+                setError(null);
+              }}
+            />
+          </div>
+          <div>
+            <Label>Who decided</Label>
+            <SegmentedToggle options={DECIDERS} value={decidedBy} onChange={setDecidedBy} />
+          </div>
+          {reasonTags ? (
+            <div>
+              <Label>Reason</Label>
+              <div className="flex flex-wrap gap-2">
+                {reasonTags.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    aria-pressed={reason === r.value}
+                    onClick={() => setReason(r.value)}
+                    className={
+                      reason === r.value
+                        ? "h-8 rounded-control border border-[var(--color-navy)] bg-[var(--color-navy)] px-3 text-[13px] text-[var(--color-navy-ink)]"
+                        : "h-8 rounded-control border border-[var(--color-line)] bg-[var(--color-card)] px-3 text-[13px] text-[var(--color-ink2)]"
+                    }
+                  >
+                    {r.label}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
-            {error ? <p className="text-xs text-[var(--color-status-danger-ink)]">{error}</p> : null}
+              </div>
+              {error ? <p className="mt-1.5 text-xs text-[var(--color-warn)]">{error}</p> : null}
+            </div>
+          ) : null}
+          <div>
+            <Label>Note</Label>
+            <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label>Explanation (optional)</Label>
-            <Textarea rows={3} value={explanation} onChange={(e) => setExplanation(e.target.value)} />
-          </div>
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm text-[var(--color-ink)]">
+            <Checkbox checked={keepInMind} onCheckedChange={(v) => setKeepInMind(v === true)} />
+            Keep {name} in mind for future searches
+          </label>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
-          <Button onClick={handleConfirm}>Confirm</Button>
+          <Button onClick={handleConfirm}>Take off this search</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

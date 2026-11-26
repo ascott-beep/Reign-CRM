@@ -5,13 +5,13 @@ import type { NextActionStatus } from "@/lib/next-action-status";
 // today or later, grey at 55% opacity = no next action.
 const STYLES: Record<NextActionStatus, string> = {
   overdue: "bg-[var(--color-alert)]",
-  today: "bg-[var(--color-pos)]",
+  scheduled: "bg-[var(--color-pos)]",
   none: "bg-[var(--color-muted)] opacity-55",
 };
 
 const LABELS: Record<NextActionStatus, string> = {
   overdue: "Next action overdue",
-  today: "Next action due today or later",
+  scheduled: "Next action due today or later",
   none: "No next action",
 };
 
