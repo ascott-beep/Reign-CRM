@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
 import { EmptyState } from "@/components/shell/states";
 import { FilterPopover } from "@/components/shell/filter-popover";
+import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -265,6 +266,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           </Link>
         ) : null}
       </div>
+      <UndoDeleteToast type="PERSON" />
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canMutate, canArchiveRecord, canRestoreArchived, canMergeRecords, PermissionError } from "@/lib/permissions";
+import { requireUser, canMutate, canMergeRecords, PermissionError } from "@/lib/permissions";
 import { personFormSchema, employmentHistorySchema, candidateProfileSchema } from "@/lib/validation/person";
 import { findPersonDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
@@ -132,27 +132,6 @@ export async function updatePersonAction(personId: string, _prev: PersonFormStat
 
   revalidatePath(`/people/${personId}`);
   redirect(`/people/${personId}`);
-}
-
-export async function archivePersonAction(personId: string) {
-  const user = await requireUser();
-  const person = await prisma.person.findUniqueOrThrow({ where: { id: personId } });
-  if (!canArchiveRecord(user, { relationshipOwnerId: person.relationshipOwnerId, createdById: person.createdById })) {
-    throw new PermissionError("You can only archive people you own or created.");
-  }
-  await prisma.person.update({ where: { id: personId }, data: { archivedAt: new Date() } });
-  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Person", entityId: personId, action: "ARCHIVE" });
-  revalidatePath("/people");
-  revalidatePath(`/people/${personId}`);
-}
-
-export async function restorePersonAction(personId: string) {
-  const user = await requireUser();
-  if (!canRestoreArchived(user.role)) throw new PermissionError("Only administrators can restore archived records.");
-  await prisma.person.update({ where: { id: personId }, data: { archivedAt: null } });
-  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Person", entityId: personId, action: "RESTORE" });
-  revalidatePath("/people");
-  revalidatePath(`/people/${personId}`);
 }
 
 export async function addEmploymentHistoryAction(formData: FormData) {

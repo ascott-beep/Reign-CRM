@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/permissions";
 import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
+import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
 import { formatMoney } from "@/lib/utils";
 import { OPEN_OPPORTUNITY_STAGES, CLOSED_OPPORTUNITY_STAGES, weightedOpportunityValue, daysAtStage } from "@/lib/rules";
@@ -102,6 +103,7 @@ export default async function OpportunitiesPage({
       />
       {fix === "no-next-action" ? <FixBanner label="Opportunities with no next action" clearHref="/opportunities" /> : null}
       <OpportunitiesView display={fix ? "table" : display} openOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} closedOpportunities={closedOpportunities} listRows={listRows} />
+      <UndoDeleteToast type="OPPORTUNITY" />
     </div>
   );
 }

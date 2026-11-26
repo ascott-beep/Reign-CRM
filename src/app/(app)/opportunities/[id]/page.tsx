@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
+import { MoreMenu } from "@/components/shell/more-menu";
+import { restoreRecordAction } from "@/lib/delete-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { NextActionCard } from "@/components/ui/next-action-card";
@@ -94,6 +96,14 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 <Pencil className="h-4 w-4" /> Edit
               </Link>
             </Button>
+            {user.role === "ADMIN" && opportunity.archivedAt ? (
+              <form action={() => restoreRecordAction("OPPORTUNITY", opportunity.id)}>
+                <Button type="submit" variant="secondary" size="sm">
+                  <ArchiveRestore className="h-4 w-4" /> Restore
+                </Button>
+              </form>
+            ) : null}
+            {user.role === "ADMIN" ? <MoreMenu type="OPPORTUNITY" id={opportunity.id} listHref="/opportunities" /> : null}
           </>
         }
       />

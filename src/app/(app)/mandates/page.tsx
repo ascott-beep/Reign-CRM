@@ -3,6 +3,7 @@ import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { mandateViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
+import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
 import {
   LIVE_MANDATE_STATUSES,
@@ -95,6 +96,7 @@ export default async function MandatesPage({
       <PageHeader title="Mandates" description="Executive searches you are running for clients" />
       {fix === "no-hiring-manager" ? <FixBanner label="Mandates without a hiring manager" clearHref="/mandates" /> : null}
       <MandatesView display={fix ? "list" : display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
+      <UndoDeleteToast type="MANDATE" />
     </div>
   );
 }

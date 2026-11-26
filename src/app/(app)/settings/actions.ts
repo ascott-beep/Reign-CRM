@@ -192,7 +192,7 @@ export async function changePasswordAction(formData: FormData) {
   if (newPassword.length < 8) throw new Error("New password must be at least 8 characters.");
 
   const record = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-  const valid = await bcrypt.compare(currentPassword, record.passwordHash);
+  const valid = record.passwordHash ? await bcrypt.compare(currentPassword, record.passwordHash) : false;
   if (!valid) throw new Error("Current password is incorrect.");
 
   const passwordHash = await bcrypt.hash(newPassword, 12);

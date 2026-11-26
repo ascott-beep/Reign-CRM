@@ -168,10 +168,3 @@ export async function changeMandateStatusAction(input: {
   revalidatePath(`/mandates/${data.mandateId}`);
 }
 
-export async function archiveMandateAction(mandateId: string) {
-  const user = await requireUser();
-  if (!canMutate(user.role)) throw new PermissionError();
-  await prisma.mandate.update({ where: { id: mandateId }, data: { archivedAt: new Date() } });
-  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Mandate", entityId: mandateId, action: "ARCHIVE" });
-  revalidatePath("/mandates");
-}

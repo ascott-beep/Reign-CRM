@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, Pencil, Archive, ArchiveRestore } from "lucide-react";
+import { ExternalLink, Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canArchiveRecord, canRestoreArchived, canViewAuditLog } from "@/lib/permissions";
+import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { EmptyState } from "@/components/shell/states";
+import { MoreMenu } from "@/components/shell/more-menu";
+import { restoreRecordAction } from "@/lib/delete-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -18,7 +20,6 @@ import { getOrganizationTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
 import { LIVE_MANDATE_STATUSES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
-import { archiveOrganizationAction, restoreOrganizationAction } from "../actions";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
@@ -113,9 +114,6 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   const lastActivity = timeline[0];
   const stale = org.accountPriority === "PRIORITY" && isStaleVerification(org.lastVerifiedAt);
 
-  const canArchive = canArchiveRecord(user, { relationshipOwnerId: org.relationshipOwnerId, createdById: org.createdById });
-  const canRestore = canRestoreArchived(user.role);
-
   const factCards = [
     org.type === "PORTFOLIO_COMPANY" && earliestInvestmentDate
       ? {
@@ -186,6 +184,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
+          {user.role === "ADMIN" ? <MoreMenu type="ORGANIZATION" id={org.id} listHref="/organisations" /> : null}
         </div>
       </header>
 
@@ -434,22 +433,15 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               ) : null}
             </CardContent>
           </Card>
-          <div className="flex flex-col gap-2">
-            {canArchive && !org.archivedAt ? (
-              <form action={archiveOrganizationAction.bind(null, org.id)}>
-                <Button type="submit" variant="secondary" className="w-full">
-                  <Archive className="h-[14px] w-[14px]" /> Archive
-                </Button>
-              </form>
-            ) : null}
-            {canRestore && org.archivedAt ? (
-              <form action={restoreOrganizationAction.bind(null, org.id)}>
+          {user.role === "ADMIN" && org.archivedAt ? (
+            <div className="flex flex-col gap-2">
+              <form action={() => restoreRecordAction("ORGANIZATION", org.id)}>
                 <Button type="submit" variant="secondary" className="w-full">
                   <ArchiveRestore className="h-[14px] w-[14px]" /> Restore
                 </Button>
               </form>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </aside>
       </div>
 

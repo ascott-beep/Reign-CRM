@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canMutate, canArchiveRecord, canRestoreArchived, canMergeRecords, PermissionError } from "@/lib/permissions";
+import { requireUser, canMutate, canMergeRecords, PermissionError } from "@/lib/permissions";
 import { organizationFormSchema, organizationRelationshipSchema } from "@/lib/validation/organization";
 import { normalizeName, normalizeWebsiteDomain } from "@/lib/normalize";
 import { findOrganizationDuplicates } from "@/lib/duplicates";
@@ -158,38 +158,6 @@ export async function updateOrganizationAction(
   redirect(`/organisations/${orgId}`);
 }
 
-export async function archiveOrganizationAction(orgId: string) {
-  const user = await requireUser();
-  const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });
-  if (!canArchiveRecord(user, { relationshipOwnerId: org.relationshipOwnerId, createdById: org.createdById })) {
-    throw new PermissionError("You can only archive organisations you own or created.");
-  }
-  await prisma.organization.update({ where: { id: orgId }, data: { archivedAt: new Date() } });
-  await writeAuditLog({
-    workspaceId: user.workspaceId,
-    actorId: user.id,
-    entityType: "Organization",
-    entityId: orgId,
-    action: "ARCHIVE",
-  });
-  revalidatePath("/organisations");
-  revalidatePath(`/organisations/${orgId}`);
-}
-
-export async function restoreOrganizationAction(orgId: string) {
-  const user = await requireUser();
-  if (!canRestoreArchived(user.role)) throw new PermissionError("Only administrators can restore archived records.");
-  await prisma.organization.update({ where: { id: orgId }, data: { archivedAt: null } });
-  await writeAuditLog({
-    workspaceId: user.workspaceId,
-    actorId: user.id,
-    entityType: "Organization",
-    entityId: orgId,
-    action: "RESTORE",
-  });
-  revalidatePath("/organisations");
-  revalidatePath(`/organisations/${orgId}`);
-}
 
 export async function addOrganizationRelationshipAction(formData: FormData) {
   const user = await requireUser();

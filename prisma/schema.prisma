@@ -595,9 +595,11 @@ model Workspace {
   staleThresholds               Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
   opportunityStageProbabilities Json?
   /// GBP value of 1 unit of each currency code, e.g. {"GBP":1,"USD":0.79}.
-  /// Manually maintained (no live FX feed) — used only to roll monetary
-  /// report totals into a single selected display currency.
+  /// Manually maintained unless updateRatesAutomatically is on — used to
+  /// roll monetary report totals into a single selected display currency.
   exchangeRatesToGbp            Json?
+  updateRatesAutomatically      Boolean  @default(false)
+  exchangeRatesUpdatedAt        DateTime?
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -632,7 +634,7 @@ model User {
   firstName               String
   lastName                String
   email                   String
-  passwordHash            String
+  passwordHash            String?
   role                    UserRole  @default(STANDARD)
   active                  Boolean   @default(true)
   avatarUrl               String?
@@ -675,9 +677,29 @@ model User {
   auditLogEntries         AuditLog[]                     @relation("AuditActor")
   notifications           InAppNotification[]
   importJobs              ImportJob[]                    @relation("ImportCreatedBy")
+  passwordTokens          PasswordToken[]
 
   @@unique([workspaceId, email])
   @@index([workspaceId])
+}
+
+enum PasswordTokenPurpose {
+  INVITE
+  RESET
+}
+
+/// One-time links for invite (set a password) and forgot-password (reset) emails.
+model PasswordToken {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String               @unique
+  purpose   PasswordTokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([userId])
 }
 
 // =============================================================================
@@ -838,6 +860,8 @@ model Organization {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   archivedAt  DateTime?
+  archivedById   String?
+  archiveReason  String?
 
   relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
   relationshipsAsTarget        OrganizationRelationship[]      @relation("OrgRelTarget")
@@ -963,6 +987,8 @@ model Person {
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
   archivedAt                    DateTime?
+  archivedById                  String?
+  archiveReason                 String?
 
   candidateProfile                   CandidateProfile?
   organizationAssociations           PersonOrganizationAssociation[]
@@ -1224,6 +1250,8 @@ model Opportunity {
   updatedAt               DateTime               @updatedAt
   closedAt                DateTime?
   archivedAt              DateTime?
+  archivedById            String?
+  archiveReason           String?
 
   wonMandate                Mandate?                  @relation("MandateSourceOpportunity")
   relatedFunds              OpportunityFund[]
@@ -1370,6 +1398,8 @@ model Mandate {
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   archivedAt              DateTime?
+  archivedById            String?
+  archiveReason           String?
 
   relatedFunds          MandateFund[]
   functionalSpecialisms MandateSpecialism[]

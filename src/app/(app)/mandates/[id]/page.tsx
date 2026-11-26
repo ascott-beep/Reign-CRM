@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Archive, Phone, Mail, FileText } from "lucide-react";
+import { Pencil, Phone, Mail, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
+import { MoreMenu } from "@/components/shell/more-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -14,7 +15,6 @@ import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getMandateTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
-import { archiveMandateAction } from "../actions";
 import { AddCandidateDialog, type CandidateOption } from "../add-candidate-dialog";
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
 import { StageBar } from "../stage-bar";
@@ -196,11 +196,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 <Pencil className="h-[14px] w-[14px]" /> Edit
               </Link>
             </Button>
-            <form action={archiveMandateAction.bind(null, mandate.id)}>
-              <Button type="submit" variant="secondary">
-                <Archive className="h-[14px] w-[14px]" />
-              </Button>
-            </form>
+            {user.role === "ADMIN" ? <MoreMenu type="MANDATE" id={mandate.id} listHref="/mandates" /> : null}
           </div>
         </div>
 

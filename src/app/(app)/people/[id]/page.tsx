@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ExternalLink, Pencil, Archive, ArchiveRestore } from "lucide-react";
+import { ExternalLink, Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canArchiveRecord, canRestoreArchived, canViewAuditLog, canMergeRecords, canMutate } from "@/lib/permissions";
+import { requireUser, canViewAuditLog, canMergeRecords, canMutate } from "@/lib/permissions";
 import { findPersonDuplicates } from "@/lib/duplicates";
 import { EmptyState } from "@/components/shell/states";
+import { MoreMenu } from "@/components/shell/more-menu";
+import { restoreRecordAction } from "@/lib/delete-actions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -25,7 +27,6 @@ import {
   LIVE_MANDATE_STATUSES,
 } from "@/lib/rules";
 import { nextActionStatus } from "@/lib/next-action-status";
-import { archivePersonAction, restorePersonAction } from "../actions";
 import { EmploymentHistoryDialog } from "../employment-history-dialog";
 import { CandidateProfileDialog } from "../candidate-profile-dialog";
 import { MergeButton } from "../merge-button";
@@ -80,8 +81,6 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
     }),
   ]);
 
-  const canArchive = canArchiveRecord(user, { relationshipOwnerId: person.relationshipOwnerId, createdById: person.createdById });
-  const canRestore = canRestoreArchived(user.role);
   const isCandidate = person.personTypes.includes("CANDIDATE");
 
   const liveProcesses = processes.filter(
@@ -166,6 +165,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
+          {user.role === "ADMIN" ? <MoreMenu type="PERSON" id={person.id} listHref="/people" /> : null}
         </div>
       </header>
 
@@ -376,22 +376,15 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
             </CardContent>
           </Card>
 
-          <div className="flex flex-col gap-2">
-            {canArchive && !person.archivedAt ? (
-              <form action={archivePersonAction.bind(null, person.id)}>
-                <Button type="submit" variant="secondary" className="w-full">
-                  <Archive className="h-[14px] w-[14px]" /> Archive
-                </Button>
-              </form>
-            ) : null}
-            {canRestore && person.archivedAt ? (
-              <form action={restorePersonAction.bind(null, person.id)}>
+          {user.role === "ADMIN" && person.archivedAt ? (
+            <div className="flex flex-col gap-2">
+              <form action={() => restoreRecordAction("PERSON", person.id)}>
                 <Button type="submit" variant="secondary" className="w-full">
                   <ArchiveRestore className="h-[14px] w-[14px]" /> Restore
                 </Button>
               </form>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </aside>
       </div>
 
