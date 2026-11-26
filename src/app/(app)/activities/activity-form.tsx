@@ -114,7 +114,7 @@ export function ActivityForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="subject">Subject</Label>
-        <Input id="subject" name="subject" />
+        <Input id="subject" name="subject" placeholder="e.g. Call with CFO re: shortlist feedback" />
         {errors.subject ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.subject[0]}</p> : null}
       </div>
 
@@ -125,7 +125,7 @@ export function ActivityForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="durationMinutes">Duration (minutes)</Label>
-          <Input id="durationMinutes" name="durationMinutes" type="number" min={0} />
+          <Input id="durationMinutes" name="durationMinutes" type="number" min={0} placeholder="e.g. 30" />
         </div>
       </div>
 

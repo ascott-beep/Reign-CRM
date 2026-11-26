@@ -62,7 +62,7 @@ export function OpportunityForm({
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Opportunity name</Label>
-        <Input id="name" name="name" defaultValue={values.name} required />
+        <Input id="name" name="name" placeholder="e.g. Oakfield Professional Services — Group FD" defaultValue={values.name} required />
         {errors.name ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.name[0]}</p> : null}
       </div>
 
@@ -86,7 +86,7 @@ export function OpportunityForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="potentialRoleTitle">Potential role title</Label>
-          <Input id="potentialRoleTitle" name="potentialRoleTitle" defaultValue={values.potentialRoleTitle} />
+          <Input id="potentialRoleTitle" name="potentialRoleTitle" placeholder="e.g. Group Finance Director" defaultValue={values.potentialRoleTitle} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employmentType">Employment type</Label>
@@ -174,7 +174,7 @@ export function OpportunityForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="estimatedFeeAmount">Estimated fee</Label>
           <div className="flex gap-2">
-            <Input id="estimatedFeeAmount" name="estimatedFeeAmount" type="number" min={0} defaultValue={values.estimatedFeeAmount} />
+            <Input id="estimatedFeeAmount" name="estimatedFeeAmount" type="number" min={0} placeholder="e.g. 30000" defaultValue={values.estimatedFeeAmount} />
             <Select name="estimatedFeeCurrency" defaultValue={values.estimatedFeeCurrency ?? "GBP"}>
               <SelectTrigger className="w-24">
                 <SelectValue />
@@ -197,11 +197,11 @@ export function OpportunityForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="nextStepSummary">Next step</Label>
-        <Textarea id="nextStepSummary" name="nextStepSummary" rows={2} defaultValue={values.nextStepSummary} />
+        <Textarea id="nextStepSummary" name="nextStepSummary" rows={2} placeholder="e.g. Awaiting signed terms before kicking off the search." defaultValue={values.nextStepSummary} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="notes">Notes</Label>
-        <Textarea id="notes" name="notes" rows={3} defaultValue={values.notes} />
+        <Textarea id="notes" name="notes" rows={3} placeholder="e.g. CFO keen to move quickly; board sign-off expected next week." defaultValue={values.notes} />
       </div>
 
       <div className="flex justify-end">

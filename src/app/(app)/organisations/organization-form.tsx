@@ -73,7 +73,7 @@ export function OrganizationForm({
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="name">Organisation name</Label>
-          <Input id="name" name="name" defaultValue={values.name} required />
+          <Input id="name" name="name" placeholder="e.g. Bracken Software Solutions" defaultValue={values.name} required />
           {errors.name ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.name[0]}</p> : null}
         </div>
 
@@ -122,11 +122,11 @@ export function OrganizationForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="hqCity">HQ City</Label>
-          <Input id="hqCity" name="hqCity" defaultValue={values.hqCity} />
+          <Input id="hqCity" name="hqCity" placeholder="e.g. London" defaultValue={values.hqCity} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="hqRegion">HQ Region</Label>
-          <Input id="hqRegion" name="hqRegion" defaultValue={values.hqRegion} />
+          <Input id="hqRegion" name="hqRegion" placeholder="e.g. Greater London" defaultValue={values.hqRegion} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="hqCountryCode">HQ Country</Label>
@@ -146,11 +146,11 @@ export function OrganizationForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employeeCountMin">Employees (min)</Label>
-          <Input id="employeeCountMin" name="employeeCountMin" type="number" min={0} defaultValue={values.employeeCountMin} />
+          <Input id="employeeCountMin" name="employeeCountMin" type="number" min={0} placeholder="e.g. 50" defaultValue={values.employeeCountMin} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="employeeCountMax">Employees (max)</Label>
-          <Input id="employeeCountMax" name="employeeCountMax" type="number" min={0} defaultValue={values.employeeCountMax} />
+          <Input id="employeeCountMax" name="employeeCountMax" type="number" min={0} placeholder="e.g. 200" defaultValue={values.employeeCountMax} />
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -217,20 +217,20 @@ export function OrganizationForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="source">Source</Label>
-          <Input id="source" name="source" defaultValue={values.source} />
+          <Input id="source" name="source" placeholder="e.g. Introduced by a portfolio company CFO" defaultValue={values.source} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sourceUrl">Source URL</Label>
-          <Input id="sourceUrl" name="sourceUrl" defaultValue={values.sourceUrl} />
+          <Input id="sourceUrl" name="sourceUrl" placeholder="https://…" defaultValue={values.sourceUrl} />
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="description">Description</Label>
-          <Textarea id="description" name="description" rows={3} defaultValue={values.description} />
+          <Textarea id="description" name="description" rows={3} placeholder="e.g. A mid-market logistics provider serving UK retailers." defaultValue={values.description} />
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="internalSummary">Internal summary</Label>
-          <Textarea id="internalSummary" name="internalSummary" rows={3} defaultValue={values.internalSummary} />
+          <Textarea id="internalSummary" name="internalSummary" rows={3} placeholder="e.g. Strong management team; worth a follow-up call next quarter." defaultValue={values.internalSummary} />
         </div>
       </section>
 
@@ -240,12 +240,12 @@ export function OrganizationForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="fundVintageOrCurrentFundName">Current fund name / vintage</Label>
-              <Input id="fundVintageOrCurrentFundName" name="fundVintageOrCurrentFundName" defaultValue={values.fundVintageOrCurrentFundName} />
+              <Input id="fundVintageOrCurrentFundName" name="fundVintageOrCurrentFundName" placeholder="e.g. Fund III (2021)" defaultValue={values.fundVintageOrCurrentFundName} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="aumAmount">AUM</Label>
               <div className="flex gap-2">
-                <Input id="aumAmount" name="aumAmount" type="number" min={0} defaultValue={values.aumAmount} />
+                <Input id="aumAmount" name="aumAmount" type="number" min={0} placeholder="e.g. 500000000" defaultValue={values.aumAmount} />
                 <Select name="aumCurrency" defaultValue={values.aumCurrency ?? "GBP"}>
                   <SelectTrigger className="w-24">
                     <SelectValue />
@@ -285,11 +285,11 @@ export function OrganizationForm({
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label htmlFor="businessModelSummary">Business model summary</Label>
-              <Textarea id="businessModelSummary" name="businessModelSummary" rows={2} defaultValue={values.businessModelSummary} />
+              <Textarea id="businessModelSummary" name="businessModelSummary" rows={2} placeholder="e.g. B2B SaaS, subscription-based" defaultValue={values.businessModelSummary} />
             </div>
             <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label htmlFor="investmentThesisSummary">Investment thesis summary</Label>
-              <Textarea id="investmentThesisSummary" name="investmentThesisSummary" rows={2} defaultValue={values.investmentThesisSummary} />
+              <Textarea id="investmentThesisSummary" name="investmentThesisSummary" rows={2} placeholder="e.g. Consolidation play in a fragmented market" defaultValue={values.investmentThesisSummary} />
             </div>
           </div>
         </section>

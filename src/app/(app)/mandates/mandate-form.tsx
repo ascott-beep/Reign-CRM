@@ -56,7 +56,7 @@ export function MandateForm({
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="title">Title</Label>
-        <Input id="title" name="title" defaultValue={values.title} required />
+        <Input id="title" name="title" placeholder="e.g. Group Finance Director" defaultValue={values.title} required />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
       </div>
 
@@ -207,14 +207,14 @@ export function MandateForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="numberOfHires">Number of hires</Label>
-          <Input id="numberOfHires" name="numberOfHires" type="number" min={1} defaultValue={values.numberOfHires ?? 1} />
+          <Input id="numberOfHires" name="numberOfHires" type="number" min={1} placeholder="e.g. 1" defaultValue={values.numberOfHires ?? 1} />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" defaultValue={values.city} />
+          <Input id="city" name="city" placeholder="e.g. London" defaultValue={values.city} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="workArrangement">Work arrangement</Label>
@@ -239,15 +239,15 @@ export function MandateForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="roleSummary">Role summary</Label>
-        <Textarea id="roleSummary" name="roleSummary" rows={2} defaultValue={values.roleSummary} />
+        <Textarea id="roleSummary" name="roleSummary" rows={2} placeholder="e.g. Leading the finance function through a period of rapid growth." defaultValue={values.roleSummary} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="businessContext">Business context</Label>
-        <Textarea id="businessContext" name="businessContext" rows={2} defaultValue={values.businessContext} />
+        <Textarea id="businessContext" name="businessContext" rows={2} placeholder="e.g. Backed by a PE sponsor, targeting a sale in 3-5 years." defaultValue={values.businessContext} />
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="requiredExperience">Required experience</Label>
-        <Textarea id="requiredExperience" name="requiredExperience" rows={2} defaultValue={values.requiredExperience} />
+        <Textarea id="requiredExperience" name="requiredExperience" rows={2} placeholder="e.g. 10+ years in a PE-backed FD or CFO role." defaultValue={values.requiredExperience} />
       </div>
 
       <div className="rounded-md border border-[var(--color-border)] p-4">
@@ -255,12 +255,12 @@ export function MandateForm({
         <div className="grid grid-cols-2 gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="minBaseAmount">Min base</Label>
-            <Input id="minBaseAmount" name="minBaseAmount" type="number" min={0} defaultValue={values.minBaseAmount} />
+            <Input id="minBaseAmount" name="minBaseAmount" type="number" min={0} placeholder="e.g. 90000" defaultValue={values.minBaseAmount} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="maxBaseAmount">Max base</Label>
             <div className="flex gap-2">
-              <Input id="maxBaseAmount" name="maxBaseAmount" type="number" min={0} defaultValue={values.maxBaseAmount} />
+              <Input id="maxBaseAmount" name="maxBaseAmount" type="number" min={0} placeholder="e.g. 120000" defaultValue={values.maxBaseAmount} />
               <Select name="baseCurrency" defaultValue={values.baseCurrency ?? "GBP"}>
                 <SelectTrigger className="w-24">
                   <SelectValue />
@@ -307,7 +307,7 @@ export function MandateForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="feePercentage">Fee %</Label>
-            <Input id="feePercentage" name="feePercentage" type="number" min={0} max={100} defaultValue={values.feePercentage} />
+            <Input id="feePercentage" name="feePercentage" type="number" min={0} max={100} placeholder="e.g. 30" defaultValue={values.feePercentage} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="targetCompletionDate">Target completion date</Label>

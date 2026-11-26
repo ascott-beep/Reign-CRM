@@ -81,12 +81,12 @@ export function PersonForm({
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="firstName">First name</Label>
-          <Input id="firstName" name="firstName" defaultValue={values.firstName} required />
+          <Input id="firstName" name="firstName" placeholder="e.g. Jamie" defaultValue={values.firstName} required />
           {errors.firstName ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.firstName[0]}</p> : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="lastName">Last name</Label>
-          <Input id="lastName" name="lastName" defaultValue={values.lastName} required />
+          <Input id="lastName" name="lastName" placeholder="e.g. Okafor" defaultValue={values.lastName} required />
           {errors.lastName ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.lastName[0]}</p> : null}
         </div>
 
@@ -110,16 +110,16 @@ export function PersonForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="primaryEmail">Primary email</Label>
-          <Input id="primaryEmail" name="primaryEmail" type="email" defaultValue={values.primaryEmail} />
+          <Input id="primaryEmail" name="primaryEmail" type="email" placeholder="e.g. jamie@acme.com" defaultValue={values.primaryEmail} />
           {errors.primaryEmail ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.primaryEmail[0]}</p> : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="primaryPhone">Primary phone</Label>
-          <Input id="primaryPhone" name="primaryPhone" defaultValue={values.primaryPhone} />
+          <Input id="primaryPhone" name="primaryPhone" placeholder="e.g. +44 7700 900000" defaultValue={values.primaryPhone} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
-          <Input id="linkedinUrl" name="linkedinUrl" defaultValue={values.linkedinUrl} />
+          <Input id="linkedinUrl" name="linkedinUrl" placeholder="https://linkedin.com/in/…" defaultValue={values.linkedinUrl} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="headlineOverride">Headline / current title</Label>
@@ -128,7 +128,7 @@ export function PersonForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" defaultValue={values.city} />
+          <Input id="city" name="city" placeholder="e.g. London" defaultValue={values.city} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="countryCode">Country</Label>
@@ -195,16 +195,16 @@ export function PersonForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="source">Source</Label>
-          <Input id="source" name="source" defaultValue={values.source} />
+          <Input id="source" name="source" placeholder="e.g. Met at an industry conference" defaultValue={values.source} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sourceUrl">Source URL</Label>
-          <Input id="sourceUrl" name="sourceUrl" defaultValue={values.sourceUrl} />
+          <Input id="sourceUrl" name="sourceUrl" placeholder="https://…" defaultValue={values.sourceUrl} />
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="summary">Summary</Label>
-          <Textarea id="summary" name="summary" rows={3} defaultValue={values.summary} />
+          <Textarea id="summary" name="summary" rows={3} placeholder="e.g. Experienced CFO looking for a new challenge in PE-backed businesses." defaultValue={values.summary} />
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-2">
