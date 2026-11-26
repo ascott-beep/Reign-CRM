@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
 import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
+import { FixBanner } from "@/components/shell/fix-banner";
 import { nextActionStatus } from "@/lib/next-action-status";
 import { formatMoney } from "@/lib/utils";
 import { OPEN_OPPORTUNITY_STAGES, CLOSED_OPPORTUNITY_STAGES, weightedOpportunityValue, daysAtStage } from "@/lib/rules";
@@ -25,6 +26,12 @@ export default async function OpportunitiesPage({
 
   const where: Prisma.OpportunityWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
   if (activeView) Object.assign(where, opportunityViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
+
+  const fix = typeof sp.fix === "string" ? sp.fix : undefined;
+  if (fix === "no-next-action") {
+    where.stage = { in: OPEN_OPPORTUNITY_STAGES };
+    where.primaryNextTaskId = null;
+  }
 
   const opportunities = await prisma.opportunity.findMany({
     where,
@@ -93,7 +100,8 @@ export default async function OpportunitiesPage({
           </>
         }
       />
-      <OpportunitiesView display={display} openOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} closedOpportunities={closedOpportunities} listRows={listRows} />
+      {fix === "no-next-action" ? <FixBanner label="Opportunities with no next action" clearHref="/opportunities" /> : null}
+      <OpportunitiesView display={fix ? "table" : display} openOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} closedOpportunities={closedOpportunities} listRows={listRows} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { mandateViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
+import { FixBanner } from "@/components/shell/fix-banner";
 import { nextActionStatus } from "@/lib/next-action-status";
 import {
   LIVE_MANDATE_STATUSES,
@@ -31,6 +32,9 @@ export default async function MandatesPage({
 
   const where: Prisma.MandateWhereInput = { workspaceId: user.workspaceId, archivedAt: null, ...mandateVisibilityWhere(user) };
   if (activeView) Object.assign(where, mandateViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
+
+  const fix = typeof sp.fix === "string" ? sp.fix : undefined;
+  if (fix === "no-hiring-manager") where.hiringManagerPersonId = null;
 
   const mandates = await prisma.mandate.findMany({
     where,
@@ -89,7 +93,8 @@ export default async function MandatesPage({
   return (
     <div className="flex flex-1 flex-col gap-6">
       <PageHeader title="Mandates" description="Executive searches you are running for clients" />
-      <MandatesView display={display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
+      {fix === "no-hiring-manager" ? <FixBanner label="Mandates without a hiring manager" clearHref="/mandates" /> : null}
+      <MandatesView display={fix ? "list" : display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
     </div>
   );
 }

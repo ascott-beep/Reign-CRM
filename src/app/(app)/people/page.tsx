@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canExport, canMutate } from "@/lib/permissions";
 import { findAllPersonDuplicatePairs } from "@/lib/duplicates";
 import { PageHeader } from "@/components/shell/page-header";
+import { FixBanner } from "@/components/shell/fix-banner";
 import { EmptyState } from "@/components/shell/states";
 import { FilterPopover } from "@/components/shell/filter-popover";
 import { Button } from "@/components/ui/button";
@@ -39,9 +40,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const statusFilter = getMulti(sp, "status");
   const fitFilter = getMulti(sp, "fit");
 
+  const fix = typeof sp.fix === "string" ? sp.fix : undefined;
+
   const where: Prisma.PersonWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
   if (tab.personType) where.personTypes = { has: tab.personType };
   if (typeFilter.length > 0) where.personTypes = { hasSome: typeFilter as PersonType[] };
+  if (fix === "no-employment") {
+    where.personTypes = { has: "CANDIDATE" };
+    where.employmentHistories = { none: {} };
+  }
   if (q) {
     where.OR = [
       { firstName: { contains: q, mode: "insensitive" } },
@@ -173,6 +180,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           <FilterPopover groups={filterGroups} selected={{ type: typeFilter, status: statusFilter, fit: fitFilter }} resultCount={rows.length} resultNoun="people" />
         </div>
       </div>
+
+      {fix === "no-employment" ? <FixBanner label="Candidates without employment history" clearHref="/people" /> : null}
 
       {rows.length === 0 ? (
         <EmptyState
