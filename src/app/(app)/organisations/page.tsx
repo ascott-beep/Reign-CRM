@@ -1,178 +1,224 @@
 import Link from "next/link";
-import { Plus, ExternalLink, Download, Upload, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Plus, ExternalLink, Download, Upload } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canExport, canMutate } from "@/lib/permissions";
-import { organizationViewWhere } from "@/lib/saved-views";
+import { findAllOrganizationDuplicatePairs } from "@/lib/duplicates";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
-import { SavedViewsMenu } from "@/components/shell/saved-views-menu";
+import { FilterPopover } from "@/components/shell/filter-popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { countryName } from "@/lib/iso";
-import { cn } from "@/lib/utils";
+import { initials } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
-import { OrganisationGrid, type GridOrganisation } from "./organisation-grid";
-import type { Prisma } from "@prisma/client";
+import { holdStageFromAcquisitionDate } from "@/lib/rules";
+import { OrganizationDuplicateTag } from "./duplicate-tag";
+import type { Prisma, OrganizationType, OrganizationStatus } from "@prisma/client";
 
-const PAGE_SIZE = 25;
+const TABS: { key: string; label: string; type?: OrganizationType }[] = [
+  { key: "all", label: "All" },
+  { key: "funds", label: "PE funds", type: "PE_FUND" },
+  { key: "portfolio", label: "Portfolio", type: "PORTFOLIO_COMPANY" },
+  { key: "other", label: "Other" },
+];
 
-function currentHoldStage(investmentDate: Date | null | undefined, override: string | null | undefined) {
-  if (override) return override;
-  if (!investmentDate) return "UNKNOWN";
-  const months = (Date.now() - investmentDate.getTime()) / (1000 * 60 * 60 * 24 * 30.44);
-  if (months < 12) return "NEWLY_ACQUIRED";
-  if (months < 24) return "EARLY_HOLD";
-  if (months < 48) return "MID_HOLD";
-  return "LATE_HOLD";
+const HOLD_STAGE_LABEL: Record<string, string> = {
+  NEWLY_ACQUIRED: "Newly acquired",
+  EARLY_HOLD: "Early hold",
+  MID_HOLD: "Mid hold",
+  LATE_HOLD: "Late hold",
+  EXIT_ANNOUNCED: "Exit announced",
+  UNKNOWN: "Unknown",
+};
+
+const STALE_MS = 60 * 24 * 60 * 60 * 1000;
+
+function getMulti(sp: { [key: string]: string | string[] | undefined }, key: string): string[] {
+  const v = sp[key];
+  if (!v) return [];
+  return Array.isArray(v) ? v : [v];
 }
 
-export default async function OrganisationsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+export default async function OrganisationsPage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const typeParam = typeof sp.type === "string" ? sp.type : undefined;
+  const tabKey = typeof sp.tab === "string" && TABS.some((t) => t.key === sp.tab) ? sp.tab : "all";
+  const tab = TABS.find((t) => t.key === tabKey)!;
   const q = typeof sp.q === "string" ? sp.q.trim() : "";
-  const viewId = typeof sp.view === "string" ? sp.view : undefined;
-  const page = Math.max(1, Number(sp.page) || 1);
-  const display = sp.display === "table" ? "table" : "grid";
+  const take = Math.max(25, Number(sp.take) || 25);
 
-  const [views, activeView] = await Promise.all([
-    prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "ORGANIZATION" }, orderBy: { name: "asc" } }),
-    viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
-  ]);
+  const typeFilter = getMulti(sp, "type");
+  const statusFilter = getMulti(sp, "status");
+  const holdFilter = getMulti(sp, "hold");
+  const verifiedFilter = getMulti(sp, "verified");
 
   const where: Prisma.OrganizationWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
-  if (typeParam === "PE_FUND") where.type = "PE_FUND";
-  else if (typeParam === "PORTFOLIO_COMPANY") where.type = "PORTFOLIO_COMPANY";
-  else if (typeParam === "OTHER") where.type = { notIn: ["PE_FUND", "PORTFOLIO_COMPANY"] };
-
+  if (tab.type) where.type = tab.type;
+  else if (tabKey === "other") where.type = { notIn: ["PE_FUND", "PORTFOLIO_COMPANY"] };
+  if (typeFilter.length > 0) where.type = { in: typeFilter as OrganizationType[] };
+  if (statusFilter.length > 0) where.status = { in: statusFilter as OrganizationStatus[] };
   if (q) {
-    where.OR = [
-      { name: { contains: q, mode: "insensitive" } },
-      { normalizedWebsiteDomain: { contains: q.toLowerCase(), mode: "insensitive" } },
-    ];
+    where.OR = [{ name: { contains: q, mode: "insensitive" } }, { normalizedWebsiteDomain: { contains: q.toLowerCase(), mode: "insensitive" } }];
   }
 
-  if (activeView) {
-    Object.assign(where, organizationViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
-  }
-
-  const [total, organizations] = await Promise.all([
-    prisma.organization.count({ where }),
+  const [allForCounts, duplicates] = await Promise.all([
     prisma.organization.findMany({
-      where,
-      orderBy: { updatedAt: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
-      include: {
-        relationshipOwner: { select: { firstName: true, lastName: true } },
-        sectors: { include: { sector: true }, take: 1 },
-        relationshipsAsTarget: {
-          where: { archivedAt: null, investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } },
-          include: { sourceOrganization: { select: { name: true } } },
-        },
-        relationshipsAsSource: {
-          where: { archivedAt: null, investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } },
-        },
-        _count: { select: { personAssociations: true } },
-      },
+      where: { workspaceId: user.workspaceId, archivedAt: null },
+      select: { id: true, type: true, status: true, lastVerifiedAt: true, investmentStageOverride: true, relationshipsAsTarget: { select: { investmentDate: true }, where: { investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } }, take: 1, orderBy: { investmentDate: "asc" } } },
     }),
+    findAllOrganizationDuplicatePairs(user.workspaceId),
   ]);
 
-  const title =
-    typeParam === "PE_FUND" ? "Funds" : typeParam === "PORTFOLIO_COMPANY" ? "Portfolio Companies" : typeParam === "OTHER" ? "Other Organisations" : "Organisations";
-
-  const isPortfolioView = typeParam === "PORTFOLIO_COMPANY";
-  const isFundView = typeParam === "PE_FUND";
-
-  function hrefWithDisplay(nextDisplay: "grid" | "table") {
-    const params = new URLSearchParams();
-    if (typeParam) params.set("type", typeParam);
-    if (q) params.set("q", q);
-    if (viewId) params.set("view", viewId);
-    params.set("display", nextDisplay);
-    return `?${params.toString()}`;
+  function holdOf(o: (typeof allForCounts)[number]) {
+    return o.investmentStageOverride ?? (o.relationshipsAsTarget[0]?.investmentDate ? holdStageFromAcquisitionDate(o.relationshipsAsTarget[0].investmentDate) : null);
+  }
+  const tabCounts = {
+    all: allForCounts.length,
+    funds: allForCounts.filter((o) => o.type === "PE_FUND").length,
+    portfolio: allForCounts.filter((o) => o.type === "PORTFOLIO_COMPANY").length,
+    other: allForCounts.filter((o) => o.type !== "PE_FUND" && o.type !== "PORTFOLIO_COMPANY").length,
+  };
+  const typeCounts = { PE_FUND: 0, PORTFOLIO_COMPANY: 0, ADVISER: 0, LENDER: 0, OTHER_COMPANY: 0 } as Record<string, number>;
+  const statusCounts = {} as Record<string, number>;
+  const holdCounts = { NEWLY_ACQUIRED: 0, EARLY_HOLD: 0, MID_HOLD: 0, LATE_HOLD: 0 } as Record<string, number>;
+  let staleCount = 0;
+  let neverVerifiedCount = 0;
+  let upToDateCount = 0;
+  for (const o of allForCounts) {
+    typeCounts[o.type] = (typeCounts[o.type] ?? 0) + 1;
+    statusCounts[o.status] = (statusCounts[o.status] ?? 0) + 1;
+    const hold = holdOf(o);
+    if (hold && hold in holdCounts) holdCounts[hold]!++;
+    if (!o.lastVerifiedAt) neverVerifiedCount++;
+    else if (Date.now() - o.lastVerifiedAt.getTime() > STALE_MS) staleCount++;
+    else upToDateCount++;
   }
 
-  const gridData: GridOrganisation[] = organizations.map((org) => ({
-    id: org.id,
-    name: org.name,
-    type: org.type,
-    status: org.status,
-    accountPriority: org.accountPriority,
-    website: org.website,
-    hq: [org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", "),
-    sectorName: org.sectors[0]?.sector.name ?? null,
-    employeeRange: org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : null,
-    currentInvestors: org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", "),
-    holdStage: org.type === "PORTFOLIO_COMPANY" ? currentHoldStage(org.relationshipsAsTarget[0]?.investmentDate, org.investmentStageOverride) : null,
-    portfolioCount: org.type === "PE_FUND" ? org.relationshipsAsSource.length : null,
-    contactCount: org._count.personAssociations,
-    ownerName: org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : null,
-    lastVerifiedAt: org.lastVerifiedAt,
-  }));
+  // Hold and Verified are calculated, not columns — filtered in JS below, after fetch.
+  const organizations = await prisma.organization.findMany({
+    where,
+    orderBy: { updatedAt: "desc" },
+    take: take + 1,
+    include: {
+      relationshipOwner: true,
+      sectors: { include: { sector: true }, take: 1 },
+      relationshipsAsTarget: { where: { investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } }, include: { sourceOrganization: { select: { name: true } } }, orderBy: { investmentDate: "asc" } },
+      relationshipsAsSource: { where: { archivedAt: null } },
+    },
+  });
+
+  let rows = organizations.slice(0, take).map((org) => {
+    const hold = org.investmentStageOverride ?? (org.relationshipsAsTarget[0]?.investmentDate ? holdStageFromAcquisitionDate(org.relationshipsAsTarget[0].investmentDate) : null);
+    const verified = !org.lastVerifiedAt ? "never" : Date.now() - org.lastVerifiedAt.getTime() > STALE_MS ? "stale" : "fresh";
+    return { org, hold, verified };
+  });
+  if (holdFilter.length > 0) rows = rows.filter((r) => r.hold && holdFilter.includes(r.hold));
+  if (verifiedFilter.length > 0) {
+    rows = rows.filter((r) => (verifiedFilter.includes("stale") && r.verified === "stale") || (verifiedFilter.includes("never") && r.verified === "never") || (verifiedFilter.includes("fresh") && r.verified === "fresh"));
+  }
+  const hasMore = organizations.length > take;
+
+  const filterGroups = [
+    {
+      key: "type",
+      label: "Type",
+      options: [
+        { value: "PE_FUND", label: "PE fund", count: typeCounts.PE_FUND ?? 0 },
+        { value: "PORTFOLIO_COMPANY", label: "Portfolio company", count: typeCounts.PORTFOLIO_COMPANY ?? 0 },
+        { value: "ADVISER", label: "Adviser", count: typeCounts.ADVISER ?? 0 },
+        { value: "LENDER", label: "Lender", count: typeCounts.LENDER ?? 0 },
+        { value: "OTHER_COMPANY", label: "Other company", count: typeCounts.OTHER_COMPANY ?? 0 },
+      ].filter((o) => o.count > 0),
+    },
+    {
+      key: "status",
+      label: "Status",
+      options: Object.entries(statusCounts).map(([value, count]) => ({ value, label: label(value), count })),
+    },
+    {
+      key: "hold",
+      label: "Hold",
+      options: [
+        { value: "NEWLY_ACQUIRED", label: "Newly acquired", count: holdCounts.NEWLY_ACQUIRED ?? 0 },
+        { value: "EARLY_HOLD", label: "Early hold", count: holdCounts.EARLY_HOLD ?? 0 },
+        { value: "MID_HOLD", label: "Mid hold", count: holdCounts.MID_HOLD ?? 0 },
+        { value: "LATE_HOLD", label: "Late hold", count: holdCounts.LATE_HOLD ?? 0 },
+      ].filter((o) => o.count > 0),
+    },
+    {
+      key: "verified",
+      label: "Verified",
+      options: [
+        { value: "stale", label: "Stale (60+ days)", count: staleCount },
+        { value: "never", label: "Never verified", count: neverVerifiedCount },
+        { value: "fresh", label: "Up to date", count: upToDateCount },
+      ],
+    },
+  ];
 
   return (
-    <div>
+    <div className="flex flex-col gap-6">
       <PageHeader
-        title={title}
-        description={`${total} organisation${total === 1 ? "" : "s"}`}
+        title="Organisations"
+        description="Funds, portfolio companies and advisers you work with"
         actions={
           <>
-            <SavedViewsMenu views={views} />
-            <div className="flex overflow-hidden rounded-md border border-[var(--color-border-strong)]">
-              <Link
-                href={hrefWithDisplay("grid")}
-                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs", display === "grid" ? "bg-[var(--color-canvas)]" : "")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" /> Grid
-              </Link>
-              <Link
-                href={hrefWithDisplay("table")}
-                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs border-l border-[var(--color-border-strong)]", display === "table" ? "bg-[var(--color-canvas)]" : "")}
-              >
-                <ListIcon className="h-3.5 w-3.5" /> Table
-              </Link>
-            </div>
             {canExport(user.role) ? (
               <Button variant="secondary" asChild>
-                <a href={`/api/export/organizations${typeParam ? `?type=${typeParam}` : ""}`}>
-                  <Download className="h-4 w-4" /> Export CSV
+                <a href="/api/export/organizations">
+                  <Download className="h-[14px] w-[14px]" /> Export
                 </a>
               </Button>
             ) : null}
             {canMutate(user.role) ? (
               <Button variant="secondary" asChild>
                 <Link href="/import/organisations">
-                  <Upload className="h-4 w-4" /> Import CSV
+                  <Upload className="h-[14px] w-[14px]" /> Import
                 </Link>
               </Button>
             ) : null}
             <Button asChild>
               <Link href="/organisations/new">
-                <Plus className="h-4 w-4" /> New organisation
+                <Plus className="h-[14px] w-[14px]" /> New organisation
               </Link>
             </Button>
           </>
         }
       />
 
-      <form className="mb-4 flex max-w-sm gap-2" action="/organisations" method="GET">
-        {typeParam ? <input type="hidden" name="type" value={typeParam} /> : null}
-        <input type="hidden" name="display" value={display} />
-        <Input name="q" defaultValue={q} placeholder="Search by name or domain…" />
-        <Button type="submit" variant="secondary">
-          Search
-        </Button>
-      </form>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="tablist" aria-label="Views" className="flex gap-[3px] rounded-[4px] border border-[var(--color-line)] bg-[var(--color-card)] p-[3px]">
+          {TABS.map((t) => (
+            <Link
+              key={t.key}
+              href={t.key === "all" ? "/organisations" : `/organisations?tab=${t.key}`}
+              role="tab"
+              className={`flex h-7 items-center gap-1.5 rounded-[4px] px-3 text-[12.5px] no-underline ${tabKey === t.key ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "text-[var(--color-ink2)]"}`}
+            >
+              <span>{t.label}</span>
+              <span className="opacity-60">{tabCounts[t.key as keyof typeof tabCounts]}</span>
+            </Link>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <form action="/organisations" method="GET">
+            {tabKey !== "all" ? <input type="hidden" name="tab" value={tabKey} /> : null}
+            <label className="flex h-[34px] items-center gap-2 rounded-[4px] border border-[var(--color-line)] bg-[var(--color-card)] px-3.5 text-[13px] text-[var(--color-muted)]">
+              <Input name="q" defaultValue={q} placeholder="Filter by name, title or company" className="h-auto w-60 border-0 bg-transparent p-0 text-[var(--color-ink)] shadow-none focus-visible:ring-0" />
+            </label>
+          </form>
+          <FilterPopover
+            groups={filterGroups}
+            selected={{ type: typeFilter, status: statusFilter, hold: holdFilter, verified: verifiedFilter }}
+            resultCount={rows.length}
+            resultNoun="organisations"
+          />
+        </div>
+      </div>
 
-      {organizations.length === 0 ? (
+      {rows.length === 0 ? (
         <EmptyState
           title="No organisations found"
           description="Try adjusting your filters, or create a new organisation to get started."
@@ -184,120 +230,55 @@ export default async function OrganisationsPage({
             </Button>
           }
         />
-      ) : display === "grid" ? (
-        <OrganisationGrid organisations={gridData} />
       ) : (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                {isPortfolioView ? (
-                  <>
-                    <TableHead>Sector</TableHead>
-                    <TableHead>Headquarters</TableHead>
-                    <TableHead>Employees</TableHead>
-                    <TableHead>Current Investors</TableHead>
-                    <TableHead>Hold Stage</TableHead>
-                  </>
-                ) : isFundView ? (
-                  <>
-                    <TableHead>Headquarters</TableHead>
-                    <TableHead>Portfolio Count</TableHead>
-                    <TableHead>Contacts</TableHead>
-                  </>
-                ) : (
-                  <>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Headquarters</TableHead>
-                  </>
-                )}
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Last Verified</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {organizations.map((org) => {
-                const hq = [org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ");
-                return (
-                  <TableRow key={org.id}>
-                    <TableCell className="font-medium">
-                      <Link href={`/organisations/${org.id}`} className="text-[var(--color-ink)] hover:text-[var(--color-accent)]">
-                        {org.name}
-                      </Link>
-                      {org.website ? (
-                        <a href={org.website} target="_blank" rel="noreferrer" className="ml-1.5 inline-block align-middle text-[var(--color-ink-subtle)]">
-                          <ExternalLink className="inline h-3 w-3" />
-                        </a>
-                      ) : null}
-                    </TableCell>
-                    {isPortfolioView ? (
-                      <>
-                        <TableCell>{org.sectors[0]?.sector.name ?? "—"}</TableCell>
-                        <TableCell>{hq || "—"}</TableCell>
-                        <TableCell>
-                          {org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {org.relationshipsAsTarget.length > 0
-                            ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ")
-                            : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {label(currentHoldStage(org.relationshipsAsTarget[0]?.investmentDate, org.investmentStageOverride))}
-                        </TableCell>
-                      </>
-                    ) : isFundView ? (
-                      <>
-                        <TableCell>{hq || "—"}</TableCell>
-                        <TableCell>{org.relationshipsAsSource.length}</TableCell>
-                        <TableCell>{org._count.personAssociations}</TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell>{label(org.type)}</TableCell>
-                        <TableCell>{hq || "—"}</TableCell>
-                      </>
-                    )}
-                    <TableCell>
-                      <StatusBadge value={org.status} />
-                    </TableCell>
-                    <TableCell>{label(org.accountPriority)}</TableCell>
-                    <TableCell>
-                      {org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-[var(--color-ink-subtle)]">
-                      {org.lastVerifiedAt ? formatDistanceToNow(org.lastVerifiedAt, { addSuffix: true }) : "Never"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+        <div className="overflow-hidden rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
+          <div className="grid grid-cols-[minmax(0,2fr)_130px_minmax(0,1.3fr)_minmax(0,1.1fr)_120px_120px_110px] gap-4 border-b border-[var(--color-line)] px-5 py-2.5 text-xs text-[var(--color-muted)]">
+            <span>Organisation</span>
+            <span>Status</span>
+            <span>Sector / focus</span>
+            <span>Investor</span>
+            <span>Hold</span>
+            <span>Owner</span>
+            <span>Verified</span>
+          </div>
+          {rows.map(({ org, hold, verified }) => {
+            const dup = duplicates.get(org.id);
+            return (
+              <div key={org.id} className="grid grid-cols-[minmax(0,2fr)_130px_minmax(0,1.3fr)_minmax(0,1.1fr)_120px_120px_110px] items-center gap-4 border-b border-[var(--color-line)] px-5 py-3 text-[13.5px] last:border-b-0">
+                <Link href={`/organisations/${org.id}`} className="flex min-w-0 items-center gap-3 text-[var(--color-ink)] no-underline">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[var(--color-navy)] text-[11px] font-semibold text-[var(--color-navy-ink)]">
+                    {initials(org.name.split(" ")[0] ?? org.name, org.name.split(" ")[1] ?? "")}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{org.name}</span>
+                    <span className="block truncate text-xs text-[var(--color-muted)]">{label(org.type)}</span>
+                  </span>
+                  {org.website ? <ExternalLink className="h-3 w-3 shrink-0 text-[var(--color-muted)]" /> : null}
+                </Link>
+                <span>{dup ? <OrganizationDuplicateTag organizationId={org.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={org.status} />}</span>
+                <span className="truncate text-[var(--color-ink2)]">
+                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? "—"}
+                </span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : "—"}</span>
+                <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : "—"}</span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+                <span className={verified === "stale" ? "text-[var(--color-warn)]" : "text-[var(--color-muted)]"}>{org.lastVerifiedAt ? formatDistanceToNow(org.lastVerifiedAt, { addSuffix: true }) : "Never"}</span>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {total > PAGE_SIZE ? (
-        <div className="mt-4 flex items-center justify-between text-sm text-[var(--color-ink-subtle)]">
-          <span>
-            Page {page} of {Math.ceil(total / PAGE_SIZE)}
-          </span>
-          <div className="flex gap-2">
-            {page > 1 ? (
-              <Button variant="secondary" size="sm" asChild>
-                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), display, page: String(page - 1) })}`}>Previous</Link>
-              </Button>
-            ) : null}
-            {page * PAGE_SIZE < total ? (
-              <Button variant="secondary" size="sm" asChild>
-                <Link href={`?${new URLSearchParams({ ...(typeParam ? { type: typeParam } : {}), display, page: String(page + 1) })}`}>Next</Link>
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      <div className="flex items-center justify-between text-[13px] text-[var(--color-muted)]">
+        <span>
+          Showing {rows.length} of {tabCounts[tabKey as keyof typeof tabCounts]}
+        </span>
+        {hasMore ? (
+          <Link href={`?${new URLSearchParams({ ...(tabKey !== "all" ? { tab: tabKey } : {}), ...(q ? { q } : {}), take: String(take + 25) })}`} className="text-[var(--color-ink2)] no-underline">
+            Load more
+          </Link>
+        ) : null}
+      </div>
     </div>
   );
 }

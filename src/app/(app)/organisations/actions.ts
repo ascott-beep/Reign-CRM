@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canMutate, canArchiveRecord, canRestoreArchived, PermissionError } from "@/lib/permissions";
+import { requireUser, canMutate, canArchiveRecord, canRestoreArchived, canMergeRecords, PermissionError } from "@/lib/permissions";
 import { organizationFormSchema, organizationRelationshipSchema } from "@/lib/validation/organization";
 import { normalizeName, normalizeWebsiteDomain } from "@/lib/normalize";
 import { findOrganizationDuplicates } from "@/lib/duplicates";
@@ -247,4 +247,119 @@ export async function addOrganizationRelationshipAction(formData: FormData) {
 
   revalidatePath(`/organisations/${data.sourceOrganizationId}`);
   revalidatePath(`/organisations/${data.targetOrganizationId}`);
+}
+
+/**
+ * d07 "Merge duplicate organisations" — survivorFieldOverrides lets the user
+ * pick the duplicate's value for name/website/hqCity instead of the
+ * survivor's (the only fields the dialog offers a per-field choice for).
+ * Every other link moves across; composite-unique join rows are dropped
+ * where the survivor already has the same link, and relationship rows that
+ * would end up pointing an organisation at itself are dropped outright.
+ */
+export async function mergeOrganizationAction(
+  survivorId: string,
+  duplicateId: string,
+  survivorFieldOverrides?: { name?: string; website?: string | null; hqCity?: string | null },
+) {
+  const user = await requireUser();
+  if (!canMergeRecords(user.role)) throw new PermissionError("Only administrators can merge records.");
+  if (survivorId === duplicateId) throw new Error("Cannot merge an organisation with itself.");
+
+  await prisma.$transaction(async (tx) => {
+    if (survivorFieldOverrides) {
+      await tx.organization.update({
+        where: { id: survivorId },
+        data: {
+          name: survivorFieldOverrides.name,
+          website: survivorFieldOverrides.website,
+          hqCity: survivorFieldOverrides.hqCity,
+          normalizedName: survivorFieldOverrides.name ? normalizeName(survivorFieldOverrides.name) : undefined,
+          normalizedWebsiteDomain: survivorFieldOverrides.website !== undefined ? normalizeWebsiteDomain(survivorFieldOverrides.website) : undefined,
+        },
+      });
+    }
+
+    // Straightforward reassignment — no uniqueness constraint to collide with.
+    await tx.employmentHistory.updateMany({ where: { organizationId: duplicateId }, data: { organizationId: survivorId } });
+    await tx.employmentHistoryInvestor.updateMany({ where: { organizationId: duplicateId }, data: { organizationId: survivorId } });
+    await tx.opportunity.updateMany({ where: { hiringOrganizationId: duplicateId }, data: { hiringOrganizationId: survivorId } });
+    await tx.mandate.updateMany({ where: { hiringOrganizationId: duplicateId }, data: { hiringOrganizationId: survivorId } });
+    await tx.placement.updateMany({ where: { hiringOrganizationId: duplicateId }, data: { hiringOrganizationId: survivorId } });
+    await tx.intelligenceItem.updateMany({ where: { organizationId: duplicateId }, data: { organizationId: survivorId } });
+    await tx.offLimitsRestriction.updateMany({ where: { organizationId: duplicateId }, data: { organizationId: survivorId } });
+
+    // Composite-unique join tables: reassign only where the survivor doesn't
+    // already have the same link, then drop the now-redundant duplicate row.
+    for (const [model, key] of [
+      [tx.organizationInvestorStrategy, "strategyId"],
+      [tx.organizationSector, "sectorId"],
+      [tx.opportunityFund, "opportunityId"],
+      [tx.mandateFund, "mandateId"],
+      [tx.intelligenceItemFund, "intelligenceItemId"],
+      [tx.activityOrganization, "activityId"],
+      [tx.taskOrganization, "taskId"],
+      [tx.documentOrganization, "documentId"],
+      [tx.tagOnOrganization, "tagId"],
+    ] as const) {
+      const rows = await (model as any).findMany({ where: { organizationId: duplicateId } });
+      for (const row of rows) {
+        const existing = await (model as any).findFirst({ where: { organizationId: survivorId, [key]: row[key] } });
+        if (existing) {
+          await (model as any).delete({ where: { id: row.id } });
+        } else {
+          await (model as any).update({ where: { id: row.id }, data: { organizationId: survivorId } });
+        }
+      }
+    }
+
+    // Person-organisation links aren't uniquely constrained in the schema,
+    // but the same person can still end up linked to the survivor twice
+    // (once already, once from the duplicate) — dedupe on personId.
+    const personLinks = await tx.personOrganizationAssociation.findMany({ where: { organizationId: duplicateId } });
+    for (const link of personLinks) {
+      const existing = await tx.personOrganizationAssociation.findFirst({ where: { organizationId: survivorId, personId: link.personId } });
+      if (existing) {
+        await tx.personOrganizationAssociation.delete({ where: { id: link.id } });
+      } else {
+        await tx.personOrganizationAssociation.update({ where: { id: link.id }, data: { organizationId: survivorId } });
+      }
+    }
+
+    // Relationship rows reference an organisation on both sides — reassign
+    // each side independently, drop rows that would now point an
+    // organisation at itself, and drop exact duplicates of a relationship
+    // the survivor already has.
+    for (const side of ["sourceOrganizationId", "targetOrganizationId"] as const) {
+      const other = side === "sourceOrganizationId" ? "targetOrganizationId" : "sourceOrganizationId";
+      const rows = await tx.organizationRelationship.findMany({ where: { [side]: duplicateId } });
+      for (const row of rows) {
+        if ((row as any)[other] === survivorId) {
+          await tx.organizationRelationship.delete({ where: { id: row.id } });
+          continue;
+        }
+        const existing = await tx.organizationRelationship.findFirst({
+          where: { [side]: survivorId, [other]: (row as any)[other], type: row.type },
+        });
+        if (existing) {
+          await tx.organizationRelationship.delete({ where: { id: row.id } });
+        } else {
+          await tx.organizationRelationship.update({ where: { id: row.id }, data: { [side]: survivorId } });
+        }
+      }
+    }
+
+    await tx.organization.update({ where: { id: duplicateId }, data: { archivedAt: new Date() } });
+
+    await tx.auditLog.create({
+      data: { workspaceId: user.workspaceId, actorId: user.id, entityType: "Organization", entityId: survivorId, action: "UPDATE", changedFields: { mergedFrom: duplicateId } },
+    });
+    await tx.auditLog.create({
+      data: { workspaceId: user.workspaceId, actorId: user.id, entityType: "Organization", entityId: duplicateId, action: "ARCHIVE", changedFields: { mergedInto: survivorId } },
+    });
+  });
+
+  revalidatePath(`/organisations/${survivorId}`);
+  revalidatePath("/organisations");
+  redirect(`/organisations/${survivorId}`);
 }

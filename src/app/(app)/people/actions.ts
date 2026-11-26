@@ -268,12 +268,24 @@ export async function upsertCandidateProfileAction(formData: FormData) {
  * tags/associations, preserve every process/activity/task/document record,
  * then archive the duplicate. Admin-only, single transaction.
  */
-export async function mergePersonAction(survivorId: string, duplicateId: string) {
+export async function mergePersonAction(
+  survivorId: string,
+  duplicateId: string,
+  survivorFieldOverrides?: { firstName?: string; lastName?: string; headlineOverride?: string | null; relationshipStatus?: string; relationshipOwnerId?: string | null; rating?: string },
+) {
   const user = await requireUser();
   if (!canMergeRecords(user.role)) throw new PermissionError("Only administrators can merge records.");
   if (survivorId === duplicateId) throw new Error("Cannot merge a person with themselves.");
 
   await prisma.$transaction(async (tx) => {
+    if (survivorFieldOverrides) {
+      const { rating, ...personFields } = survivorFieldOverrides;
+      await tx.person.update({ where: { id: survivorId }, data: personFields as any });
+      if (rating) {
+        await tx.candidateProfile.updateMany({ where: { personId: survivorId }, data: { rating: rating as any } });
+      }
+    }
+
     await tx.employmentHistory.updateMany({ where: { personId: duplicateId }, data: { personId: survivorId } });
     await tx.personOrganizationAssociation.updateMany({ where: { personId: duplicateId }, data: { personId: survivorId } });
     await tx.candidateProcess.updateMany({ where: { candidatePersonId: duplicateId }, data: { candidatePersonId: survivorId } });
@@ -286,10 +298,19 @@ export async function mergePersonAction(survivorId: string, duplicateId: string)
 
     // Join tables with composite uniqueness: reassign only where the survivor
     // doesn't already have the same link, then drop the now-redundant rows.
-    for (const model of [tx.activityPerson, tx.taskPerson, tx.documentPerson, tx.tagOnPerson] as const) {
+    for (const model of [tx.activityPerson, tx.taskPerson, tx.documentPerson, tx.tagOnPerson, tx.personPracticeArea] as const) {
       const rows = await (model as any).findMany({ where: { personId: duplicateId } });
       for (const row of rows) {
-        const key = model === tx.activityPerson ? "activityId" : model === tx.taskPerson ? "taskId" : model === tx.documentPerson ? "documentId" : "tagId";
+        const key =
+          model === tx.activityPerson
+            ? "activityId"
+            : model === tx.taskPerson
+              ? "taskId"
+              : model === tx.documentPerson
+                ? "documentId"
+                : model === tx.tagOnPerson
+                  ? "tagId"
+                  : "practiceAreaId";
         const existing = await (model as any).findFirst({ where: { personId: survivorId, [key]: row[key] } });
         if (existing) {
           await (model as any).delete({ where: { id: row.id } });

@@ -32,9 +32,9 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/organisations",
         icon: Building2,
         children: [
-          { label: "Funds", href: "/organisations?type=PE_FUND" },
-          { label: "Portfolio Companies", href: "/organisations?type=PORTFOLIO_COMPANY" },
-          { label: "Other Organisations", href: "/organisations?type=OTHER" },
+          { label: "Funds", href: "/organisations?tab=funds" },
+          { label: "Portfolio Companies", href: "/organisations?tab=portfolio" },
+          { label: "Other Organisations", href: "/organisations?tab=other" },
         ],
       },
       {
@@ -43,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: Users,
         children: [
           { label: "All People", href: "/people" },
-          { label: "Candidates", href: "/people?filter=candidates" },
+          { label: "Candidates", href: "/people?tab=candidates" },
         ],
       },
       { label: "Opportunities", href: "/opportunities", icon: TrendingUp, countKey: "opportunities" },
