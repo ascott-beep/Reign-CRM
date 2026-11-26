@@ -3,26 +3,42 @@ import { notFound } from "next/navigation";
 import { ExternalLink, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canArchiveRecord, canRestoreArchived, canViewAuditLog } from "@/lib/permissions";
-import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Timeline } from "@/components/ui/timeline";
-import { RelatedOrgCard } from "@/components/ui/related-org-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
-import { formatMoney } from "@/lib/utils";
+import { formatMoney, initials } from "@/lib/utils";
 import { getOrganizationTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
+import { LIVE_MANDATE_STATUSES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
 import { archiveOrganizationAction, restoreOrganizationAction } from "../actions";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
+
+const HOLD_STAGE_LABEL: Record<string, string> = {
+  NEWLY_ACQUIRED: "Newly acquired",
+  EARLY_HOLD: "Early hold",
+  MID_HOLD: "Mid hold",
+  LATE_HOLD: "Late hold",
+  EXIT_ANNOUNCED: "Exit announced",
+  UNKNOWN: "Unknown",
+};
+
+function monthsSince(date: Date) {
+  return Math.round((Date.now() - date.getTime()) / (30.44 * 24 * 60 * 60 * 1000));
+}
+
+function isStaleVerification(lastVerifiedAt: Date | null) {
+  return !lastVerifiedAt || lastVerifiedAt < new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+}
 
 export default async function OrganizationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -46,19 +62,14 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
 
   const investorFundIds = org.relationshipsAsTarget.map((r) => r.sourceOrganizationId);
 
-  const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships] = await Promise.all([
+  const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships, feesAgg] = await Promise.all([
     getOrganizationTimeline(org.id),
     prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null }, orderBy: { dateReceived: "desc" } }),
     prisma.documentOrganization.findMany({ where: { organizationId: org.id }, include: { document: true } }),
     canViewAuditLog(user.role)
-      ? prisma.auditLog.findMany({
-          where: { entityType: "Organization", entityId: org.id },
-          include: { actor: true },
-          orderBy: { timestamp: "desc" },
-          take: 50,
-        })
+      ? prisma.auditLog.findMany({ where: { entityType: "Organization", entityId: org.id }, include: { actor: true }, orderBy: { timestamp: "desc" }, take: 50 })
       : Promise.resolve([]),
     prisma.organization.findMany({
       where: { workspaceId: user.workspaceId, archivedAt: null, id: { not: org.id } },
@@ -73,265 +84,386 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
+    prisma.placement.aggregate({ where: { hiringOrganizationId: org.id }, _sum: { feeAmount: true } }),
   ]);
 
   // A sibling portco can show up once per shared investor fund — keep only the first (most recent) row per company.
   // Filtered to actual portfolio companies since a fund's outbound relationships can also include things like
   // co-investor funds, which don't belong under "other portfolio companies."
   const siblingPortcos = Array.from(
-    new Map(
-      siblingRelationships.filter((r) => r.targetOrganization.type === "PORTFOLIO_COMPANY").map((r) => [r.targetOrganizationId, r]),
-    ).values(),
+    new Map(siblingRelationships.filter((r) => r.targetOrganization.type === "PORTFOLIO_COMPANY").map((r) => [r.targetOrganizationId, r])).values(),
   );
+  const siblingLiveMandates =
+    siblingPortcos.length > 0
+      ? await prisma.mandate.findMany({
+          where: { hiringOrganizationId: { in: siblingPortcos.map((r) => r.targetOrganizationId) }, status: { in: [...LIVE_MANDATE_STATUSES] } },
+          select: { hiringOrganizationId: true },
+        })
+      : [];
+  const siblingHasLiveMandate = new Set(siblingLiveMandates.map((m) => m.hiringOrganizationId));
+
+  const liveMandates = mandates.filter((m) => (LIVE_MANDATE_STATUSES as readonly string[]).includes(m.status));
+  const currentInvestors = org.relationshipsAsTarget.filter((r) => !r.exitDate);
+  const earliestInvestmentDate = currentInvestors.reduce<Date | null>(
+    (earliest, r) => (r.investmentDate && (!earliest || r.investmentDate < earliest) ? r.investmentDate : earliest),
+    null,
+  );
+  const holdStage = org.investmentStageOverride ?? (earliestInvestmentDate ? holdStageFromAcquisitionDate(earliestInvestmentDate) : null);
+  const feesWithClient = feesAgg._sum.feeAmount ? Number(feesAgg._sum.feeAmount) : 0;
+  const lastActivity = timeline[0];
+  const stale = org.accountPriority === "PRIORITY" && isStaleVerification(org.lastVerifiedAt);
 
   const canArchive = canArchiveRecord(user, { relationshipOwnerId: org.relationshipOwnerId, createdById: org.createdById });
   const canRestore = canRestoreArchived(user.role);
 
-  return (
-    <div>
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            {org.name}
-            <StatusBadge value={org.status} />
-            {org.archivedAt ? <Badge tone="neutral">Archived</Badge> : null}
-          </div>
+  const factCards = [
+    org.type === "PORTFOLIO_COMPANY" && earliestInvestmentDate
+      ? {
+          label: "Owned by investors for",
+          value: `${monthsSince(earliestInvestmentDate)} months`,
+          detail: holdStage ? HOLD_STAGE_LABEL[holdStage] : null,
         }
-        description={
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <span>{label(org.type)}</span>
-            <span>Priority: {label(org.accountPriority)}</span>
-            {org.relationshipOwner ? <span>Owner: {org.relationshipOwner.firstName} {org.relationshipOwner.lastName}</span> : null}
-            {org.website ? (
-              <a href={org.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-accent)]">
-                Website <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : null}
-            {org.linkedinUrl ? (
-              <a href={org.linkedinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-accent)]">
-                LinkedIn <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : null}
-            {org.tags.map((t) => (
-              <Badge key={t.tagId} tone="info">
-                {t.tag.name}
-              </Badge>
-            ))}
-          </div>
-        }
-        actions={
-          <>
-            <LogActivityDialog
-              users={users}
-              currentUserId={user.id}
-              linkContext={{ organizationId: org.id, label: org.name }}
-            />
-            <Button variant="secondary" size="sm" asChild>
-              <Link href={`/people/new?organizationId=${org.id}`}>Add person</Link>
-            </Button>
-            <Button variant="secondary" size="sm" asChild>
-              <Link href={`/opportunities/new?organizationId=${org.id}`}>Add opportunity</Link>
-            </Button>
-            <Button variant="secondary" size="sm" asChild>
-              <Link href={`/tasks/new?organizationId=${org.id}`}>Add task</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href={`/organisations/${org.id}/edit`}>
-                <Pencil className="h-4 w-4" /> Edit
-              </Link>
-            </Button>
-          </>
-        }
-      />
+      : null,
+    {
+      label: "Live mandates",
+      value: String(liveMandates.length),
+      detail: liveMandates[0] ? `${liveMandates[0].title} · ${label(liveMandates[0].status)}` : "None open",
+    },
+    { label: "Fees with this client", value: formatMoney(feesWithClient, "GBP"), detail: feesWithClient > 0 ? null : "No placements yet" },
+    {
+      label: "Last contact",
+      value: lastActivity ? format(lastActivity.date, "d MMM") : "—",
+      detail: lastActivity ? null : "Nothing logged",
+    },
+  ].filter(Boolean) as { label: string; value: string; detail: string | null }[];
 
-      <Tabs defaultValue="overview">
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="flex items-center gap-[18px]">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[6px] bg-[var(--color-navy)] text-[15px] font-semibold text-[var(--color-navy-ink)]">
+            {initials(org.name.split(" ")[0] ?? org.name, org.name.split(" ")[1] ?? "")}
+          </span>
+          <div>
+            <div className="text-[13px] text-[var(--color-muted)]">
+              <Link href="/organisations" className="text-[var(--color-muted)] no-underline">
+                Organisations
+              </Link>{" "}
+              / {label(org.type)}
+            </div>
+            <h1 className="mt-1.5 text-[26px] font-light leading-tight tracking-[-0.01em]">
+              {org.name} {org.archivedAt ? <Badge tone="neutral">Archived</Badge> : null}
+            </h1>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-[var(--color-ink2)]">
+              <span>
+                {label(org.type)}
+                {org.sectors.length > 0 ? ` · ${org.sectors.map((s) => s.sector.name).join(", ")}` : ""}
+                {org.employeeCountMin || org.employeeCountMax ? ` · ${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"} employees` : ""}
+              </span>
+              <StatusBadge value={org.status} />
+              {org.accountPriority === "PRIORITY" ? <Badge tone="info">Priority</Badge> : null}
+              <Badge tone={stale ? "warning" : "neutral"}>{org.lastVerifiedAt ? `Verified ${format(org.lastVerifiedAt, "d MMM")} · re-verify` : "Never verified"}</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2.5">
+          {org.website ? (
+            <Button variant="secondary" asChild>
+              <a href={org.website} target="_blank" rel="noreferrer">
+                Website
+              </a>
+            </Button>
+          ) : null}
+          <LogActivityDialog users={users} currentUserId={user.id} linkContext={{ organizationId: org.id, label: org.name }} />
+          <Button variant="secondary" asChild>
+            <Link href={`/people/new?organizationId=${org.id}`}>Add person</Link>
+          </Button>
+          <Button asChild>
+            <Link href={`/opportunities/new?organizationId=${org.id}`}>+ Add opportunity</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link href={`/organisations/${org.id}/edit`}>
+              <Pencil className="h-[14px] w-[14px]" /> Edit
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      <section aria-label="Key facts" className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {factCards.map((c) => (
+          <div key={c.label} className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[18px] py-3.5">
+            <div className="text-[12.5px] text-[var(--color-muted)]">{c.label}</div>
+            <div className="mt-1.5 text-[20px] font-light tracking-[-0.02em]">{c.value}</div>
+            {c.detail ? <div className="mt-1 text-xs text-[var(--color-muted)]">{c.detail}</div> : null}
+          </div>
+        ))}
+      </section>
+
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex min-w-0 flex-[2_1_540px] flex-col gap-4">
+          <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] pb-2 pt-[18px]">
+            <h2 className="m-0 text-base font-medium">Work with {org.name.split(" ")[0]}</h2>
+            {mandates.length === 0 && opportunities.length === 0 ? (
+              <p className="py-6 text-sm text-[var(--color-muted)]">Nothing on this client yet.</p>
+            ) : (
+              <>
+                {mandates.map((m, i) => (
+                  <Link
+                    key={m.id}
+                    href={`/mandates/${m.id}`}
+                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || opportunities.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
+                  >
+                    <span>
+                      <Badge tone="neutral">Mandate</Badge>
+                    </span>
+                    <span>{m.title}</span>
+                    {(LIVE_MANDATE_STATUSES as readonly string[]).includes(m.status) ? (
+                      <span className="relative flex h-3.5 items-center">
+                        <span className="absolute inset-x-0 h-1.5 rounded-full bg-[var(--color-track)]" />
+                        <span
+                          className="absolute h-1.5 rounded-full bg-[var(--color-fill)]"
+                          style={{ width: `${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}%` }}
+                        />
+                        <span
+                          className="absolute h-3.5 w-3.5 rounded-full bg-[var(--color-dot)]"
+                          style={{ left: `calc(${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}% - 7px)` }}
+                        />
+                      </span>
+                    ) : (
+                      <span className="text-xs text-[var(--color-muted)]">{label(m.status)}</span>
+                    )}
+                    <span className="text-right text-[12.5px] text-[var(--color-ink2)]">{label(m.status)}</span>
+                  </Link>
+                ))}
+                {opportunities.map((o, i) => (
+                  <Link
+                    key={o.id}
+                    href={`/opportunities/${o.id}`}
+                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || mandates.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
+                  >
+                    <span>
+                      <Badge tone="neutral">Opportunity</Badge>
+                    </span>
+                    <span>{o.potentialRoleTitle ?? o.name}</span>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      {formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)} · {label(o.stage).toLowerCase()}
+                    </span>
+                    <span className="text-right text-[12.5px] text-[var(--color-ink2)]">{o.name}</span>
+                  </Link>
+                ))}
+              </>
+            )}
+          </section>
+
+          {org.type === "PORTFOLIO_COMPANY" ? (
+            <section className="grid grid-cols-1 gap-[18px_32px] rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px] sm:grid-cols-2">
+              <div>
+                <h2 className="m-0 text-base font-medium">Ownership</h2>
+                {org.relationshipsAsTarget.length === 0 ? (
+                  <p className="mt-2.5 text-sm text-[var(--color-muted)]">No investor relationships recorded yet.</p>
+                ) : (
+                  org.relationshipsAsTarget.map((r, i) => (
+                    <Link
+                      key={r.id}
+                      href={`/organisations/${r.sourceOrganizationId}`}
+                      className={`flex justify-between gap-3 py-2.5 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 ? "border-t border-[var(--color-line)]" : "mt-2.5 border-t border-[var(--color-line)]"}`}
+                    >
+                      <span>{r.sourceOrganization.name}</span>
+                      <span className="whitespace-nowrap text-[13px] text-[var(--color-muted)]">
+                        {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : inverseRelationshipLabel(r.type)}
+                      </span>
+                    </Link>
+                  ))
+                )}
+                <div className="mt-3.5 text-xs text-[var(--color-muted)]">Investment thesis</div>
+                <p className="mt-1 text-[13px] leading-relaxed">{org.investmentThesisSummary || "—"}</p>
+              </div>
+              <div>
+                <h2 className="m-0 text-base font-medium">Other companies these investors own</h2>
+                {siblingPortcos.length === 0 ? (
+                  <p className="mt-2.5 text-sm text-[var(--color-muted)]">No other portfolio companies found for these investors.</p>
+                ) : (
+                  siblingPortcos.map((r, i) => (
+                    <Link
+                      key={r.id}
+                      href={`/organisations/${r.targetOrganizationId}`}
+                      className={`flex items-center gap-3 py-2.5 text-[var(--color-ink)] no-underline ${i > 0 ? "border-t border-[var(--color-line)]" : "mt-2.5 border-t border-[var(--color-line)]"}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
+                        <span className="block text-xs text-[var(--color-muted)]">
+                          via {r.sourceOrganization.name} · {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                        </span>
+                      </span>
+                      <Badge tone={siblingHasLiveMandate.has(r.targetOrganizationId) ? "info" : "neutral"}>
+                        {siblingHasLiveMandate.has(r.targetOrganizationId) ? "Live mandate" : "Exited"}
+                      </Badge>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : org.type === "PE_FUND" ? (
+            <section className="grid grid-cols-1 gap-[18px_32px] rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px] sm:grid-cols-2">
+              <div>
+                <h2 className="m-0 text-base font-medium">Fund facts</h2>
+                <dl className="mt-2.5 flex flex-col gap-2 text-[13px]">
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Current fund / vintage</dt>
+                    <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">AUM</dt>
+                    <dd>{formatMoney(org.aumAmount, org.aumCurrency)}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Strategies</dt>
+                    <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
+                  </div>
+                </dl>
+              </div>
+              <div>
+                <h2 className="m-0 text-base font-medium">Full portfolio</h2>
+                {org.relationshipsAsSource.length === 0 ? (
+                  <p className="mt-2.5 text-sm text-[var(--color-muted)]">No portfolio relationships recorded yet.</p>
+                ) : (
+                  org.relationshipsAsSource.map((r, i) => (
+                    <Link
+                      key={r.id}
+                      href={`/organisations/${r.targetOrganizationId}`}
+                      className={`flex items-center gap-3 py-2.5 text-[var(--color-ink)] no-underline ${i > 0 ? "border-t border-[var(--color-line)]" : "mt-2.5 border-t border-[var(--color-line)]"}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
+                        <span className="block text-xs text-[var(--color-muted)]">
+                          {forwardRelationshipLabel(r.type)} {r.investmentDate ? `· since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                        </span>
+                      </span>
+                      <Badge tone={r.exitDate ? "neutral" : "info"}>{r.exitDate ? "Exited" : "Live"}</Badge>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </section>
+          ) : null}
+        </div>
+
+        <aside className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
+          <Card>
+            <CardContent className="p-4 pb-2">
+              <div className="flex justify-between">
+                <h3 className="m-0 text-sm font-medium">People ({org.personAssociations.length})</h3>
+                <Link href={`/people/new?organizationId=${org.id}`} className="text-[13px] text-[var(--color-ink2)] no-underline">
+                  + Add
+                </Link>
+              </div>
+              {org.personAssociations.length === 0 ? (
+                <p className="mt-2 text-sm text-[var(--color-muted)]">No people linked.</p>
+              ) : (
+                org.personAssociations.map((a, i) => (
+                  <Link
+                    key={a.id}
+                    href={`/people/${a.personId}`}
+                    className={`flex items-center gap-2.5 py-2.5 text-[var(--color-ink)] no-underline ${i > 0 ? "border-t border-[var(--color-line)]" : "mt-2 border-t border-[var(--color-line)]"}`}
+                  >
+                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--color-chip)] text-[10.5px] font-semibold text-[var(--color-ink2)]">
+                      {initials(a.person.firstName, a.person.lastName)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[13px]">{a.person.firstName} {a.person.lastName}</span>
+                      <span className="block truncate text-xs text-[var(--color-muted)]">
+                        {a.isPrimaryContact ? "Primary" : a.stakeholderRoles[0] ? label(a.stakeholderRoles[0]) : "—"}
+                      </span>
+                    </span>
+                  </Link>
+                ))
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <h3 className="m-0 text-sm font-medium">Signals</h3>
+              {intelligence.length === 0 ? (
+                <p className="mt-2 text-xs leading-relaxed text-[var(--color-muted)]">No signals yet.</p>
+              ) : (
+                <div className="mt-2 flex flex-col gap-2">
+                  {intelligence.slice(0, 3).map((i) => (
+                    <Link key={i.id} href={`/intelligence/${i.id}`} className="text-[13px] text-[var(--color-ink)] no-underline">
+                      {i.title}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4 pb-1.5">
+              <h3 className="m-0 mb-2 text-sm font-medium">Details</h3>
+              <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
+                <span className="text-[var(--color-muted)]">Owner</span>
+                <span>{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+              </div>
+              <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
+                <span className="text-[var(--color-muted)]">Ownership</span>
+                <span>{org.ownershipType?.name || "—"}</span>
+              </div>
+              <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
+                <span className="text-[var(--color-muted)]">Headquarters</span>
+                <span>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</span>
+              </div>
+              <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
+                <span className="text-[var(--color-muted)]">Source</span>
+                <span>{label(org.source)}</span>
+              </div>
+              {org.website || org.linkedinUrl ? (
+                <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
+                  <span className="text-[var(--color-muted)]">Links</span>
+                  <span className="flex gap-2">
+                    {org.website ? (
+                      <a href={org.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-ink2)]">
+                        Site <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : null}
+                    {org.linkedinUrl ? (
+                      <a href={org.linkedinUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--color-ink2)]">
+                        LinkedIn <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : null}
+                  </span>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+          <div className="flex flex-col gap-2">
+            {canArchive && !org.archivedAt ? (
+              <form action={archiveOrganizationAction.bind(null, org.id)}>
+                <Button type="submit" variant="secondary" className="w-full">
+                  <Archive className="h-[14px] w-[14px]" /> Archive
+                </Button>
+              </form>
+            ) : null}
+            {canRestore && org.archivedAt ? (
+              <form action={restoreOrganizationAction.bind(null, org.id)}>
+                <Button type="submit" variant="secondary" className="w-full">
+                  <ArchiveRestore className="h-[14px] w-[14px]" /> Restore
+                </Button>
+              </form>
+            ) : null}
+          </div>
+        </aside>
+      </div>
+
+      <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px]">
+        <h2 className="m-0 mb-3.5 text-base font-medium">Activity</h2>
+        <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+      </section>
+
+      <Tabs defaultValue="relationships">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="relationships">Investments &amp; Relationships</TabsTrigger>
-          <TabsTrigger value="opportunities">Opportunities ({opportunities.length})</TabsTrigger>
-          <TabsTrigger value="mandates">Mandates ({mandates.length})</TabsTrigger>
-          <TabsTrigger value="intelligence">Intelligence ({intelligence.length})</TabsTrigger>
+          <TabsTrigger value="relationships">Relationships</TabsTrigger>
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
         </TabsList>
-
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-4 lg:col-span-2">
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Description</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.description || "No description yet."}</p>
-                  {org.internalSummary ? (
-                    <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Internal summary</h3>
-                      <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.internalSummary}</p>
-                    </>
-                  ) : null}
-
-                  {org.type === "PE_FUND" ? (
-                    <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Fund</h3>
-                      <dl className="grid grid-cols-2 gap-2 text-sm">
-                        <dt className="text-[var(--color-ink-subtle)]">Current fund / vintage</dt>
-                        <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
-                        <dt className="text-[var(--color-ink-subtle)]">AUM</dt>
-                        <dd>{formatMoney(org.aumAmount, org.aumCurrency)}</dd>
-                        <dt className="text-[var(--color-ink-subtle)]">Strategies</dt>
-                        <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
-                      </dl>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; exited portfolio</h3>
-                      {org.relationshipsAsSource.length === 0 ? (
-                        <p className="text-sm text-[var(--color-ink-subtle)]">No portfolio relationships recorded yet.</p>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                          {org.relationshipsAsSource.map((r) => (
-                            <RelatedOrgCard
-                              key={r.id}
-                              id={r.targetOrganizationId}
-                              name={r.targetOrganization.name}
-                              type={r.targetOrganization.type}
-                              subtitle={forwardRelationshipLabel(r.type)}
-                              investmentStatus={r.investmentStatus}
-                              date={r.investmentDate}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : null}
-
-                  {org.type === "PORTFOLIO_COMPANY" ? (
-                    <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Current &amp; former investors</h3>
-                      {org.relationshipsAsTarget.length === 0 ? (
-                        <p className="text-sm text-[var(--color-ink-subtle)]">No investor relationships recorded yet.</p>
-                      ) : (
-                        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                          {org.relationshipsAsTarget.map((r) => (
-                            <RelatedOrgCard
-                              key={r.id}
-                              id={r.sourceOrganizationId}
-                              name={r.sourceOrganization.name}
-                              type={r.sourceOrganization.type}
-                              subtitle={inverseRelationshipLabel(r.type)}
-                              investmentStatus={r.investmentStatus}
-                              date={r.investmentDate}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {siblingPortcos.length > 0 ? (
-                        <>
-                          <h3 className="mb-2 mt-4 text-sm font-semibold">Other portfolio companies from the same investor{siblingPortcos.length === 1 ? "" : "s"}</h3>
-                          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                            {siblingPortcos.map((r) => (
-                              <RelatedOrgCard
-                                key={r.id}
-                                id={r.targetOrganizationId}
-                                name={r.targetOrganization.name}
-                                type={r.targetOrganization.type}
-                                subtitle={`via ${r.sourceOrganization.name}`}
-                                investmentStatus={r.investmentStatus}
-                                date={r.investmentDate}
-                              />
-                            ))}
-                          </div>
-                        </>
-                      ) : null}
-
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Investment thesis</h3>
-                      <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{org.investmentThesisSummary || "—"}</p>
-                    </>
-                  ) : null}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
-                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
-                  <dl className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Headquarters</dt>
-                      <dd>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Employees</dt>
-                      <dd>{org.employeeCountMin || org.employeeCountMax ? `${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"}` : "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Ownership</dt>
-                      <dd>{org.ownershipType?.name || "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Sector</dt>
-                      <dd>{org.sectors.map((s) => s.sector.name).join(", ") || "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Source</dt>
-                      <dd>{org.source || "—"}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Created by</dt>
-                      <dd>{org.createdBy.firstName} {org.createdBy.lastName}</dd>
-                    </div>
-                    <div className="flex justify-between">
-                      <dt className="text-[var(--color-ink-subtle)]">Last verified</dt>
-                      <dd>{org.lastVerifiedAt ? format(org.lastVerifiedAt, "d MMM yyyy") : "Never"}</dd>
-                    </div>
-                  </dl>
-                  <div className="mt-4 flex flex-col gap-2">
-                    {canArchive && !org.archivedAt ? (
-                      <form action={archiveOrganizationAction.bind(null, org.id)}>
-                        <Button type="submit" variant="outline" size="sm" className="w-full">
-                          <Archive className="h-4 w-4" /> Archive
-                        </Button>
-                      </form>
-                    ) : null}
-                    {canRestore && org.archivedAt ? (
-                      <form action={restoreOrganizationAction.bind(null, org.id)}>
-                        <Button type="submit" variant="outline" size="sm" className="w-full">
-                          <ArchiveRestore className="h-4 w-4" /> Restore
-                        </Button>
-                      </form>
-                    ) : null}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">People ({org.personAssociations.length})</h3>
-                  {org.personAssociations.length === 0 ? (
-                    <p className="text-sm text-[var(--color-ink-subtle)]">No people linked.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {org.personAssociations.map((a) => (
-                        <li key={a.id} className="flex items-center justify-between gap-2 text-sm">
-                          <Link href={`/people/${a.personId}`} className="min-w-0 truncate text-[var(--color-accent)] hover:underline">
-                            {a.person.firstName} {a.person.lastName}
-                            {a.isPrimaryContact ? <span className="ml-1.5 text-xs text-[var(--color-ink-subtle)]">(Primary)</span> : null}
-                          </Link>
-                          <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{a.stakeholderRoles.map((r) => label(r)).join(", ") || "—"}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </TabsContent>
 
         <TabsContent value="relationships">
           <div className="mb-3 flex justify-end">
@@ -378,99 +510,6 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     <TableCell>{r.investmentDate ? format(r.investmentDate, "d MMM yyyy") : "—"}</TableCell>
                     <TableCell>{r.exitDate ? format(r.exitDate, "d MMM yyyy") : "—"}</TableCell>
                     <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="opportunities">
-          {opportunities.length === 0 ? (
-            <EmptyState title="No opportunities" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Estimated fee</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {opportunities.map((o) => (
-                  <TableRow key={o.id}>
-                    <TableCell>
-                      <Link href={`/opportunities/${o.id}`} className="text-[var(--color-accent)]">
-                        {o.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge value={o.stage} />
-                    </TableCell>
-                    <TableCell>{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="mandates">
-          {mandates.length === 0 ? (
-            <EmptyState title="No mandates" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mandates.map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell>{m.reference}</TableCell>
-                    <TableCell>
-                      <Link href={`/mandates/${m.id}`} className="text-[var(--color-accent)]">
-                        {m.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge value={m.status} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </TabsContent>
-
-        <TabsContent value="intelligence">
-          {intelligence.length === 0 ? (
-            <EmptyState title="No intelligence recorded" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Relevance</TableHead>
-                  <TableHead>Received</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {intelligence.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell>
-                      <Link href={`/intelligence/${i.id}`} className="text-[var(--color-accent)]">
-                        {i.title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{label(i.type)}</TableCell>
-                    <TableCell>{label(i.commercialRelevance)}</TableCell>
-                    <TableCell>{format(i.dateReceived, "d MMM yyyy")}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

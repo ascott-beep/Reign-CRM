@@ -37,6 +37,7 @@ export function ActivityForm({
   users,
   currentUserId,
   linkContext,
+  defaultType = "CALL",
 }: {
   users: { id: string; firstName: string; lastName: string }[];
   currentUserId: string;
@@ -49,6 +50,7 @@ export function ActivityForm({
     intelligenceItemId?: string;
     label?: string;
   };
+  defaultType?: string;
 }) {
   const [state, formAction] = useActionState<ActivityFormState, FormData>(createActivityAction, {});
   const [followUpRequired, setFollowUpRequired] = useState(false);
@@ -80,7 +82,7 @@ export function ActivityForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="type">Type</Label>
-          <Select name="type" defaultValue="CALL">
+          <Select name="type" defaultValue={defaultType}>
             <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>

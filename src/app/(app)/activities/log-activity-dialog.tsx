@@ -20,10 +20,14 @@ export function LogActivityDialog({
   users,
   currentUserId,
   linkContext,
+  trigger = "Log activity",
+  defaultType = "CALL",
 }: {
   users: { id: string; firstName: string; lastName: string }[];
   currentUserId: string;
   linkContext: LinkContext;
+  trigger?: string;
+  defaultType?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -31,14 +35,14 @@ export function LogActivityDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="secondary">
-          <MessageSquarePlus className="h-4 w-4" /> Log activity
+          <MessageSquarePlus className="h-4 w-4" /> {trigger}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log activity</DialogTitle>
         </DialogHeader>
-        <ActivityForm users={users} currentUserId={currentUserId} linkContext={linkContext} />
+        <ActivityForm users={users} currentUserId={currentUserId} linkContext={linkContext} defaultType={defaultType} />
       </DialogContent>
     </Dialog>
   );
