@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { Sidebar, type NavCounts } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
+import { ConditionalHeader } from "@/components/shell/conditional-header";
 import { requireUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/sidebar-cookie";
@@ -39,7 +40,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         defaultCollapsed={defaultCollapsed}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <Header user={user} />
+        <ConditionalHeader>
+          <Header user={user} />
+        </ConditionalHeader>
         <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">{children}</main>
       </div>
     </div>

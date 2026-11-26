@@ -96,6 +96,70 @@
     --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
   }
 
+  /* Section 9.2 — the login/forgot-password/set-password pages always render
+     light, regardless of the "theme" cookie or the OS/browser preference.
+     Scoped to a class (not html[data-theme]) so it can't be affected by
+     anything set on <html> by the root layout — same light values as :root
+     above, redeclared on whichever element gets this class so they win by
+     normal CSS-variable inheritance (nearest ancestor), not specificity. */
+  .force-light-theme {
+    color-scheme: light;
+    --color-bg: #f2f4f7;
+    --color-side: #ffffff;
+    --color-card: #ffffff;
+    --color-line: #e1e6ec;
+    --color-ink: #0c2139;
+    --color-ink2: #36485c;
+    --color-muted: #5d6b7a;
+    --color-navy: #0c2139;
+    --color-navy-ink: #ffffff;
+    --color-track: #e9edf2;
+    --color-fill: #bae1ff;
+    --color-bar: #6f8296;
+    --color-dot: #0c2139;
+    --color-chip: #eef1f5;
+    --color-chip-strong: #e2f1ff;
+    --color-chip-strong-ink: #0c2139;
+    --color-pos: #24704a;
+    --color-pos-bg: #e2f2e9;
+    --color-warn: #b3300f;
+    --color-warn-bg: #fdebe5;
+    --color-neg: #a1260c;
+    --color-neg-bg: #fbe3dc;
+    --color-active: #eef1f5;
+    --color-sunk: #f6f8fa;
+    --color-alert: #ed3910;
+    --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
+
+    /* Compatibility aliases (see :root above) — a custom property's var()
+       reference resolves using the computed value inherited onto THIS
+       element, not re-substituted against a descendant's override, so these
+       must be redeclared here too or they'd still carry :root's dark values. */
+    --color-canvas: var(--color-bg);
+    --color-surface: var(--color-card);
+    --color-surface-raised: var(--color-card);
+    --color-ink-muted: var(--color-ink2);
+    --color-ink-subtle: var(--color-muted);
+    --color-border: var(--color-line);
+    --color-border-strong: var(--color-line);
+    --color-accent: var(--color-navy);
+    --color-accent-ink: var(--color-navy-ink);
+    --color-accent-subtle: var(--color-chip-strong);
+    --color-highlight: var(--color-chip-strong-ink);
+    --color-highlight-ink: var(--color-card);
+    --color-highlight-subtle: var(--color-chip-strong);
+    --color-status-success-bg: var(--color-pos-bg);
+    --color-status-success-ink: var(--color-pos);
+    --color-status-warning-bg: var(--color-warn-bg);
+    --color-status-warning-ink: var(--color-warn);
+    --color-status-danger-bg: var(--color-neg-bg);
+    --color-status-danger-ink: var(--color-neg);
+    --color-status-info-bg: var(--color-chip-strong);
+    --color-status-info-ink: var(--color-chip-strong-ink);
+    --color-status-neutral-bg: var(--color-chip);
+    --color-status-neutral-ink: var(--color-ink2);
+  }
+
   /* Explicit choice (persisted in the "theme" cookie, read server-side in
      layout.tsx — no flash of the wrong theme on load). */
   html[data-theme="dark"] {

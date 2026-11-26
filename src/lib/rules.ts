@@ -2,7 +2,7 @@
  * Shared business rules (SPEC.md section 5). The board, lists, overview and
  * reports all read from here so they agree on wording and numbers.
  */
-import type { CandidateProcessStage, CandidateRating, MandateStatus, OpportunityStage } from "@prisma/client";
+import type { CandidateProcessStage, CandidateRating, IntelligenceType, MandateStatus, OpportunityStage } from "@prisma/client";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 
 export const STALE_THRESHOLDS = {
@@ -384,3 +384,26 @@ export function hasNoRecentActivity(activityDates: Date[], days: number, now: Da
   const cutoff = now.getTime() - days * 24 * 60 * 60 * 1000;
   return !activityDates.some((d) => d.getTime() >= cutoff);
 }
+
+// ---------------------------------------------------------------------------
+// Intelligence
+// ---------------------------------------------------------------------------
+
+/** Compact chip label for Market signals (overview) — the full label() wording is too long to fit on one line. */
+export const INTELLIGENCE_TYPE_SHORT_LABEL: Record<IntelligenceType, string> = {
+  LEADERSHIP_CHANGE: "Leadership",
+  POTENTIAL_VACANCY: "Potential role",
+  ACTIVE_VACANCY: "Active role",
+  ACQUISITION: "Acquisition",
+  INTEGRATION: "Integration",
+  CARVE_OUT: "Carve-out",
+  TRANSFORMATION: "Transformation",
+  INTERNATIONAL_EXPANSION: "Expansion",
+  EXIT_PREPARATION: "Exit prep",
+  REFINANCING: "Refinancing",
+  FINANCE_TEAM_WEAKNESS: "Finance team",
+  FAILED_SEARCH: "Failed search",
+  AGENCY_DISSATISFACTION: "Agency issue",
+  CANDIDATE_MOVEMENT: "Candidate move",
+  OTHER: "Other",
+};

@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
-import { PageHeader } from "@/components/shell/page-header";
+import { DeskPicker } from "@/components/shell/desk-picker";
+import { TaskIndicator } from "@/components/shell/task-indicator";
+import { QuickCreate } from "@/components/shell/quick-create";
+import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { formatConvertedMoney, cn } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
@@ -13,6 +17,7 @@ import {
   LIVE_MANDATE_STATUSES,
   MANDATE_STATUS_SHORT_LABEL,
   MANDATE_STAGE_AXIS_LABELS,
+  INTELLIGENCE_TYPE_SHORT_LABEL,
   mandateStagePosition,
   weightedOpportunityValue,
   isCandidateInPlay,
@@ -46,9 +51,14 @@ export default async function DashboardPage() {
   const startOfYear = new Date(now.getFullYear(), 0, 1);
 
   const mandateWhere = mandateVisibilityWhere(user);
-  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: wid }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
+  const [workspace, cookieStore, consultants] = await Promise.all([
+    prisma.workspace.findUniqueOrThrow({ where: { id: wid }, select: { defaultCurrency: true, exchangeRatesToGbp: true } }),
+    cookies(),
+    prisma.user.findMany({ where: { workspaceId: wid, active: true }, select: { id: true, firstName: true, lastName: true }, orderBy: { firstName: "asc" } }),
+  ]);
   const displayCurrency = workspace.defaultCurrency;
   const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
+  const deskOptions = consultants.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }));
 
   const [
     overdueTasksCount,
@@ -318,12 +328,20 @@ export default async function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col gap-3.5">
-      <PageHeader
-        className="mb-0"
-        title={`${greeting}, ${user.firstName}`}
-        description={`Desk overview · ${format(now, "EEEE d MMMM")}`}
-      />
+    <div className="-mx-3 -mb-4 -mt-2.5 flex flex-1 flex-col gap-3.5">
+      <header className="flex flex-none flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="m-0 text-[22px] font-light leading-tight tracking-[-0.01em] text-[var(--color-ink)]">
+            {greeting}, {user.firstName}
+          </h1>
+          <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Desk overview · {format(now, "EEEE d MMMM")}</div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />
+          <TaskIndicator user={user} />
+          <QuickCreate />
+        </div>
+      </header>
 
       <section aria-label="Desk figures" className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {kpis.map((kpi) => (
@@ -397,9 +415,9 @@ export default async function DashboardPage() {
                   href={`/mandates/${m.id}`}
                   className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.5fr)_64px] items-center gap-5 text-[var(--color-ink)] no-underline"
                 >
-                  <span>
-                    <span className="block text-[13.5px]">{m.title}</span>
-                    <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13.5px]">{m.title}</span>
+                    <span className="mt-0.5 block truncate text-xs text-[var(--color-muted)]">
                       {m.org} · {m.candidateCount} candidate{m.candidateCount === 1 ? "" : "s"}
                     </span>
                   </span>
@@ -463,9 +481,11 @@ export default async function DashboardPage() {
         <div className="flex min-w-0 flex-[5_1_360px] flex-col rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] pb-3.5 pt-[18px]">
           <div className="flex items-center justify-between">
             <h2 className="m-0 text-[15px] font-medium">Market signals</h2>
-            <span className="rounded-[4px] bg-[var(--color-chip-strong)] px-[11px] py-0.5 text-xs text-[var(--color-chip-strong-ink)]">
-              {newSignalsCount} new
-            </span>
+            {newSignalsCount > 0 ? (
+              <span className="rounded-[4px] bg-[var(--color-chip-strong)] px-[11px] py-0.5 text-xs text-[var(--color-chip-strong-ink)]">
+                {newSignalsCount} new
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-1 flex-col justify-between">
             {signals.length === 0 ? (
@@ -477,8 +497,8 @@ export default async function DashboardPage() {
                   href="/intelligence"
                   className="flex items-start gap-3.5 border-t border-[var(--color-line)] py-2.5 text-[var(--color-ink)] no-underline"
                 >
-                  <span className="w-[92px] shrink-0 rounded-[4px] bg-[var(--color-chip)] py-0.5 text-center text-[11.5px] text-[var(--color-ink2)]">
-                    {label(s.type)}
+                  <span className="w-[92px] shrink-0 truncate whitespace-nowrap rounded-[4px] bg-[var(--color-chip)] px-1 py-0.5 text-center text-[11.5px] text-[var(--color-ink2)]">
+                    {INTELLIGENCE_TYPE_SHORT_LABEL[s.type]}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13.5px]">{s.title}</span>

@@ -3,7 +3,7 @@ import { AtlasMark } from "./atlas-mark";
 /** Shared Atlas-branded backdrop for every unauthenticated screen (login, forgot/reset password) — screen 15. */
 export function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-sunk)] px-10 py-16">
+    <div className="force-light-theme relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--color-sunk)] px-10 py-16">
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-[90px] -right-[60px] h-[515px] w-[520px] text-[var(--color-bg)]"
