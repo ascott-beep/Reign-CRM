@@ -335,3 +335,78 @@ Eight phases, each its own branch and pull request, checked in the Vercel previe
     - Done when: no chart renders empty axes; each data-quality Fix link opens the right filtered list. Companies House and news feeds are a separate project after this.
 
 Open questions for Adam before Phase 3: monthly fee targets per consultant; whether green dots should include future-dated actions (currently yes); whether Neue Haas Grotesk is licensed for app use.
+
+
+## 9. Additions (26 Nov 2026): delete, users, currencies, login, placeholders
+
+New reference files: screens 12–15 and dialogs d11–d13. Screen 04 (mandate record) is updated with a "⋯" More button at the end of the header actions.
+
+### 9.1 Placeholder text (applies everywhere)
+- Every text input that shows an example uses "e.g." in muted text: "e.g. hannah@reign.partners", "e.g. Hannah", "e.g. £55,500".
+- Placeholders are examples only, never instructions. The label above the box says what it is; a hint under the box explains anything else.
+- Go through every existing form (create/edit mandate, opportunity, person, organisation, task, activity, settings) and apply this.
+
+### 9.2 Login (15-login)
+Copy exact values from 15-login.html. Keep it to exactly this; no extra text or images.
+- Very light grey page (#f6f8fa) in both themes, with two quiet CSS-only layers behind the content: a faint navy dot grid (1px dots every 22px at 9% opacity) fading out from the centre with a radial mask, and a very large, barely visible Reign mark (#f1f3f6 on #f6f8fa, ~1100px) bleeding off the bottom-right corner. No colour glow. Copy from 15-login.html.
+- Box contents, in order: Email, Password with "Forgot password?" right-aligned on its label row, full-width navy "Sign in", an "or continue with" divider, then "Google" and "Microsoft" as two quiet secondary buttons side by side. No placeholder text in the boxes (the one exception to 9.1).
+- Inputs and buttons 46px, 6px radius, #d5dce4 border; focus = navy border + 3px #bae1ff ring; labels 12.5px medium.
+- Provider buttons: 44px, white, 1px #e1e6ec border, 14px regular #36485c text, logo 16px inline before the label (no tile). Logos: docs/redesign/google-g.png and docs/redesign/microsoft.png (or the official SVGs), full colour, never recoloured or stretched.
+- Sign in with Google and Microsoft via NextAuth providers (Google, Microsoft Entra ID). Only existing, active users: match on email; unknown email shows "This account isn't set up in Reign CRM. Ask an admin to invite you." Env vars GOOGLE_CLIENT_ID/SECRET, AZURE_AD_CLIENT_ID/SECRET/TENANT_ID; hide a button if its env vars are missing.
+- Errors in plain English under the field: "That email and password don't match." After sign-in, return to the page they were trying to open.
+
+### 9.3 Delete (d11, d12, updated 04)
+- Build on the existing archive: archivedAt and the archive/restore actions already exist for organisations, people, mandates and opportunities. Show it in the UI as "Delete".
+- Where: "⋯" More menu at the end of every record header (mandate, opportunity, person, organisation) and in the row menu on lists. Admins only; hidden for other roles.
+- d11 Delete dialog: lists what is linked, with real counts, and what happens to each (wording per record type). Optional reason (Created by mistake / Duplicate / Test data / Other). Note with the restore deadline date. Destructive button uses the warn colour and names the record: "Delete mandate".
+- d12 Blocked: if a mandate has a placement or any invoiced fee, or an opportunity is Won with a linked mandate, or a person is a placed candidate, show d12 instead. Say why with the amount and date, and offer the alternative (Close search / Mark lost / Edit).
+- After deleting: go back to the list and show an "Undo" toast for 8 seconds.
+- Deleted (archived) records are hidden everywhere: boards, lists, search, counts, overview, reports, exports.
+- Add fields (additive): archivedById, archiveReason. Log every delete and restore in activity and the audit log.
+- A daily Vercel cron permanently deletes items archived more than 30 days ago (cascade linked rows that belong only to them; keep people and organisations that are linked elsewhere).
+
+### 9.4 Settings layout (12–14)
+- Settings page uses the shell, page header "Settings / Workspace, team and data", and a 200px sub-nav on the left: Users, Workspace, Currencies, Pipeline stages, Lists and tags, Custom fields, Imports, Recently deleted, Audit log.
+- Existing settings tabs move into this layout unchanged in function, restyled: section title, one-line explainer, content in flat cards.
+
+### 9.5 Users and invites (12, d13)
+- Users list: avatar, name + email, role, status (Active / Invited / Deactivated), last signed in, row menu (Change role, Resend invite / Cancel invite, Send password reset, Deactivate / Reactivate, Reassign open work).
+- Role labels: Admin = ADMIN, Consultant = STANDARD, Read only = READ_ONLY. Never delete a user; deactivate.
+- d13 Invite: first name, last name, work email, role cards. Sends an email with a one-time link (7 days) to set a password. Replace the current "admin types a password" create-user flow.
+- Forgot password on the login page uses the same token + email flow (1-hour link).
+- Email: use Resend (RESEND_API_KEY env var, from address noreply@reign.partners; I'll add the DNS records). Add a PasswordToken model (userId, tokenHash, purpose invite|reset, expiresAt, usedAt).
+
+### 9.6 Currencies (13)
+- Only GBP, USD, EUR and AED anywhere a money field has a currency. Trim CURRENCIES in src/lib/iso.ts to these four.
+- Money fields default to the client organisation's currency, else the workspace default.
+- "Show totals in" = Workspace.defaultCurrency. Overview, board column totals, weighted pipeline, fee forecast and reports convert into it with src/lib/currency.ts; any total that includes a converted amount gets a "≈" prefix. Remove every hard-coded "GBP" in totals (e.g. dashboard weighted value).
+- Records always show money in its own currency: "AED 220,000", "$180,000", "€95,000", "£55,500".
+- Exchange rates: existing Workspace.exchangeRatesToGbp. Toggle "Update every morning" (new boolean field) runs a daily Vercel cron that fetches ECB rates (e.g. api.frankfurter.app); off = edit by hand. Show when and how rates were last updated.
+
+### 9.7 Phase 9
+- Build all of section 9 as Phase 9 on branch redesign-phase-9, after Phase 8. Done when: login matches 15; delete, blocked delete, undo and restore work on a copy database; invite and reset emails send; totals convert and show "≈"; every form uses "e.g." placeholders.
+
+## 10. Backlog: everything else agreed so far
+
+Work through 10.1 after Phase 9 on branch redesign-phase-10. Do not start 10.2 until the designs are added to docs/redesign. 10.3 is for later; don't build it. 10.4 is for Adam, listed so you know what's coming.
+
+### 10.1 Build after Phase 9
+- GDPR "Download data" on a person record (⋯ menu, admins only): one file (JSON + readable PDF or CSV) with everything held on that person: profile, contact details, consent and legal basis, searches they were on, activity, notes, documents list. Logged in the audit log.
+- GDPR erasure: "Delete now" in Recently deleted removes a person permanently straight away, including notes and documents that belong only to them; keep a one-line audit entry ("Person erased on request") with no personal data.
+- Placed candidates can't be deleted (9.3), but an admin can anonymise them: replace name and contact details with "Erased person", keep the placement and fee figures.
+- Health check: an admin-only /api/health that confirms the database is reachable; used for uptime monitoring.
+
+### 10.2 Needs design first (designs to follow)
+- Bulk actions on People, Organisations, Opportunities and Mandates lists: select rows, then change owner, add tag, add to a search (people), export selected, delete (admins). Sticky action bar at the bottom of the list.
+- Mandate record tabs not yet designed: Brief, Interviews, Offer, Fees. Until designed, keep their current content restyled with the new components.
+- Sidebar product name: whether the sidebar logo becomes "Atlas" (Reign mark + Atlas), like the login page. Keep the Reign logo until confirmed.
+
+### 10.3 Later (don't build yet)
+- Email and calendar sync (Microsoft 365 / Google) so emails and meetings log themselves as activity.
+- Invoicing: push fee instalments to Xero as draft invoices and read back paid status.
+
+### 10.4 Adam's setup tasks (not code)
+- Change the default admin password.
+- Database host: confirm daily backups with point-in-time restore are switched on.
+- Email: create a Resend account, add its DNS records to reign.partners, add RESEND_API_KEY to Vercel.
+- Google and/or Microsoft sign-in: create the OAuth apps and add the client IDs and secrets to Vercel.
