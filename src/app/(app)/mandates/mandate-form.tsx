@@ -77,6 +77,22 @@ export function MandateForm({
         {errors.hiringOrganizationId ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.hiringOrganizationId[0]}</p> : null}
       </div>
 
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="source">Source</Label>
+        <Select name="source" defaultValue={values.source ?? ""}>
+          <SelectTrigger id="source">
+            <SelectValue placeholder="How did this mandate come about?" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="DIRECT_CLIENT">Direct client</SelectItem>
+            <SelectItem value="FUND_INTRODUCTION">Fund introduction</SelectItem>
+            <SelectItem value="REPEAT_BUSINESS">Repeat business</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-[var(--color-ink-subtle)]">Required for a mandate with no opportunity behind it.</p>
+        {errors.source ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.source[0]}</p> : null}
+      </div>
+
       <div className="grid grid-cols-3 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="priority">Priority</Label>

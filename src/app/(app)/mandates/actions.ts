@@ -18,6 +18,8 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
   const parsed = mandateFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
+  // Section 5 rule 4: a mandate created directly here has no source opportunity, so a source is required.
+  if (!data.source) return { errors: { source: ["Source is required for a mandate with no opportunity"] }, formValues: raw };
 
   const reference = await generateMandateReference(user.workspaceId);
 
@@ -27,6 +29,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
       reference,
       title: data.title,
       hiringOrganizationId: data.hiringOrganizationId,
+      source: data.source,
       status: "BRIEF_RECEIVED",
       priority: data.priority,
       confidentiality: data.confidentiality,
@@ -78,6 +81,7 @@ export async function updateMandateAction(mandateId: string, _prev: MandateFormS
     data: {
       title: data.title,
       hiringOrganizationId: data.hiringOrganizationId,
+      source: data.source,
       priority: data.priority,
       confidentiality: data.confidentiality,
       ownerId: data.ownerId,

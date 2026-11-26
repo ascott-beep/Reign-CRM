@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, ArrowRightCircle } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
@@ -16,10 +16,10 @@ import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getOpportunityTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
-import { convertOpportunityToMandateAction } from "../actions";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 import { StageSelect } from "../stage-select";
+import { ConvertToMandateButton } from "../convert-to-mandate-button";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -73,14 +73,12 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
         actions={
           <>
-            <StageSelect opportunityId={opportunity.id} currentStage={opportunity.stage} />
-            {opportunity.stage === "WON" && !opportunity.wonMandateId ? (
-              <form action={convertOpportunityToMandateAction.bind(null, opportunity.id)}>
-                <Button type="submit">
-                  <ArrowRightCircle className="h-4 w-4" /> Convert to Mandate
-                </Button>
-              </form>
-            ) : null}
+            <StageSelect
+              opportunityId={opportunity.id}
+              currentStage={opportunity.stage}
+              context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
+            />
+            {opportunity.stage === "WON" && !opportunity.wonMandateId ? <ConvertToMandateButton opportunityId={opportunity.id} /> : null}
             {opportunity.wonMandateId ? (
               <Button variant="secondary" asChild>
                 <Link href={`/mandates/${opportunity.wonMandateId}`}>View Mandate</Link>
@@ -183,10 +181,13 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                       </p>
                     </>
                   ) : null}
-                  {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
+                  {opportunity.stage === "ON_HOLD" ? (
                     <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
-                      <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
+                      <h3 className="mb-2 mt-4 text-sm font-semibold">On hold</h3>
+                      {opportunity.onHoldReason ? <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p> : null}
+                      {opportunity.holdReviewDate ? (
+                        <p className="mt-1 text-xs text-[var(--color-ink-subtle)]">Review on {format(opportunity.holdReviewDate, "d MMM yyyy")}</p>
+                      ) : null}
                     </>
                   ) : null}
                 </CardContent>

@@ -256,6 +256,13 @@ enum MandatePriority {
   LOW
 }
 
+/** Section 5 rule 4: required when a mandate has no source opportunity (a direct instruction). */
+enum MandateSource {
+  DIRECT_CLIENT
+  FUND_INTRODUCTION
+  REPEAT_BUSINESS
+}
+
 enum EngagementModel {
   RETAINED
   EXCLUSIVE_CONTINGENT
@@ -1207,6 +1214,8 @@ model Opportunity {
   lossReason              OpportunityLossReason?
   lossExplanation         String?
   onHoldReason            String?
+  // d06 "On hold": review date shown on the record and used to create the review task.
+  holdReviewDate          DateTime?
   notes                   String?
   wonMandateId            String?                @unique
   createdById             String
@@ -1294,6 +1303,8 @@ model Mandate {
   hiringOrganization      Organization           @relation("MandateHiringOrganization", fields: [hiringOrganizationId], references: [id])
   sourceOpportunityId     String?                @unique
   sourceOpportunity       Opportunity?           @relation("MandateSourceOpportunity", fields: [sourceOpportunityId], references: [id])
+  // Required (enforced in the form) when there is no sourceOpportunity.
+  source                  MandateSource?
   status                  MandateStatus          @default(BRIEF_RECEIVED)
   statusEnteredAt         DateTime               @default(now())
   priority                MandatePriority        @default(NORMAL)

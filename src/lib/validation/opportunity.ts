@@ -45,6 +45,22 @@ export const stageChangeSchema = z.object({
   toStage: z.nativeEnum(OpportunityStage),
   lossReason: z.preprocess(emptyToUndefined, z.string().optional()),
   lossExplanation: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
+  // d05 "Lost reason": revisit date is not stored on the opportunity, only used to create a task.
+  revisitDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
   onHoldReason: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
+  // d06 "On hold": stored on the opportunity and used to create the review task.
+  holdReviewDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
+});
+
+/** d01 "Create mandate?" — overrides on top of what's carried over from the opportunity. */
+export const createMandateFromOpportunitySchema = z.object({
+  opportunityId: z.string().min(1),
+  title: z.string().trim().min(1),
+  ownerId: z.string().min(1),
+  engagementModel: z.enum(["RETAINED", "EXCLUSIVE_CONTINGENT", "CONTINGENT", "INTERIM"]),
+  agreedFeeAmount: z.coerce.number().min(0).optional().nullable(),
+  minBaseAmount: z.coerce.number().min(0).optional().nullable(),
+  maxBaseAmount: z.coerce.number().min(0).optional().nullable(),
+  signedTerms: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()).default(false),
 });

@@ -201,6 +201,9 @@ export const OPEN_OPPORTUNITY_STAGES: OpportunityStage[] = [
   "PROPOSAL_OR_TERMS",
 ];
 
+/** Closed stages leave the board for the Closed tray (section 4.2). */
+export const CLOSED_OPPORTUNITY_STAGES: OpportunityStage[] = ["WON", "LOST", "ON_HOLD"];
+
 export function opportunityProbability(opportunity: {
   stage: OpportunityStage;
   probabilityOverride: number | null;

@@ -1,19 +1,14 @@
-import Link from "next/link";
-import { Plus, LayoutGrid, List as ListIcon } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
 import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
-import { EmptyState } from "@/components/shell/states";
-import { SavedViewsMenu } from "@/components/shell/saved-views-menu";
-import { Button } from "@/components/ui/button";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMoney, cn } from "@/lib/utils";
-import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { nextActionStatus } from "@/lib/next-action-status";
-import { NextActionDot } from "@/components/ui/next-action-dot";
-import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
+import { formatMoney } from "@/lib/utils";
+import { OPEN_OPPORTUNITY_STAGES, CLOSED_OPPORTUNITY_STAGES, weightedOpportunityValue, daysAtStage } from "@/lib/rules";
+import { OpportunitiesView } from "./opportunities-view";
+import type { BoardOpportunity } from "./opportunity-board";
+import type { ClosedOpportunity } from "./opportunities-view";
+import type { OpportunityListRow } from "./opportunities-table";
 import type { Prisma } from "@prisma/client";
 
 export default async function OpportunitiesPage({
@@ -26,10 +21,7 @@ export default async function OpportunitiesPage({
   const display = sp.display === "table" ? "table" : "board";
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
 
-  const [views, activeView] = await Promise.all([
-    prisma.savedView.findMany({ where: { workspaceId: user.workspaceId, entityType: "OPPORTUNITY" }, orderBy: { name: "asc" } }),
-    viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
-  ]);
+  const activeView = viewId ? await prisma.savedView.findUnique({ where: { id: viewId } }) : null;
 
   const where: Prisma.OpportunityWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
   if (activeView) Object.assign(where, opportunityViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
@@ -37,10 +29,21 @@ export default async function OpportunitiesPage({
   const opportunities = await prisma.opportunity.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: { hiringOrganization: true, owner: true, primaryNextTask: true },
+    include: { hiringOrganization: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } }, primaryNextTask: { select: { title: true, dueDate: true } } },
   });
 
-  const boardData: BoardOpportunity[] = opportunities.map((o) => ({
+  const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage));
+  const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage));
+
+  const stageWeighted = new Map<string, number>();
+  for (const o of openOpportunitiesRaw) {
+    const w = weightedOpportunityValue(o);
+    stageWeighted.set(o.stage, (stageWeighted.get(o.stage) ?? 0) + w);
+  }
+  const maxOpenWeighted = Math.max(0, ...stageWeighted.values());
+  const totalWeighted = [...stageWeighted.values()].reduce((a, b) => a + b, 0);
+
+  const openOpportunities: BoardOpportunity[] = openOpportunitiesRaw.map((o) => ({
     id: o.id,
     name: o.name,
     stage: o.stage,
@@ -48,100 +51,49 @@ export default async function OpportunitiesPage({
     potentialRoleTitle: o.potentialRoleTitle,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
-    probability: o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[o.stage] ?? 0),
+    weightedValue: weightedOpportunityValue(o),
+    // The one known anomaly (section 5 rule 3): a mandate already exists although the
+    // opportunity is still showing in an open stage — offer a one-click reconciliation.
+    hasLiveMandate: Boolean(o.wonMandateId),
+    nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
+  }));
+
+  const closedOpportunities: ClosedOpportunity[] = closedOpportunitiesRaw.map((o) => ({
+    id: o.id,
+    name: o.name,
+    organizationName: o.hiringOrganization.name,
+    stage: o.stage,
+    estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
+    estimatedFeeCurrency: o.estimatedFeeCurrency,
+  }));
+
+  const listRows: OpportunityListRow[] = opportunities.map((o) => ({
+    id: o.id,
+    name: o.name,
+    organizationName: o.hiringOrganization.name,
+    stage: o.stage,
+    probability: o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : o.stageProbabilityDefault,
+    estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
+    estimatedFeeCurrency: o.estimatedFeeCurrency,
+    weightedValue: weightedOpportunityValue(o),
     ownerName: `${o.owner.firstName} ${o.owner.lastName}`,
-    expectedDecisionDate: o.expectedDecisionDate?.toISOString() ?? null,
+    daysAtStage: daysAtStage(o.stageEnteredAt),
+    nextStepText: o.primaryNextTask?.title ?? null,
     nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
   }));
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col gap-6">
       <PageHeader
         title="Opportunities"
-        description={`${opportunities.length} opportunit${opportunities.length === 1 ? "y" : "ies"}`}
-        actions={
+        description={
           <>
-            <SavedViewsMenu views={views} />
-            <div className="flex overflow-hidden rounded-md border border-[var(--color-border-strong)]">
-              <Link
-                href="?display=board"
-                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs", display === "board" ? "bg-[var(--color-canvas)]" : "")}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" /> Board
-              </Link>
-              <Link
-                href="?display=table"
-                className={cn("flex items-center gap-1 px-2.5 py-1.5 text-xs border-l border-[var(--color-border-strong)]", display === "table" ? "bg-[var(--color-canvas)]" : "")}
-              >
-                <ListIcon className="h-3.5 w-3.5" /> Table
-              </Link>
-            </div>
-            <Button asChild>
-              <Link href="/opportunities/new">
-                <Plus className="h-4 w-4" /> New opportunity
-              </Link>
-            </Button>
+            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatMoney(totalWeighted, "GBP")}</span> weighted · business development
+            pipeline
           </>
         }
       />
-
-      {opportunities.length === 0 ? (
-        <EmptyState
-          title="No opportunities"
-          action={
-            <Button asChild size="sm" className="mt-2">
-              <Link href="/opportunities/new">
-                <Plus className="h-4 w-4" /> New opportunity
-              </Link>
-            </Button>
-          }
-        />
-      ) : display === "board" ? (
-        <OpportunityBoard
-          key={opportunities.map((o) => `${o.id}:${o.stage}`).join(",")}
-          initialOpportunities={boardData}
-        />
-      ) : (
-        <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Organisation</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Probability</TableHead>
-                <TableHead>Estimated fee</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Next action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {opportunities.map((o) => (
-                <TableRow key={o.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/opportunities/${o.id}`} className="text-[var(--color-ink)] hover:text-[var(--color-accent)]">
-                      {o.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{o.hiringOrganization.name}</TableCell>
-                  <TableCell>
-                    <StatusBadge value={o.stage} />
-                  </TableCell>
-                  <TableCell>{o.isProbabilityOverridden ? o.probabilityOverride : o.stageProbabilityDefault}%</TableCell>
-                  <TableCell>{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</TableCell>
-                  <TableCell>{o.owner.firstName} {o.owner.lastName}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <NextActionDot status={nextActionStatus(o.primaryNextTask?.dueDate)} />
-                      {o.primaryNextTask ? o.primaryNextTask.title : <span className="text-[var(--color-ink-subtle)]">No next action</span>}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <OpportunitiesView display={display} openOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} closedOpportunities={closedOpportunities} listRows={listRows} />
     </div>
   );
 }
