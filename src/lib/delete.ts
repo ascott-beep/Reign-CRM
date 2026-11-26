@@ -133,6 +133,81 @@ async function personImpact(id: string, workspaceId: string): Promise<DeleteImpa
   };
 }
 
+export type RecentlyDeletedRow = {
+  type: DeletableType;
+  id: string;
+  label: string;
+  subtitle: string;
+  archivedAt: Date;
+  archivedByName: string | null;
+  archiveReason: string | null;
+};
+
+/** Section 9.3 / screen 14 — every archived record across the four deletable types, newest first. */
+export async function listRecentlyDeleted(workspaceId: string): Promise<RecentlyDeletedRow[]> {
+  const [organizations, people, mandates, opportunities] = await Promise.all([
+    prisma.organization.findMany({
+      where: { workspaceId, archivedAt: { not: null } },
+      include: { archivedBy: { select: { firstName: true, lastName: true } } },
+    }),
+    prisma.person.findMany({
+      where: { workspaceId, archivedAt: { not: null } },
+      include: { archivedBy: { select: { firstName: true, lastName: true } } },
+    }),
+    prisma.mandate.findMany({
+      where: { workspaceId, archivedAt: { not: null } },
+      include: { archivedBy: { select: { firstName: true, lastName: true } }, hiringOrganization: { select: { name: true } } },
+    }),
+    prisma.opportunity.findMany({
+      where: { workspaceId, archivedAt: { not: null } },
+      include: { archivedBy: { select: { firstName: true, lastName: true } }, hiringOrganization: { select: { name: true } } },
+    }),
+  ]);
+
+  const byName = (u: { firstName: string; lastName: string } | null) => (u ? `${u.firstName} ${u.lastName}` : null);
+
+  const rows: RecentlyDeletedRow[] = [
+    ...organizations.map((o) => ({
+      type: "ORGANIZATION" as const,
+      id: o.id,
+      label: o.name,
+      subtitle: deletableTypeLabel("ORGANIZATION"),
+      archivedAt: o.archivedAt!,
+      archivedByName: byName(o.archivedBy),
+      archiveReason: o.archiveReason,
+    })),
+    ...people.map((p) => ({
+      type: "PERSON" as const,
+      id: p.id,
+      label: `${p.firstName} ${p.lastName}`,
+      subtitle: deletableTypeLabel("PERSON"),
+      archivedAt: p.archivedAt!,
+      archivedByName: byName(p.archivedBy),
+      archiveReason: p.archiveReason,
+    })),
+    ...mandates.map((m) => ({
+      type: "MANDATE" as const,
+      id: m.id,
+      label: m.title,
+      subtitle: `${deletableTypeLabel("MANDATE")} · ${m.hiringOrganization.name}`,
+      archivedAt: m.archivedAt!,
+      archivedByName: byName(m.archivedBy),
+      archiveReason: m.archiveReason,
+    })),
+    ...opportunities.map((o) => ({
+      type: "OPPORTUNITY" as const,
+      id: o.id,
+      label: o.name,
+      subtitle: `${deletableTypeLabel("OPPORTUNITY")} · ${o.hiringOrganization.name}`,
+      archivedAt: o.archivedAt!,
+      archivedByName: byName(o.archivedBy),
+      archiveReason: o.archiveReason,
+    })),
+  ];
+
+  return rows.sort((a, b) => b.archivedAt.getTime() - a.archivedAt.getTime());
+}
+
 async function organizationImpact(id: string, workspaceId: string): Promise<DeleteImpact> {
   const org = await prisma.organization.findFirstOrThrow({ where: { id, workspaceId } });
   const [mandateCount, opportunityCount, peopleCount, documentCount] = await Promise.all([

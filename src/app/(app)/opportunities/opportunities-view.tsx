@@ -17,12 +17,16 @@ export function OpportunitiesView({
   maxOpenWeighted,
   closedOpportunities,
   listRows,
+  displayCurrency,
+  ratesToGbp,
 }: {
   display: "board" | "table";
   openOpportunities: BoardOpportunity[];
   maxOpenWeighted: number;
   closedOpportunities: ClosedOpportunity[];
   listRows: OpportunityListRow[];
+  displayCurrency: string;
+  ratesToGbp: Record<string, number>;
 }) {
   const [closedOpen, setClosedOpen] = useState(false);
 
@@ -102,7 +106,7 @@ export function OpportunitiesView({
       ) : null}
 
       {display === "board" ? (
-        <OpportunityBoard initialOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} />
+        <OpportunityBoard initialOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} displayCurrency={displayCurrency} ratesToGbp={ratesToGbp} />
       ) : (
         <OpportunitiesTable rows={listRows} />
       )}

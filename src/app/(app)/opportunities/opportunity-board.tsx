@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { NextActionDot } from "@/components/ui/next-action-dot";
-import { formatMoney, cn } from "@/lib/utils";
+import { formatMoney, formatConvertedMoney, cn } from "@/lib/utils";
+import { convertedTotal } from "@/lib/currency";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { OPEN_OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_SHORT_LABEL } from "@/lib/rules";
 import type { NextActionStatus } from "@/lib/next-action-status";
@@ -75,7 +76,17 @@ function Card({ opp, onMarkWon }: { opp: BoardOpportunity; onMarkWon: (id: strin
   );
 }
 
-export function OpportunityBoard({ initialOpportunities, maxOpenWeighted }: { initialOpportunities: BoardOpportunity[]; maxOpenWeighted: number }) {
+export function OpportunityBoard({
+  initialOpportunities,
+  maxOpenWeighted,
+  displayCurrency,
+  ratesToGbp,
+}: {
+  initialOpportunities: BoardOpportunity[];
+  maxOpenWeighted: number;
+  displayCurrency: string;
+  ratesToGbp: Record<string, number>;
+}) {
   const router = useRouter();
   const [items, setItems] = useState(initialOpportunities);
   const [pendingLost, setPendingLost] = useState<string | null>(null);
@@ -134,10 +145,22 @@ export function OpportunityBoard({ initialOpportunities, maxOpenWeighted }: { in
         <div className="grid flex-1 grid-cols-6 gap-2 overflow-x-auto" style={{ minHeight: 420 }}>
           {OPEN_OPPORTUNITY_STAGES.map((stage) => {
             const stageItems = columns[stage] ?? [];
-            const weighted = stageItems.reduce((sum, o) => sum + o.weightedValue, 0);
+            const { amount: weighted, approx } = convertedTotal(
+              stageItems.map((o) => ({ amount: o.weightedValue, currency: o.estimatedFeeCurrency })),
+              displayCurrency,
+              ratesToGbp,
+            );
             return (
               <div key={stage} className="contents">
-                <ColumnShell stage={stage} items={stageItems} weighted={weighted} widthPct={pct(weighted)} onMarkWon={setPendingWon} />
+                <ColumnShell
+                  stage={stage}
+                  items={stageItems}
+                  weighted={weighted}
+                  approx={approx}
+                  displayCurrency={displayCurrency}
+                  widthPct={pct(weighted)}
+                  onMarkWon={setPendingWon}
+                />
               </div>
             );
           })}
@@ -182,12 +205,16 @@ function ColumnShell({
   stage,
   items,
   weighted,
+  approx,
+  displayCurrency,
   widthPct,
   onMarkWon,
 }: {
   stage: (typeof OPEN_OPPORTUNITY_STAGES)[number];
   items: BoardOpportunity[];
   weighted: number;
+  approx: boolean;
+  displayCurrency: string;
   widthPct: number;
   onMarkWon: (id: string) => void;
 }) {
@@ -203,7 +230,7 @@ function ColumnShell({
         <div className="text-[14px] font-medium">{OPPORTUNITY_STAGE_SHORT_LABEL[stage]}</div>
         <div className="mt-1.5 flex justify-between gap-2 text-[13px]">
           <span className="text-[var(--color-muted)]">{probability}% likely</span>
-          <span>{formatMoney(weighted, "GBP")}</span>
+          <span>{formatConvertedMoney(weighted, approx, displayCurrency)}</span>
         </div>
         <div className="mt-2.5 h-1 rounded-full bg-[var(--color-track)]">
           <div className="h-1 rounded-full bg-[var(--color-bar)]" style={{ width: `${widthPct}%` }} />

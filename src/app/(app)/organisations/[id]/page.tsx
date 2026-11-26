@@ -15,7 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
-import { formatMoney, initials } from "@/lib/utils";
+import { formatMoney, formatConvertedMoney, initials } from "@/lib/utils";
+import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { getOrganizationTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
@@ -61,9 +62,13 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   });
   if (!org) notFound();
 
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
+  const displayCurrency = workspace.defaultCurrency;
+  const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
+
   const investorFundIds = org.relationshipsAsTarget.map((r) => r.sourceOrganizationId);
 
-  const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships, feesAgg] = await Promise.all([
+  const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships, placementFees] = await Promise.all([
     getOrganizationTimeline(org.id),
     prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
@@ -85,7 +90,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
-    prisma.placement.aggregate({ where: { hiringOrganizationId: org.id }, _sum: { feeAmount: true } }),
+    prisma.placement.findMany({ where: { hiringOrganizationId: org.id }, select: { feeAmount: true, feeCurrency: true } }),
   ]);
 
   // A sibling portco can show up once per shared investor fund — keep only the first (most recent) row per company.
@@ -110,7 +115,11 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
     null,
   );
   const holdStage = org.investmentStageOverride ?? (earliestInvestmentDate ? holdStageFromAcquisitionDate(earliestInvestmentDate) : null);
-  const feesWithClient = feesAgg._sum.feeAmount ? Number(feesAgg._sum.feeAmount) : 0;
+  const feesWithClient = convertedTotal(
+    placementFees.filter((p) => p.feeAmount).map((p) => ({ amount: Number(p.feeAmount), currency: p.feeCurrency })),
+    displayCurrency,
+    ratesToGbp,
+  );
   const lastActivity = timeline[0];
   const stale = org.accountPriority === "PRIORITY" && isStaleVerification(org.lastVerifiedAt);
 
@@ -127,7 +136,11 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
       value: String(liveMandates.length),
       detail: liveMandates[0] ? `${liveMandates[0].title} · ${label(liveMandates[0].status)}` : "None open",
     },
-    { label: "Fees with this client", value: formatMoney(feesWithClient, "GBP"), detail: feesWithClient > 0 ? null : "No placements yet" },
+    {
+      label: "Fees with this client",
+      value: formatConvertedMoney(feesWithClient.amount, feesWithClient.approx, displayCurrency),
+      detail: feesWithClient.amount > 0 ? null : "No placements yet",
+    },
     {
       label: "Last contact",
       value: lastActivity ? format(lastActivity.date, "d MMM") : "—",

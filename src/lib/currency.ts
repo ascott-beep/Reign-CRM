@@ -8,15 +8,9 @@ import { CURRENCIES } from "@/lib/iso";
  */
 export const DEFAULT_EXCHANGE_RATES_TO_GBP: Record<string, number> = {
   GBP: 1,
-  EUR: 0.86,
   USD: 0.79,
-  CHF: 0.9,
+  EUR: 0.86,
   AED: 0.215,
-  SAR: 0.21,
-  SGD: 0.59,
-  JPY: 0.0053,
-  AUD: 0.52,
-  CAD: 0.58,
 };
 
 export function normalizeExchangeRates(raw: unknown): Record<string, number> {
@@ -40,3 +34,23 @@ export function convertAmount(amount: number, from: string, to: string, ratesToG
 }
 
 export const CURRENCY_CODES = CURRENCIES.map((c) => c.code);
+
+/**
+ * Converts and sums a set of amounts (each in their own currency) into a
+ * single display currency. `approx` is true whenever any item needed
+ * converting — section 9.6: "totals convert and show '≈'".
+ */
+export function convertedTotal(
+  items: { amount: number; currency: string | null | undefined }[],
+  displayCurrency: string,
+  ratesToGbp: Record<string, number>,
+): { amount: number; approx: boolean } {
+  let amount = 0;
+  let approx = false;
+  for (const item of items) {
+    const from = item.currency ?? displayCurrency;
+    if (from !== displayCurrency) approx = true;
+    amount += convertAmount(item.amount, from, displayCurrency, ratesToGbp);
+  }
+  return { amount, approx };
+}

@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
 import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
-import { formatMoney } from "@/lib/utils";
+import { formatConvertedMoney } from "@/lib/utils";
+import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { OPEN_OPPORTUNITY_STAGES, CLOSED_OPPORTUNITY_STAGES, weightedOpportunityValue, daysAtStage } from "@/lib/rules";
 import { OpportunitiesView } from "./opportunities-view";
 import type { BoardOpportunity } from "./opportunity-board";
@@ -24,6 +25,9 @@ export default async function OpportunitiesPage({
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
 
   const activeView = viewId ? await prisma.savedView.findUnique({ where: { id: viewId } }) : null;
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
+  const displayCurrency = workspace.defaultCurrency;
+  const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 
   const where: Prisma.OpportunityWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
   if (activeView) Object.assign(where, opportunityViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
@@ -44,9 +48,11 @@ export default async function OpportunitiesPage({
   const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage));
 
   const stageWeighted = new Map<string, number>();
+  let totalApprox = false;
   for (const o of openOpportunitiesRaw) {
-    const w = weightedOpportunityValue(o);
-    stageWeighted.set(o.stage, (stageWeighted.get(o.stage) ?? 0) + w);
+    const { amount, approx } = convertedTotal([{ amount: weightedOpportunityValue(o), currency: o.estimatedFeeCurrency }], displayCurrency, ratesToGbp);
+    if (approx) totalApprox = true;
+    stageWeighted.set(o.stage, (stageWeighted.get(o.stage) ?? 0) + amount);
   }
   const maxOpenWeighted = Math.max(0, ...stageWeighted.values());
   const totalWeighted = [...stageWeighted.values()].reduce((a, b) => a + b, 0);
@@ -96,13 +102,21 @@ export default async function OpportunitiesPage({
         title="Opportunities"
         description={
           <>
-            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatMoney(totalWeighted, "GBP")}</span> weighted · business development
+            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatConvertedMoney(totalWeighted, totalApprox, displayCurrency)}</span> weighted · business development
             pipeline
           </>
         }
       />
       {fix === "no-next-action" ? <FixBanner label="Opportunities with no next action" clearHref="/opportunities" /> : null}
-      <OpportunitiesView display={fix ? "table" : display} openOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} closedOpportunities={closedOpportunities} listRows={listRows} />
+      <OpportunitiesView
+        display={fix ? "table" : display}
+        openOpportunities={openOpportunities}
+        maxOpenWeighted={maxOpenWeighted}
+        closedOpportunities={closedOpportunities}
+        listRows={listRows}
+        displayCurrency={displayCurrency}
+        ratesToGbp={ratesToGbp}
+      />
       <UndoDeleteToast type="OPPORTUNITY" />
     </div>
   );

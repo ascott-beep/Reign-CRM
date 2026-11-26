@@ -37,18 +37,12 @@ export function countryName(code: string | null | undefined) {
   return COUNTRIES.find((c) => c.code === code)?.name ?? code;
 }
 
-/** ISO 4217 currency codes — GBP/EUR/USD are seeded as the common set but any valid ISO code is accepted. */
+/** ISO 4217 currency codes — section 9.6 trims this to the four the business actually uses. */
 export const CURRENCIES: { code: string; name: string }[] = [
   { code: "GBP", name: "British Pound" },
-  { code: "EUR", name: "Euro" },
   { code: "USD", name: "US Dollar" },
-  { code: "CHF", name: "Swiss Franc" },
+  { code: "EUR", name: "Euro" },
   { code: "AED", name: "UAE Dirham" },
-  { code: "SAR", name: "Saudi Riyal" },
-  { code: "SGD", name: "Singapore Dollar" },
-  { code: "JPY", name: "Japanese Yen" },
-  { code: "AUD", name: "Australian Dollar" },
-  { code: "CAD", name: "Canadian Dollar" },
 ];
 
 export const COMMON_CURRENCY_CODES = ["GBP", "EUR", "USD"];

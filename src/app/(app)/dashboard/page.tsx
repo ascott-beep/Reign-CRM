@@ -4,7 +4,8 @@ import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
-import { formatMoney, cn } from "@/lib/utils";
+import { formatConvertedMoney, cn } from "@/lib/utils";
+import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import {
   OPEN_OPPORTUNITY_STAGES,
@@ -45,6 +46,9 @@ export default async function DashboardPage() {
   const startOfYear = new Date(now.getFullYear(), 0, 1);
 
   const mandateWhere = mandateVisibilityWhere(user);
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: wid }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
+  const displayCurrency = workspace.defaultCurrency;
+  const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 
   const [
     overdueTasksCount,
@@ -116,7 +120,7 @@ export default async function DashboardPage() {
     }),
     prisma.placement.findMany({
       where: { mandate: { workspaceId: wid }, placementDate: { gte: startOfYear } },
-      select: { feeAmount: true },
+      select: { feeAmount: true, feeCurrency: true },
     }),
     prisma.mandate.findMany({
       where: { workspaceId: wid, archivedAt: null, status: { in: [...LIVE_MANDATE_STATUSES] }, ...mandateWhere },
@@ -153,7 +157,7 @@ export default async function DashboardPage() {
     }),
     prisma.opportunity.findMany({
       where: { workspaceId: wid, archivedAt: null, stage: { in: OPEN_OPPORTUNITY_STAGES } },
-      select: { stage: true, estimatedFeeAmount: true, probabilityOverride: true, isProbabilityOverridden: true },
+      select: { stage: true, estimatedFeeAmount: true, estimatedFeeCurrency: true, probabilityOverride: true, isProbabilityOverridden: true },
     }),
     prisma.intelligenceItem.findMany({
       where: { workspaceId: wid, archivedAt: null },
@@ -214,7 +218,11 @@ export default async function DashboardPage() {
 
   // --- KPIs ------------------------------------------------------------------
 
-  const feesPlacedThisYear = placementsThisYear.reduce((sum, p) => sum + (p.feeAmount ? Number(p.feeAmount) : 0), 0);
+  const feesPlacedThisYear = convertedTotal(
+    placementsThisYear.filter((p) => p.feeAmount).map((p) => ({ amount: Number(p.feeAmount), currency: p.feeCurrency })),
+    displayCurrency,
+    ratesToGbp,
+  );
 
   const candidatesInPlayTotal = liveMandatesAll.reduce(
     (sum, m) => sum + m.candidateProcesses.filter((c) => isCandidateInPlay(c.stage)).length,
@@ -227,7 +235,7 @@ export default async function DashboardPage() {
   const kpis = [
     {
       title: "Fees placed",
-      value: formatMoney(feesPlacedThisYear, "GBP"),
+      value: formatConvertedMoney(feesPlacedThisYear.amount, feesPlacedThisYear.approx, displayCurrency),
       detail: `${placementsThisYear.length} placement${placementsThisYear.length === 1 ? "" : "s"} in ${now.getFullYear()}`,
       detailTone: "pos" as const,
       href: "/reports",
@@ -273,9 +281,19 @@ export default async function DashboardPage() {
   // --- Weighted pipeline ---------------------------------------------------
 
   const stageTotals = new Map<string, number>();
-  for (const stage of OPEN_OPPORTUNITY_STAGES) stageTotals.set(stage, 0);
+  const stageApprox = new Map<string, boolean>();
+  for (const stage of OPEN_OPPORTUNITY_STAGES) {
+    stageTotals.set(stage, 0);
+    stageApprox.set(stage, false);
+  }
+  let pipelineApprox = false;
   for (const o of openOpportunities) {
-    stageTotals.set(o.stage, (stageTotals.get(o.stage) ?? 0) + weightedOpportunityValue(o));
+    const { amount, approx } = convertedTotal([{ amount: weightedOpportunityValue(o), currency: o.estimatedFeeCurrency }], displayCurrency, ratesToGbp);
+    if (approx) {
+      pipelineApprox = true;
+      stageApprox.set(o.stage, true);
+    }
+    stageTotals.set(o.stage, (stageTotals.get(o.stage) ?? 0) + amount);
   }
   const weightedTotal = [...stageTotals.values()].reduce((a, b) => a + b, 0);
   const maxStageWeighted = Math.max(...stageTotals.values(), 0);
@@ -286,6 +304,7 @@ export default async function DashboardPage() {
       label: OPPORTUNITY_STAGE_SHORT_LABEL[stage] ?? label(stage),
       probability: OPPORTUNITY_STAGE_PROBABILITY[stage] ?? 0,
       value: stageTotals.get(stage) ?? 0,
+      approx: stageApprox.get(stage) ?? false,
       widthPct: maxStageWeighted > 0 ? ((stageTotals.get(stage) ?? 0) / maxStageWeighted) * 100 : 0,
       isMax: maxStageWeighted > 0 && (stageTotals.get(stage) ?? 0) === maxStageWeighted,
     }));
@@ -420,7 +439,7 @@ export default async function DashboardPage() {
                 {openOpportunities.length} open opportunit{openOpportunities.length === 1 ? "y" : "ies"} · value × stage probability
               </div>
             </div>
-            <span className="text-[26px] font-light leading-none tracking-[-0.03em]">{formatMoney(weightedTotal, "GBP")}</span>
+            <span className="text-[26px] font-light leading-none tracking-[-0.03em]">{formatConvertedMoney(weightedTotal, pipelineApprox, displayCurrency)}</span>
           </div>
           <div className="mt-2 flex flex-1 flex-col justify-around">
             {pipelineRows.map((row) => (
@@ -435,7 +454,7 @@ export default async function DashboardPage() {
                     style={{ width: `${row.widthPct}%` }}
                   />
                 </span>
-                <span className="text-right">{formatMoney(row.value, "GBP")}</span>
+                <span className="text-right">{formatConvertedMoney(row.value, row.approx, displayCurrency)}</span>
               </div>
             ))}
           </div>

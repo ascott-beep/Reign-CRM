@@ -27,6 +27,11 @@ export function formatMoney(
   }
 }
 
+/** Section 9.6 — prefixes a converted total with "≈" so it reads as an estimate, not an exact figure. */
+export function formatConvertedMoney(amount: number, approx: boolean, currency: string) {
+  return `${approx ? "≈" : ""}${formatMoney(amount, currency)}`;
+}
+
 export function humanizeEnum(value: string | null | undefined) {
   if (!value) return "—";
   return value

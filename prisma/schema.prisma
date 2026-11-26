@@ -518,6 +518,7 @@ enum AuditAction {
   UPDATE
   ARCHIVE
   RESTORE
+  DELETE
   STAGE_CHANGE
   CONVERSION
   EXPORT
@@ -646,15 +647,19 @@ model User {
 
   ownedOrganizations      Organization[]                 @relation("OrganizationOwner")
   createdOrganizations    Organization[]                 @relation("OrganizationCreatedBy")
+  archivedOrganizations   Organization[]                 @relation("OrganizationArchivedBy")
   createdOrgRelationships OrganizationRelationship[]     @relation("OrgRelationshipCreatedBy")
   ownedPeople             Person[]                       @relation("PersonOwner")
   createdPeople           Person[]                       @relation("PersonCreatedBy")
+  archivedPeople          Person[]                       @relation("PersonArchivedBy")
   qualifiedCandidates     CandidateProfile[]             @relation("CandidateQualifiedBy")
   ownedOpportunities      Opportunity[]                  @relation("OpportunityOwner")
   createdOpportunities    Opportunity[]                  @relation("OpportunityCreatedBy")
+  archivedOpportunities   Opportunity[]                  @relation("OpportunityArchivedBy")
   opportunityStageChanges OpportunityStageHistory[]      @relation("OppStageChangedBy")
   ownedMandates           Mandate[]                      @relation("MandateOwner")
   createdMandates         Mandate[]                      @relation("MandateCreatedBy")
+  archivedMandates        Mandate[]                      @relation("MandateArchivedBy")
   assignedMandates        MandateAssignedUser[]
   mandateStageChanges     MandateStatusHistory[]         @relation("MandateStatusChangedBy")
   ownedCandidateProcesses CandidateProcess[]             @relation("ProcessOwner")
@@ -861,6 +866,7 @@ model Organization {
   updatedAt   DateTime  @updatedAt
   archivedAt  DateTime?
   archivedById   String?
+  archivedBy     User?     @relation("OrganizationArchivedBy", fields: [archivedById], references: [id])
   archiveReason  String?
 
   relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
@@ -988,6 +994,7 @@ model Person {
   updatedAt                     DateTime                 @updatedAt
   archivedAt                    DateTime?
   archivedById                  String?
+  archivedBy                    User?                    @relation("PersonArchivedBy", fields: [archivedById], references: [id])
   archiveReason                 String?
 
   candidateProfile                   CandidateProfile?
@@ -1251,6 +1258,7 @@ model Opportunity {
   closedAt                DateTime?
   archivedAt              DateTime?
   archivedById            String?
+  archivedBy              User?                     @relation("OpportunityArchivedBy", fields: [archivedById], references: [id])
   archiveReason           String?
 
   wonMandate                Mandate?                  @relation("MandateSourceOpportunity")
@@ -1399,6 +1407,7 @@ model Mandate {
   updatedAt               DateTime               @updatedAt
   archivedAt              DateTime?
   archivedById            String?
+  archivedBy              User?                  @relation("MandateArchivedBy", fields: [archivedById], references: [id])
   archiveReason           String?
 
   relatedFunds          MandateFund[]
