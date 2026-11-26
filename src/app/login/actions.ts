@@ -27,3 +27,7 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
     throw error;
   }
 }
+
+export async function signInWithProviderAction(provider: "google" | "microsoft-entra-id") {
+  await signIn(provider, { redirectTo: "/dashboard" });
+}
