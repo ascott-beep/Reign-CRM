@@ -1,0 +1,73 @@
+/* Reign CRM design tokens. Light on :root, dark on [data-theme="dark"]. */
+@import url("https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&display=swap");
+
+:root {
+  --bg: #f2f4f7;
+  --side: #ffffff;
+  --card: #ffffff;
+  --line: #e1e6ec;
+  --ink: #0c2139;
+  --ink2: #36485c;
+  --muted: #5d6b7a;
+  --navy: #0c2139;
+  --navyInk: #ffffff;
+  --track: #e9edf2;
+  --fill: #bae1ff;
+  --bar: #6f8296;
+  --dot: #0c2139;
+  --chip: #eef1f5;
+  --chipStrong: #e2f1ff;
+  --chipStrongInk: #0c2139;
+  --pos: #24704a;
+  --posBg: #e2f2e9;
+  --warn: #b3300f;
+  --warnBg: #fdebe5;
+  --neg: #a1260c;
+  --negBg: #fbe3dc;
+  --active: #eef1f5;
+  --sunk: #f6f8fa;
+  --accent: #ed3910;
+}
+
+[data-theme="dark"] {
+  --bg: #07111d;
+  --side: #0a1522;
+  --card: #0e1b2b;
+  --line: #1c2b3d;
+  --ink: #e9eef4;
+  --ink2: #b9c5d3;
+  --muted: #8796a8;
+  --navy: #bae1ff;
+  --navyInk: #0c2139;
+  --track: #1a2839;
+  --fill: #1f4469;
+  --bar: #9db6cf;
+  --dot: #e9eef4;
+  --chip: #152335;
+  --chipStrong: #15324f;
+  --chipStrongInk: #bae1ff;
+  --pos: #6fcf97;
+  --posBg: #11301f;
+  --warn: #ff8a66;
+  --warnBg: #3a1a10;
+  --neg: #ff8a66;
+  --negBg: #3a1a10;
+  --active: #132235;
+  --sunk: #0b1724;
+  --accent: #ff6a3d;
+}
+
+:root {
+  --font-sans: "Inter Tight", Inter, system-ui, sans-serif;
+  --radius-card: 6px;
+  --radius-control: 4px;
+  --radius-tag: 3px;
+  --page-pad-y: 32px;
+  --page-pad-x: 40px;
+  --gap-section: 24px;
+  --gap-card: 16px;
+  --control-h: 36px;
+  --sidebar-w: 228px;
+  --sidebar-w-collapsed: 68px;
+}
+body { font-family: var(--font-sans); background: var(--bg); color: var(--ink); font-size: 14px; }
