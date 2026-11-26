@@ -32,6 +32,7 @@ import { CandidateProfileDialog } from "../candidate-profile-dialog";
 import { MergeButton } from "../merge-button";
 import { PracticeAreaPicker } from "../practice-area-picker";
 import { AddToMandateDialog, type MandateOption } from "../add-to-mandate-dialog";
+import { AnonymiseButton } from "../anonymise-button";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 
@@ -53,6 +54,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
       organizationAssociations: { include: { organization: true } },
       employmentHistories: { include: { organization: true }, orderBy: { startDate: "desc" } },
       practiceAreas: { include: { practiceArea: true } },
+      placements: { select: { id: true } },
     },
   });
   if (!person) notFound();
@@ -82,6 +84,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
   ]);
 
   const isCandidate = person.personTypes.includes("CANDIDATE");
+  const isPlacedCandidate = person.placements.length > 0;
 
   const liveProcesses = processes.filter(
     (p) => (LIVE_MANDATE_STATUSES as readonly string[]).includes(p.mandate.status) && p.stage !== "REJECTED" && p.stage !== "WITHDRAWN",
@@ -165,7 +168,10 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
-          {user.role === "ADMIN" ? <MoreMenu type="PERSON" id={person.id} listHref="/people" /> : null}
+          {user.role === "ADMIN" && isPlacedCandidate ? <AnonymiseButton personId={person.id} firstName={person.firstName} /> : null}
+          {user.role === "ADMIN" ? (
+            <MoreMenu type="PERSON" id={person.id} listHref="/people" downloadDataHref={`/api/people/${person.id}/gdpr-export`} />
+          ) : null}
         </div>
       </header>
 

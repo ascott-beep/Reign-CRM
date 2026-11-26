@@ -4,6 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { listRecentlyDeleted, deletableTypeLabel, type DeletableType } from "@/lib/delete";
 import { format, addDays } from "date-fns";
 import { RestoreButton } from "./restore-button";
+import { EraseButton } from "./erase-button";
 
 const TYPE_FILTERS: { value: DeletableType | "ALL"; label: string }[] = [
   { value: "ALL", label: "All" },
@@ -65,7 +66,10 @@ export default async function SettingsRecentlyDeletedPage({
                 <TableCell>{row.archiveReason ?? "—"}</TableCell>
                 <TableCell className="text-[var(--color-ink-subtle)]">{format(addDays(row.archivedAt, 30), "d MMM yyyy")}</TableCell>
                 <TableCell>
-                  <RestoreButton type={row.type} id={row.id} />
+                  <div className="flex justify-end gap-2">
+                    <RestoreButton type={row.type} id={row.id} />
+                    {row.type === "PERSON" ? <EraseButton personId={row.id} label={row.label} /> : null}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

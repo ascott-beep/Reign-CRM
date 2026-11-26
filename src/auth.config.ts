@@ -21,8 +21,9 @@ export const authConfig = {
       // /set-password: an invited/reset-password user has no session yet — the page
       // and its action re-validate the token themselves, so this just lets them in.
       const isOnSetPassword = pathname.startsWith("/set-password");
-      // /api/cron/*: authenticated by CRON_SECRET inside each route, not by session.
-      const isOnPublicApi = pathname.startsWith("/api/auth") || pathname.startsWith("/api/cron");
+      // /api/cron/* and /api/health: authenticated by CRON_SECRET or an admin
+      // session inside the route itself, not by this middleware.
+      const isOnPublicApi = pathname.startsWith("/api/auth") || pathname.startsWith("/api/cron") || pathname === "/api/health";
 
       if (isOnPublicApi || isOnSetPassword) return true;
       if (isOnLogin) return isLoggedIn ? Response.redirect(new URL("/dashboard", request.nextUrl)) : true;

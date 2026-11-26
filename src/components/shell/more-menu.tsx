@@ -1,13 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Trash2 } from "lucide-react";
+import { MoreHorizontal, Trash2, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DeleteDialog } from "./delete-dialog";
 import type { DeletableType } from "@/lib/delete";
 
 /** The "⋯" More button at the end of a record header's actions — section 9.3, admins only. */
-export function MoreMenu({ type, id, listHref }: { type: DeletableType; id: string; listHref: string }) {
+export function MoreMenu({
+  type,
+  id,
+  listHref,
+  downloadDataHref,
+}: {
+  type: DeletableType;
+  id: string;
+  listHref: string;
+  /** Section 10.1 "Download data" — set only on the Person record page. */
+  downloadDataHref?: string;
+}) {
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
@@ -24,6 +35,13 @@ export function MoreMenu({ type, id, listHref }: { type: DeletableType; id: stri
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {downloadDataHref ? (
+            <DropdownMenuItem asChild>
+              <a href={downloadDataHref} download>
+                <Download className="h-3.5 w-3.5" /> Download data
+              </a>
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-[var(--color-warn)]">
             <Trash2 className="h-3.5 w-3.5" /> Delete
           </DropdownMenuItem>
