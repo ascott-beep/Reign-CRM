@@ -1,2 +1,3 @@
 export const THEME_COOKIE = "theme";
-export type Theme = "light" | "dark";
+/** "system" means no cookie is set — the page follows prefers-color-scheme. */
+export type Theme = "light" | "dark" | "system";

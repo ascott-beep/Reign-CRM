@@ -40,7 +40,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header user={user} />
-        <main className="flex-1 overflow-y-auto px-6 py-6">{children}</main>
+        <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">{children}</main>
       </div>
     </div>
   );

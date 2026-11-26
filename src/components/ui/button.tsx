@@ -19,7 +19,7 @@ const buttonVariants = cva(
         link: "text-[var(--color-accent)] underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-3.5 py-2",
+        default: "h-9 px-4",
         sm: "h-8 px-3 text-xs",
         lg: "h-10 px-5",
         icon: "h-9 w-9",
@@ -29,6 +29,9 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
+    // Primary (variant="default") gets 18px side padding at the default
+    // size, vs. 16px for every other variant — SPEC.md section 3.
+    compoundVariants: [{ variant: "default", size: "default", class: "px-[18px]" }],
   },
 );
 

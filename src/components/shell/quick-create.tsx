@@ -24,8 +24,8 @@ export function QuickCreate() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm">
-          <Plus className="h-4 w-4" />
+        <Button>
+          <Plus className="h-[14px] w-[14px]" />
           Quick create
         </Button>
       </DropdownMenuTrigger>

@@ -34,7 +34,7 @@ function NavLink({
         title={item.label}
         aria-label={item.label}
         className={cn(
-          "relative flex h-[34px] items-center gap-[11px] rounded-lg px-2.5 text-[13.5px] transition-colors",
+          "relative flex h-[34px] items-center gap-[11px] rounded-[8px] px-2.5 text-[13.5px] transition-colors",
           collapsed && "justify-center px-0",
           isActive ? "bg-[var(--color-active)] font-medium text-[var(--color-ink)]" : "text-[var(--color-ink2)] hover:text-[var(--color-ink)]",
         )}
@@ -99,19 +99,28 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "hidden shrink-0 flex-col gap-[18px] overflow-y-auto border-r border-[var(--color-line)] bg-[var(--color-side)] py-3.5 md:flex",
+        "hidden shrink-0 flex-col gap-[18px] overflow-y-auto border-r border-[var(--color-line)] bg-[var(--color-side)] pb-[14px] pt-[18px] md:flex",
         collapsed ? "w-[68px] px-2" : "w-[228px] px-3",
       )}
     >
-      <div className={cn("flex min-h-[30px] items-center", collapsed ? "justify-center" : "justify-between pl-2.5")}>
-        {collapsed ? (
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2">
           <ReignMark className="h-6 w-6 text-[var(--color-ink)]" />
-        ) : (
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-active)]"
+          >
+            <PanelLeftOpen className="h-[17px] w-[17px]" strokeWidth={1.6} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex min-h-[30px] items-center justify-between pl-2.5">
           <Link href="/dashboard" aria-label="Reign home" className="flex items-center text-[var(--color-ink)]">
             <ReignLogo className="h-[26px] w-[88px]" />
           </Link>
-        )}
-        {!collapsed ? (
           <button
             type="button"
             onClick={toggleCollapsed}
@@ -121,8 +130,8 @@ export function Sidebar({
           >
             <PanelLeftClose className="h-[17px] w-[17px]" strokeWidth={1.6} />
           </button>
-        ) : null}
-      </div>
+        </div>
+      )}
 
       <nav className="flex flex-1 flex-col gap-[18px]">
         {NAV_GROUPS.map((group) => (
@@ -147,18 +156,6 @@ export function Sidebar({
           </div>
         ))}
       </nav>
-
-      {collapsed ? (
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label="Expand sidebar"
-          title="Expand sidebar"
-          className="flex h-7 w-7 items-center justify-center self-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-active)]"
-        >
-          <PanelLeftOpen className="h-[17px] w-[17px]" strokeWidth={1.6} />
-        </button>
-      ) : null}
 
       <div className="flex flex-col gap-2.5">
         <div className="h-px bg-[var(--color-line)]" />
