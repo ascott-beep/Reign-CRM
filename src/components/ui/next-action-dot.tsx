@@ -1,17 +1,18 @@
-import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NextActionStatus } from "@/lib/next-action-status";
 
+// SPEC.md section 3 "Status dot": 10px circle, red = overdue, green = due
+// today or later, grey at 55% opacity = no next action.
 const STYLES: Record<NextActionStatus, string> = {
-  overdue: "bg-[var(--color-status-danger-ink)] text-white",
-  today: "bg-[var(--color-status-success-ink)] text-white",
-  none: "bg-[var(--color-status-neutral-bg)] text-[var(--color-ink-subtle)]",
+  overdue: "bg-[var(--color-alert)]",
+  today: "bg-[var(--color-pos)]",
+  none: "bg-[var(--color-muted)] opacity-55",
 };
 
 const LABELS: Record<NextActionStatus, string> = {
   overdue: "Next action overdue",
-  today: "Next action due today",
-  none: "No action due",
+  today: "Next action due today or later",
+  none: "No next action",
 };
 
 export function NextActionDot({ status, className }: { status: NextActionStatus; className?: string }) {
@@ -19,9 +20,8 @@ export function NextActionDot({ status, className }: { status: NextActionStatus;
     <span
       title={LABELS[status]}
       aria-label={LABELS[status]}
-      className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-full", STYLES[status], className)}
-    >
-      <ArrowUpRight className="h-3 w-3" strokeWidth={2.5} />
-    </span>
+      role="img"
+      className={cn("inline-block h-[10px] w-[10px] shrink-0 rounded-full", STYLES[status], className)}
+    />
   );
 }

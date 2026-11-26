@@ -1,102 +1,180 @@
 @import "tailwindcss";
 
 /*
- * Design tokens — restrained neutral palette for a premium PE operating
- * tool, plus a single configurable brand accent (--brand-accent is set at
- * runtime on <html> from Workspace.brandAccent so it can be changed
- * centrally from Settings without a rebuild).
+ * Reign CRM "Atlas" redesign — design tokens.
+ * Source of truth: docs/redesign/SPEC.md section 2 and
+ * docs/redesign/tokens.css. Every colour, radius and shadow value below is
+ * copied from there; change it there first; this file is the Tailwind v4
+ * wiring (and a compatibility alias layer, see below), not a second source.
  */
 @theme {
-  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-sans: var(--font-inter-tight), Inter, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --color-canvas: #faf9f7;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-ink: #17171a;
-  --color-ink-muted: #52525b;
-  --color-ink-subtle: #8a8a94;
-  --color-border: #e4e2dd;
-  --color-border-strong: #cfccc4;
+  --color-bg: #f2f4f7;
+  --color-side: #ffffff;
+  --color-card: #ffffff;
+  --color-line: #e1e6ec;
+  --color-ink: #0c2139;
+  --color-ink2: #36485c;
+  --color-muted: #5d6b7a;
+  --color-navy: #0c2139;
+  --color-navy-ink: #ffffff;
+  --color-track: #e9edf2;
+  --color-fill: #bae1ff;
+  --color-bar: #6f8296;
+  --color-dot: #0c2139;
+  --color-chip: #eef1f5;
+  --color-chip-strong: #e2f1ff;
+  --color-chip-strong-ink: #0c2139;
+  --color-pos: #24704a;
+  --color-pos-bg: #e2f2e9;
+  --color-warn: #b3300f;
+  --color-warn-bg: #fdebe5;
+  --color-neg: #a1260c;
+  --color-neg-bg: #fbe3dc;
+  --color-active: #eef1f5;
+  --color-sunk: #f6f8fa;
+  /* Named "alert", not "accent" — this is the spec's narrow red status-dot
+     colour (section 2: "small text never uses --accent; it uses --warn"),
+     not a general-purpose accent. Keeping the old --color-accent name free
+     lets it alias to --color-navy below instead of colliding with this. */
+  --color-alert: #ed3910;
 
-  --color-accent: var(--brand-accent, #101e33);
-  --color-accent-ink: #ffffff;
-  /* Derived tint, not a fixed hex, so it tracks the runtime-configurable
-     brand accent and adapts automatically between light/dark surfaces. */
-  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
-
-  /* Secondary accent — same blue family as the Finance practice-area tag,
-     saturated up so it actually reads as colour at icon/text sizes (the
-     navy accent is dark enough that it visually flattens to "grey" at
-     small weights, so it's kept for solid fills/structure instead). */
-  --color-highlight: #2f5fbf;
-  --color-highlight-ink: #ffffff;
-  --color-highlight-subtle: color-mix(in srgb, var(--color-highlight) 12%, var(--color-surface));
-
-  --color-status-success-bg: #eef3ea;
-  --color-status-success-ink: #3c5c33;
-  --color-status-warning-bg: #faf1df;
-  --color-status-warning-ink: #7a5a17;
-  --color-status-danger-bg: #f7e9e7;
-  --color-status-danger-ink: #8c2f24;
-  --color-status-info-bg: #e9eef4;
-  --color-status-info-ink: #2c4870;
-  --color-status-neutral-bg: #eeedea;
-  --color-status-neutral-ink: #45454c;
-
-  /* Layered elevation (soft ambient + tighter contact shadow) so surfaces
-     read as raised cards rather than flat bordered boxes. Overridden per
-     theme below since a light-mode shadow recipe looks washed out on dark
-     surfaces. */
-  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
-  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 2px 4px rgba(16, 24, 40, 0.04), 0 8px 20px rgba(16, 24, 40, 0.08);
-  --shadow-lg: 0 4px 8px rgba(16, 24, 40, 0.04), 0 16px 40px rgba(16, 24, 40, 0.14);
+  --radius-tag: 3px;
+  --radius-control: 4px;
+  --radius-card: 6px;
+  /* Square-ish by design (SPEC section 2) — alias Tailwind's generic scale
+     onto the same two sizes rather than its much larger defaults, so any
+     existing rounded-md/rounded-lg usage matches without being rewritten. */
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-card);
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
 }
 
 @layer base {
   :root {
     color-scheme: light;
+
+    /* Compatibility aliases: every pre-redesign component reads these
+       --color-* names. Pointing them at the tokens above means the whole
+       app re-themes without touching each component or page — see Phase 1
+       "done when" in SPEC.md section 8. New code should prefer the names
+       in the @theme block above instead of these. */
+    --color-canvas: var(--color-bg);
+    --color-surface: var(--color-card);
+    --color-surface-raised: var(--color-card);
+    --color-ink-muted: var(--color-ink2);
+    --color-ink-subtle: var(--color-muted);
+    --color-border: var(--color-line);
+    --color-border-strong: var(--color-line);
+    --color-accent: var(--color-navy);
+    --color-accent-ink: var(--color-navy-ink);
+    --color-accent-subtle: var(--color-chip-strong);
+    --color-highlight: var(--color-chip-strong-ink);
+    --color-highlight-ink: var(--color-card);
+    --color-highlight-subtle: var(--color-chip-strong);
+    --color-status-success-bg: var(--color-pos-bg);
+    --color-status-success-ink: var(--color-pos);
+    --color-status-warning-bg: var(--color-warn-bg);
+    --color-status-warning-ink: var(--color-warn);
+    --color-status-danger-bg: var(--color-neg-bg);
+    --color-status-danger-ink: var(--color-neg);
+    --color-status-info-bg: var(--color-chip-strong);
+    --color-status-info-ink: var(--color-chip-strong-ink);
+    --color-status-neutral-bg: var(--color-chip);
+    --color-status-neutral-ink: var(--color-ink2);
+
+    /* Cards and form fields are flat (border only, no shadow) per spec —
+       true overlays (dialog/select/popover/dropdown/tooltip) opt back into
+       --shadow-overlay explicitly instead of the generic Tailwind scale. */
+    --shadow-xs: none;
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
   }
 
+  /* Explicit choice (persisted in the "theme" cookie, read server-side in
+     layout.tsx — no flash of the wrong theme on load). */
   html[data-theme="dark"] {
     color-scheme: dark;
-    --color-canvas: #101012;
-    --color-surface: #17171a;
-    --color-surface-raised: #1d1d21;
-    --color-ink: #f2f1ee;
-    --color-ink-muted: #b3b1ab;
-    --color-ink-subtle: #7d7b76;
-    --color-border: #2b2b2f;
-    --color-border-strong: #3a3a40;
-    --color-accent-ink: #101012;
-    --color-highlight: #6d9ef0;
-    --color-highlight-ink: #101012;
-    --color-status-success-bg: #1e2a19;
-    --color-status-success-ink: #a9d69a;
-    --color-status-warning-bg: #332a10;
-    --color-status-warning-ink: #f0c96a;
-    --color-status-danger-bg: #331714;
-    --color-status-danger-ink: #f0a99e;
-    --color-status-info-bg: #16202f;
-    --color-status-info-ink: #a9c3e6;
-    --color-status-neutral-bg: #232327;
-    --color-status-neutral-ink: #c6c4bf;
+    --color-bg: #07111d;
+    --color-side: #0a1522;
+    --color-card: #0e1b2b;
+    --color-line: #1c2b3d;
+    --color-ink: #e9eef4;
+    --color-ink2: #b9c5d3;
+    --color-muted: #8796a8;
+    --color-navy: #bae1ff;
+    --color-navy-ink: #0c2139;
+    --color-track: #1a2839;
+    --color-fill: #1f4469;
+    --color-bar: #9db6cf;
+    --color-dot: #e9eef4;
+    --color-chip: #152335;
+    --color-chip-strong: #15324f;
+    --color-chip-strong-ink: #bae1ff;
+    --color-pos: #6fcf97;
+    --color-pos-bg: #11301f;
+    --color-warn: #ff8a66;
+    --color-warn-bg: #3a1a10;
+    --color-neg: #ff8a66;
+    --color-neg-bg: #3a1a10;
+    --color-active: #132235;
+    --color-sunk: #0b1724;
+    --color-alert: #ff6a3d;
 
-    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.2);
-    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.25), 0 8px 20px rgba(0, 0, 0, 0.3);
-    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.25), 0 16px 40px rgba(0, 0, 0, 0.4);
+    --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
+  }
+
+  /* No explicit choice made yet ("default follows the system", SPEC
+     section 3) — same dark palette, applied only when the "theme" cookie
+     is absent and the OS/browser prefers dark. Duplicated rather than
+     shared with the block above since plain CSS has no mixin to draw on
+     here; keep both in sync if a dark value ever changes. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) {
+      color-scheme: dark;
+      --color-bg: #07111d;
+      --color-side: #0a1522;
+      --color-card: #0e1b2b;
+      --color-line: #1c2b3d;
+      --color-ink: #e9eef4;
+      --color-ink2: #b9c5d3;
+      --color-muted: #8796a8;
+      --color-navy: #bae1ff;
+      --color-navy-ink: #0c2139;
+      --color-track: #1a2839;
+      --color-fill: #1f4469;
+      --color-bar: #9db6cf;
+      --color-dot: #e9eef4;
+      --color-chip: #152335;
+      --color-chip-strong: #15324f;
+      --color-chip-strong-ink: #bae1ff;
+      --color-pos: #6fcf97;
+      --color-pos-bg: #11301f;
+      --color-warn: #ff8a66;
+      --color-warn-bg: #3a1a10;
+      --color-neg: #ff8a66;
+      --color-neg-bg: #3a1a10;
+      --color-active: #132235;
+      --color-sunk: #0b1724;
+      --color-alert: #ff6a3d;
+
+      --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
+    }
   }
 
   body {
-    background-color: var(--color-canvas);
+    background-color: var(--color-bg);
     color: var(--color-ink);
     font-feature-settings: "cv11", "ss01";
   }
 
   * {
-    border-color: var(--color-border);
+    border-color: var(--color-line);
   }
 }
 

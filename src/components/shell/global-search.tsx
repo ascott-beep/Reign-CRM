@@ -70,10 +70,11 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex h-9 w-64 items-center gap-2 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-canvas)] px-3 text-sm text-[var(--color-ink-subtle)] transition-colors hover:border-[var(--color-border-strong)]"
+        aria-label="Search (Cmd+K)"
+        title="Search (Cmd+K)"
+        className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
       >
         <Search className="h-4 w-4" />
-        <span className="flex-1 text-left">Search…</span>
       </button>
 
       {open ? (
