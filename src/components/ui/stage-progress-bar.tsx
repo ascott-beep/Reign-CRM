@@ -1,3 +1,5 @@
+"use client";
+
 import { cn } from "@/lib/utils";
 
 /**
@@ -5,17 +7,23 @@ import { cn } from "@/lib/utils";
  * mandate record headers: current stage plus days spent in each one.
  * Visual language matches the existing mandates/stage-bar.tsx (done/
  * current/future segments); this version also takes a day count per step.
+ *
+ * Round 3 item 8: pass `onStepClick` to make every step but the current one
+ * and the last (Won/Filled — those go through their own dedicated button)
+ * clickable, replacing the old separate stage dropdown.
  */
 export function StageProgressBar({
   steps,
   currentIndex,
   days,
   stepCountLabel,
+  onStepClick,
 }: {
   steps: { key: string; label: string }[];
   currentIndex: number;
   days: Partial<Record<string, number>>;
   stepCountLabel?: string;
+  onStepClick?: (key: string, index: number) => void;
 }) {
   return (
     <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
@@ -23,8 +31,9 @@ export function StageProgressBar({
         const done = i < currentIndex;
         const current = i === currentIndex;
         const d = days[s.key];
-        return (
-          <li key={s.key} className="flex min-w-0 flex-col gap-2.5">
+        const clickable = Boolean(onStepClick) && !current && i !== steps.length - 1;
+        const content = (
+          <>
             <span className={cn("h-1.5 rounded-full", done ? "bg-[var(--color-dot)]" : current ? "bg-[var(--color-bar)]" : "bg-[var(--color-track)]")} />
             <span className={cn("truncate text-[13.5px]", current ? "font-medium text-[var(--color-ink)]" : done ? "text-[var(--color-ink2)]" : "text-[var(--color-muted)]")}>
               {s.label}
@@ -32,6 +41,17 @@ export function StageProgressBar({
             <span className="truncate text-xs text-[var(--color-muted)]">
               {d === undefined ? "—" : current ? `${d}d so far` : `${d}d`}
             </span>
+          </>
+        );
+        return (
+          <li key={s.key} className="flex min-w-0 flex-col gap-2.5">
+            {clickable ? (
+              <button type="button" onClick={() => onStepClick!(s.key, i)} className="flex min-w-0 flex-col gap-2.5 text-left hover:opacity-70">
+                {content}
+              </button>
+            ) : (
+              content
+            )}
           </li>
         );
       })}

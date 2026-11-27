@@ -1,17 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
-import { MoreMenu } from "@/components/shell/more-menu";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { StageProgressBar } from "@/components/ui/stage-progress-bar";
+import { InteractiveStageBar } from "@/components/ui/interactive-stage-bar";
 import { NextActionCard } from "@/components/ui/next-action-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
@@ -19,11 +17,11 @@ import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getMandateTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
-import { AddCandidateDialog, type CandidateOption } from "../add-candidate-dialog";
+import type { CandidateOption } from "../add-candidate-dialog";
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
-import { MandateStatusSelect } from "../status-select";
+import { MandateHeaderActions } from "../mandate-header-actions";
+import { changeMandateStatusAction } from "../actions";
 import { MandateBanner } from "../mandate-banner";
-import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import {
@@ -194,23 +192,30 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <AskAtlasButton recordType="mandate" recordName={mandate.title} />
-            <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
-            <AddCandidateDialog mandateId={mandate.id} mandateTitle={mandate.title} orgName={mandate.hiringOrganization.name} candidates={candidateOptions} />
-            <Button variant="secondary" asChild>
-              <Link href={`/mandates/${mandate.id}/edit`}>
-                <Pencil className="h-[14px] w-[14px]" /> Edit
-              </Link>
-            </Button>
-            {user.role === "ADMIN" ? <MoreMenu type="MANDATE" id={mandate.id} listHref="/mandates" /> : null}
+            <MandateHeaderActions
+              mandateId={mandate.id}
+              mandateTitle={mandate.title}
+              orgName={mandate.hiringOrganization.name}
+              currentStatus={mandate.status}
+              candidates={candidateOptions}
+              recordName={mandate.title}
+              editHref={`/mandates/${mandate.id}/edit`}
+              listHref="/mandates"
+              isAdmin={user.role === "ADMIN"}
+            />
           </div>
         </div>
 
         <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
-          <StageProgressBar
+          <InteractiveStageBar
             steps={MANDATE_STAGE_BAR_STEPS.map((s) => ({ key: s, label: MANDATE_STAGE_BAR_LABELS[s] }))}
             currentIndex={stageBarStep - 1}
             days={stageDays}
+            recordLabel="mandate"
+            onChangeStage={async (toStatus) => {
+              "use server";
+              await changeMandateStatusAction({ mandateId: mandate.id, toStatus });
+            }}
           />
         </div>
       </header>

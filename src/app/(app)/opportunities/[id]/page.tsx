@@ -1,17 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, ArchiveRestore } from "lucide-react";
+import { ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
-import { MoreMenu } from "@/components/shell/more-menu";
 import { restoreRecordAction } from "@/lib/delete-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { MoreDetails } from "@/components/ui/more-details";
 import { StageProgressBar } from "@/components/ui/stage-progress-bar";
+import { InteractiveStageBar } from "@/components/ui/interactive-stage-bar";
 import { PersonHoverCard, OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { NextActionCard } from "@/components/ui/next-action-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
@@ -24,9 +24,8 @@ import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityS
 import { format } from "date-fns";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
-import { StageSelect } from "../stage-select";
-import { ConvertToMandateButton } from "../convert-to-mandate-button";
-import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
+import { OpportunityHeaderActions } from "../opportunity-header-actions";
+import { changeOpportunityStageAction } from "../actions";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -96,24 +95,21 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
         actions={
           <>
-            <AskAtlasButton recordType="opportunity" recordName={opportunity.name} />
             {opportunity.wonMandateId ? (
               <Button variant="secondary" size="sm" asChild>
                 <Link href={`/mandates/${opportunity.wonMandateId}`}>View live search →</Link>
               </Button>
             ) : (
-              <StageSelect
+              <OpportunityHeaderActions
                 opportunityId={opportunity.id}
                 currentStage={opportunity.stage}
                 context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
+                recordName={opportunity.name}
+                editHref={`/opportunities/${opportunity.id}/edit`}
+                listHref="/opportunities"
+                isAdmin={user.role === "ADMIN"}
               />
             )}
-            {opportunity.stage === "WON" && !opportunity.wonMandateId ? <ConvertToMandateButton opportunityId={opportunity.id} /> : null}
-            <Button variant="secondary" size="sm" asChild>
-              <Link href={`/opportunities/${opportunity.id}/edit`}>
-                <Pencil className="h-4 w-4" /> Edit
-              </Link>
-            </Button>
             {user.role === "ADMIN" && opportunity.archivedAt ? (
               <form action={() => restoreRecordAction("OPPORTUNITY", opportunity.id)}>
                 <Button type="submit" variant="secondary" size="sm">
@@ -121,18 +117,30 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 </Button>
               </form>
             ) : null}
-            {user.role === "ADMIN" ? <MoreMenu type="OPPORTUNITY" id={opportunity.id} listHref="/opportunities" /> : null}
           </>
         }
       />
 
       {!["LOST"].includes(opportunity.stage) ? (
         <div className="mb-4 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
-          <StageProgressBar
-            steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
-            currentIndex={barStep - 1}
-            days={days}
-          />
+          {opportunity.wonMandateId ? (
+            <StageProgressBar
+              steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
+              currentIndex={barStep - 1}
+              days={days}
+            />
+          ) : (
+            <InteractiveStageBar
+              steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
+              currentIndex={barStep - 1}
+              days={days}
+              recordLabel="opportunity"
+              onChangeStage={async (toStage) => {
+                "use server";
+                await changeOpportunityStageAction({ opportunityId: opportunity.id, toStage });
+              }}
+            />
+          )}
         </div>
       ) : null}
 
