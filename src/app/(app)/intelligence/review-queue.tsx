@@ -2,14 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightCircle } from "lucide-react";
+import Link from "next/link";
+import { Sparkles, Building2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { label } from "@/lib/labels";
-import { formatShortDate } from "@/lib/datetime";
+import { formatTime, formatShortDate, isTodayInLondon, isYesterdayInLondon } from "@/lib/datetime";
+import { suggestedActionFor } from "@/lib/rules";
 import { cn } from "@/lib/utils";
-import { acceptIntelligenceItemAction, convertIntelligenceToOpportunityAction, dismissIntelligenceItemAction } from "./actions";
+import { acceptIntelligenceItemAction, convertIntelligenceToOpportunityAction, acceptAndRemindIntelligenceItemAction, dismissIntelligenceItemAction } from "./actions";
 import type { IntelligenceConfidence, IntelligenceDismissReason, IntelligenceType } from "@prisma/client";
 
 const DISMISS_REASONS: IntelligenceDismissReason[] = ["NOT_RELEVANT", "WRONG_COMPANY", "ALREADY_KNEW"];
@@ -23,8 +25,17 @@ export type QueueItem = {
   dismissReason: IntelligenceDismissReason | null;
   dismissedAt: Date | null;
   organization: { id: string; name: string };
+  sourcePerson: { id: string; firstName: string; lastName: string } | null;
+  sourceUrl: string | null;
+  details: string | null;
   sources: { id: string; url: string; title: string | null }[];
 };
+
+function friendlyWhen(date: Date) {
+  if (isTodayInLondon(date)) return `Today, ${formatTime(date)}`;
+  if (isYesterdayInLondon(date)) return "Yesterday";
+  return formatShortDate(date);
+}
 
 /** Round 4 screen 23 (DlgR4Dismiss) — one reason picked in one click. */
 function DismissDialog({ item, open, onClose }: { item: QueueItem; open: boolean; onClose: () => void }) {
@@ -91,87 +102,130 @@ function DismissDialog({ item, open, onClose }: { item: QueueItem; open: boolean
   );
 }
 
-function QueueCard({ item, mode }: { item: QueueItem; mode: "pending" | "dismissed" }) {
+/** Round 4 screen 30 (R4Intel) — one card per signal: headline, source and time, summary, linked records, one suggested next step. */
+function SignalCard({ item }: { item: QueueItem }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [dismissOpen, setDismissOpen] = useState(false);
 
+  const suggestion = suggestedActionFor({
+    type: item.type,
+    organizationName: item.organization.name,
+    sourcePersonName: item.sourcePerson ? `${item.sourcePerson.firstName} ${item.sourcePerson.lastName}` : null,
+  });
+
+  function runMainSuggestion() {
+    startTransition(async () => {
+      if (suggestion.kind === "create_opportunity") {
+        await convertIntelligenceToOpportunityAction(item.id);
+        return;
+      }
+      if (suggestion.kind === "update_record") await acceptIntelligenceItemAction(item.id);
+      else await acceptAndRemindIntelligenceItemAction(item.id);
+      router.refresh();
+    });
+  }
+
+  function accept() {
+    startTransition(async () => {
+      await acceptIntelligenceItemAction(item.id);
+      router.refresh();
+    });
+  }
+
   return (
-    <div className="rounded-[6px] border border-[var(--color-line)] p-3.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs text-[var(--color-muted)]">{item.organization.name}</span>
+    <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-4">
+      <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]">
         <Badge tone="neutral">{label(item.type)}</Badge>
-      </div>
-      <p className="mt-1.5 text-[13.5px]">{item.title}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {item.sources.length === 0 ? (
-          <span className="rounded-[3px] bg-[var(--color-chip)] px-2.5 py-1 text-[11.5px] text-[var(--color-ink2)]">No source link</span>
-        ) : (
-          item.sources.map((s) => (
-            <a key={s.id} href={s.url} target="_blank" rel="noopener noreferrer" className="rounded-[3px] bg-[var(--color-chip)] px-2.5 py-1 text-[11.5px] text-[var(--color-ink2)] hover:text-[var(--color-accent)]">
-              {s.title || new URL(s.url).hostname}
+        <span>{friendlyWhen(item.dateReceived)}</span>
+        {item.sources[0] ? (
+          <>
+            <span>·</span>
+            <a href={item.sources[0].url} target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-accent)]">
+              {item.sources[0].title || new URL(item.sources[0].url).hostname}
             </a>
-          ))
-        )}
+          </>
+        ) : null}
       </div>
-      {mode === "pending" ? (
-        <div className="mt-3 flex items-center gap-2">
-          <Button size="sm" disabled={pending} onClick={() => startTransition(async () => { await acceptIntelligenceItemAction(item.id); router.refresh(); })}>
-            Accept
-          </Button>
-          <form action={convertIntelligenceToOpportunityAction.bind(null, item.id)}>
-            <Button type="submit" size="sm" variant="secondary" disabled={pending}>
-              <ArrowRightCircle className="h-[13px] w-[13px]" /> Accept &amp; create opportunity
-            </Button>
-          </form>
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissOpen(true)}>
-            Dismiss
-          </Button>
-          <DismissDialog item={item} open={dismissOpen} onClose={() => setDismissOpen(false)} />
-        </div>
-      ) : (
-        <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-muted)]">
-          <span>Dismissed {item.dismissedAt ? formatShortDate(item.dismissedAt) : ""} · {item.dismissReason ? label(item.dismissReason) : ""}</span>
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await acceptIntelligenceItemAction(item.id); router.refresh(); })}>
-            Undo
-          </Button>
-        </div>
-      )}
+
+      <Link href={`/intelligence/${item.id}`} className="mt-2 block text-[15px] font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]">
+        {item.title}
+      </Link>
+      {item.details ? <p className="mt-1.5 text-[13.5px] text-[var(--color-ink-muted)]">{item.details}</p> : null}
+
+      <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <Link href={`/organisations/${item.organization.id}`} className="flex items-center gap-1 rounded-[3px] bg-[var(--color-chip)] px-2.5 py-1 text-[11.5px] text-[var(--color-ink2)] hover:text-[var(--color-accent)]">
+          <Building2 className="h-3 w-3" /> {item.organization.name}
+        </Link>
+        {item.sourcePerson ? (
+          <Link href={`/people/${item.sourcePerson.id}`} className="flex items-center gap-1 rounded-[3px] bg-[var(--color-chip)] px-2.5 py-1 text-[11.5px] text-[var(--color-ink2)] hover:text-[var(--color-accent)]">
+            <User className="h-3 w-3" /> {item.sourcePerson.firstName} {item.sourcePerson.lastName}
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="mt-3 flex items-start gap-2 rounded-[6px] bg-[var(--color-ai-bg)] px-3 py-2 text-[13px] text-[var(--color-ink)]">
+        <Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-ai-icon)]" />
+        <span>Suggested: {suggestion.sentence}</span>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="sm" disabled={pending} onClick={runMainSuggestion}>
+          {suggestion.buttonLabel}
+        </Button>
+        <Button size="sm" variant="secondary" disabled={pending} onClick={accept}>
+          Accept
+        </Button>
+        {/* Dismissed signals stay under the Dismissed tab for 30 days (see DismissedList's own "Undo" button), which is the undo surface for this action. */}
+        <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissOpen(true)} className="ml-auto">
+          Dismiss
+        </Button>
+      </div>
+      <DismissDialog item={item} open={dismissOpen} onClose={() => setDismissOpen(false)} />
     </div>
   );
 }
 
-/** Round 2 section 5 "Review queue": real PENDING_REVIEW signals from the research agent, with a "Dismissed" filter for the last 30 days (per the brief — after that they're simply excluded by the date filter, no separate cron needed to delete them). */
-export function ReviewQueue({ pending, dismissed }: { pending: QueueItem[]; dismissed: QueueItem[] }) {
-  const [tab, setTab] = useState<"pending" | "dismissed">("pending");
-  const items = tab === "pending" ? pending : dismissed;
-
+export function SignalCardList({ items }: { items: QueueItem[] }) {
+  if (items.length === 0) {
+    return <p className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-6 text-center text-sm text-[var(--color-muted)]">Nothing waiting for review.</p>;
+  }
   return (
-    <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-[18px]">
-      <div className="flex items-baseline justify-between">
-        <h2 className="m-0 text-base font-medium">
-          Review queue <span className="ml-1 text-[var(--color-muted)]">{pending.length}</span>
-        </h2>
-        <div className="flex gap-1 rounded-[6px] bg-[var(--color-chip)] p-0.5 text-[12px]">
-          <button type="button" onClick={() => setTab("pending")} className={`rounded-[4px] px-2.5 py-1 ${tab === "pending" ? "bg-[var(--color-card)] font-medium" : "text-[var(--color-muted)]"}`}>
-            Pending
-          </button>
-          <button type="button" onClick={() => setTab("dismissed")} className={`rounded-[4px] px-2.5 py-1 ${tab === "dismissed" ? "bg-[var(--color-card)] font-medium" : "text-[var(--color-muted)]"}`}>
-            Dismissed ({dismissed.length})
-          </button>
-        </div>
-      </div>
-      {items.length === 0 ? (
-        <p className="mt-3.5 text-sm text-[var(--color-muted)]">
-          {tab === "pending" ? "Nothing waiting for review" : "No signals dismissed in the last 30 days."}
+    <div className="flex flex-col gap-3">
+      {items.map((item) => (
+        <SignalCard key={item.id} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function DismissedRow({ item }: { item: QueueItem }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3.5">
+      <div className="min-w-0">
+        <p className="truncate text-[13.5px] text-[var(--color-ink)]">{item.title}</p>
+        <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+          {item.organization.name} · Dismissed {item.dismissedAt ? friendlyWhen(item.dismissedAt) : ""} · {item.dismissReason ? label(item.dismissReason) : ""}
         </p>
-      ) : (
-        <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {items.map((item) => (
-            <QueueCard key={item.id} item={item} mode={tab} />
-          ))}
-        </div>
-      )}
-    </section>
+      </div>
+      <Button size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await acceptIntelligenceItemAction(item.id); router.refresh(); })}>
+        Undo
+      </Button>
+    </div>
+  );
+}
+
+export function DismissedList({ items }: { items: QueueItem[] }) {
+  if (items.length === 0) {
+    return <p className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-6 text-center text-sm text-[var(--color-muted)]">No signals dismissed in the last 30 days.</p>;
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      {items.map((item) => (
+        <DismissedRow key={item.id} item={item} />
+      ))}
+    </div>
   );
 }

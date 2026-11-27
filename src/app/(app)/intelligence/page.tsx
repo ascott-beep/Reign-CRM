@@ -2,63 +2,48 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
-import { EmptyState } from "@/components/shell/states";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { label } from "@/lib/labels";
-import { subDays } from "date-fns";
-import { formatShortDate } from "@/lib/datetime";
-import { ReviewQueue } from "./review-queue";
-import { TypeFilter } from "./type-filter";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatTime } from "@/lib/datetime";
+import { getWatchlistSummary } from "@/lib/intelligence-sweep";
+import { SignalCardList, DismissedList } from "./review-queue";
 import { LogSignalButton } from "./log-signal-button";
-import type { Prisma, IntelligenceType } from "@prisma/client";
+import { ResearchCompanyCard, WatchingCard } from "./research-company-card";
+import { subDays } from "date-fns";
+import type { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Intelligence" };
 
-const ALL_TYPES: IntelligenceType[] = [
-  "LEADERSHIP_CHANGE",
-  "POTENTIAL_VACANCY",
-  "ACTIVE_VACANCY",
-  "ACQUISITION",
-  "INTEGRATION",
-  "CARVE_OUT",
-  "TRANSFORMATION",
-  "INTERNATIONAL_EXPANSION",
-  "EXIT_PREPARATION",
-  "REFINANCING",
-];
+const queueSelect = {
+  id: true,
+  title: true,
+  type: true,
+  confidence: true,
+  dateReceived: true,
+  dismissReason: true,
+  dismissedAt: true,
+  sourceUrl: true,
+  details: true,
+  organization: { select: { id: true, name: true } },
+  sourcePerson: { select: { id: true, firstName: true, lastName: true } },
+  sources: { select: { id: true, url: true, title: true } },
+} satisfies Prisma.IntelligenceItemSelect;
 
-export default async function IntelligencePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+export default async function IntelligencePage() {
   const user = await requireUser();
-  const sp = await searchParams;
-  const typeFilter = typeof sp.type === "string" && ALL_TYPES.includes(sp.type as IntelligenceType) ? (sp.type as IntelligenceType) : undefined;
 
-  const where: Prisma.IntelligenceItemWhereInput = { workspaceId: user.workspaceId, archivedAt: null, reviewState: "ACCEPTED" };
-  if (typeFilter) where.type = typeFilter;
-
-  const queueSelect = {
-    id: true,
-    title: true,
-    type: true,
-    confidence: true,
-    dateReceived: true,
-    dismissReason: true,
-    dismissedAt: true,
-    organization: { select: { id: true, name: true } },
-    sources: { select: { id: true, url: true, title: true } },
-  } satisfies Prisma.IntelligenceItemSelect;
-
-  const [items, pendingReview, dismissedRecently, organizations] = await Promise.all([
-    prisma.intelligenceItem.findMany({
-      where,
-      orderBy: { dateReceived: "desc" },
-      include: { organization: true, owner: true, convertedOpportunity: { select: { name: true, potentialRoleTitle: true } } },
-    }),
+  const [pendingReview, accepted, dismissedRecently, organizations, workspace, watchlist] = await Promise.all([
     prisma.intelligenceItem.findMany({
       where: { workspaceId: user.workspaceId, archivedAt: null, reviewState: "PENDING_REVIEW" },
       orderBy: { dateReceived: "desc" },
       select: queueSelect,
+    }),
+    prisma.intelligenceItem.findMany({
+      where: { workspaceId: user.workspaceId, archivedAt: null, reviewState: "ACCEPTED" },
+      orderBy: { dateReceived: "desc" },
+      select: queueSelect,
+      take: 50,
     }),
     prisma.intelligenceItem.findMany({
       where: { workspaceId: user.workspaceId, archivedAt: null, reviewState: "DISMISSED", dismissedAt: { gte: subDays(new Date(), 30) } },
@@ -66,67 +51,54 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
       select: queueSelect,
     }),
     prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { intelligenceSweepEnabled: true, intelligenceSweepHourUtc: true } }),
+    getWatchlistSummary(user.workspaceId),
   ]);
+
+  const sweepTimeLabel = workspace.intelligenceSweepEnabled
+    ? formatTime(new Date(Date.UTC(2000, 0, 1, workspace.intelligenceSweepHourUtc, 0, 0)))
+    : null;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Intelligence"
-        description={`Market signals across your organisations · ${items.length} logged · ${pendingReview.length} waiting for review`}
+        description="News about your clients and their portfolios, with a suggested next step for each."
         actions={
           <>
-            <TypeFilter types={ALL_TYPES} current={typeFilter ?? "ALL"} />
+            <Button asChild variant="secondary">
+              <Link href="/intelligence/log">Signal log</Link>
+            </Button>
             <LogSignalButton organizations={organizations} currentUserId={user.id} />
           </>
         }
       />
 
-      <ReviewQueue pending={pendingReview} dismissed={dismissedRecently} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
+        <Tabs defaultValue="review">
+          <TabsList>
+            <TabsTrigger value="review">
+              To review {pendingReview.length > 0 ? <span className="ml-1.5 rounded-full bg-[var(--color-navy)] px-1.5 py-0.5 text-[11px] text-[var(--color-navy-ink)]">{pendingReview.length}</span> : null}
+            </TabsTrigger>
+            <TabsTrigger value="accepted">Accepted</TabsTrigger>
+            <TabsTrigger value="dismissed">Dismissed</TabsTrigger>
+          </TabsList>
+          <TabsContent value="review" className="mt-4">
+            <SignalCardList items={pendingReview} />
+          </TabsContent>
+          <TabsContent value="accepted" className="mt-4">
+            <SignalCardList items={accepted} />
+          </TabsContent>
+          <TabsContent value="dismissed" className="mt-4">
+            <DismissedList items={dismissedRecently} />
+          </TabsContent>
+        </Tabs>
 
-      <section className="overflow-hidden rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
-        {items.length === 0 ? (
-          <EmptyState title="No intelligence recorded yet" />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Signal</TableHead>
-                <TableHead>Organisation</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Confidence</TableHead>
-                <TableHead>Relevance</TableHead>
-                <TableHead>Linked work</TableHead>
-                <TableHead>Received</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((i) => (
-                <TableRow key={i.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/intelligence/${i.id}`} className="text-[var(--color-ink)] hover:text-[var(--color-accent)]">
-                      {i.title}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/organisations/${i.organizationId}`} className="text-[var(--color-ink2)]">
-                      {i.organization.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Badge tone="neutral">{label(i.type)}</Badge>
-                  </TableCell>
-                  <TableCell>{label(i.confidence)}</TableCell>
-                  <TableCell>
-                    <Badge tone={i.commercialRelevance === "IMMEDIATE" || i.commercialRelevance === "HIGH" ? "warning" : "neutral"}>{label(i.commercialRelevance)}</Badge>
-                  </TableCell>
-                  <TableCell>{i.convertedOpportunity ? `Opportunity · ${i.convertedOpportunity.potentialRoleTitle ?? i.convertedOpportunity.name}` : ""}</TableCell>
-                  <TableCell className="text-[var(--color-muted)]">{formatShortDate(i.dateReceived)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
+        <div className="flex flex-col gap-4">
+          <ResearchCompanyCard />
+          <WatchingCard rows={watchlist} sweepTimeLabel={sweepTimeLabel} />
+        </div>
+      </div>
     </div>
   );
 }

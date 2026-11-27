@@ -206,7 +206,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
-          <ResearchNowButton organizationId={org.id} />
+          <ResearchNowButton organizationId={org.id} organizationName={org.name} />
           <AskAtlasButton recordType="organization" recordName={org.name} />
           {user.role === "ADMIN" ? <MoreMenu type="ORGANIZATION" id={org.id} listHref="/organisations" /> : null}
         </div>

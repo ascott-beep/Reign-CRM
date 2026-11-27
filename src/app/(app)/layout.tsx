@@ -4,6 +4,7 @@ import { NotificationBell } from "@/components/shell/notification-bell";
 import { WhatsNextProvider } from "@/components/shell/whats-next-provider";
 import { AskAtlasProvider } from "@/components/shell/ask-atlas/ask-atlas-provider";
 import { ToastProvider } from "@/components/shell/toast-provider";
+import { ResearchPanelProvider } from "@/components/shell/research-panel/research-panel-provider";
 import { requireUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { getUnreadNotificationCount } from "@/lib/notifications";
@@ -20,8 +21,9 @@ async function getNavCounts(workspaceId: string, userId: string): Promise<NavCou
     }),
     prisma.mandate.count({ where: { workspaceId, status: { notIn: ["FILLED", "CANCELLED", "ON_HOLD"] } } }),
     prisma.opportunity.count({ where: { workspaceId, stage: { notIn: ["WON", "LOST", "ON_HOLD"] } } }),
-    // Round 2 section 5 added reviewState — this now counts signals actually waiting for review, not just "recent".
-    prisma.intelligenceItem.count({ where: { workspaceId, reviewState: "PENDING_REVIEW" } }),
+    // Round 2 section 5 added reviewState, this now counts signals actually waiting for review, not just "recent".
+    // Must match the Intelligence page's own "To review" count exactly (same filter, including archivedAt).
+    prisma.intelligenceItem.count({ where: { workspaceId, archivedAt: null, reviewState: "PENDING_REVIEW" } }),
   ]);
 
   return { tasks, mandates, opportunities, intelligence };
@@ -40,6 +42,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AskAtlasProvider suggestedQuestions={suggestedQuestions}>
       <ToastProvider>
+        <ResearchPanelProvider>
         <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
           <Sidebar
             user={{ firstName: user.firstName, lastName: user.lastName, role: user.role }}
@@ -59,6 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </main>
           </div>
         </div>
+        </ResearchPanelProvider>
       </ToastProvider>
     </AskAtlasProvider>
   );
