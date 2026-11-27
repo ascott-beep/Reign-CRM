@@ -131,7 +131,7 @@ export function GlobalSearch({ collapsed = false }: { collapsed?: boolean }) {
                   autoFocus
                   value={query}
                   onValueChange={handleQueryChange}
-                  placeholder="Search organisations, people, opportunities, mandates…"
+                  placeholder="Search or ask Atlas a question…"
                   className="h-11 w-full bg-transparent text-sm outline-none placeholder:text-[var(--color-ink-subtle)]"
                 />
                 <span className="rounded-[4px] border border-[var(--color-border)] px-1.5 py-0.5 text-[11px] text-[var(--color-ink-subtle)]">esc</span>
@@ -172,7 +172,7 @@ export function GlobalSearch({ collapsed = false }: { collapsed?: boolean }) {
                 ) : (
                   <>
                     {loading ? <div className="px-2 py-6 text-center text-sm text-[var(--color-ink-subtle)]">Searching…</div> : null}
-                    {!loading && trimmedQuery.length >= 2 && visibleGroups.length === 0 ? (
+                    {!loading && !showAskAtlas && trimmedQuery.length >= 2 && visibleGroups.length === 0 ? (
                       <div className="px-2 py-6 text-center text-sm text-[var(--color-ink-subtle)]">No results</div>
                     ) : null}
                   </>
