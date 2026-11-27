@@ -1,7 +1,5 @@
 import { cookies } from "next/headers";
 import { Sidebar, type NavCounts } from "@/components/shell/sidebar";
-import { Header } from "@/components/shell/header";
-import { ConditionalHeader } from "@/components/shell/conditional-header";
 import { requireUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/sidebar-cookie";
@@ -40,9 +38,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         defaultCollapsed={defaultCollapsed}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <ConditionalHeader>
-          <Header user={user} />
-        </ConditionalHeader>
+        {/* Round 2 section 1: no separate top header bar — each page carries
+            the desk picker/search/notifications/Quick create cluster in its
+            own header row instead (see PageHeader's `user` prop). */}
         <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">{children}</main>
       </div>
     </div>

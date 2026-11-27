@@ -187,9 +187,10 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
             </Button>
           </>
         }
+        user={user}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
         <div role="tablist" aria-label="Views" className="flex gap-[3px] rounded-[4px] border border-[var(--color-line)] bg-[var(--color-card)] p-[3px]">
           {TABS.map((t) => (
             <Link
@@ -206,7 +207,7 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
         <div className="flex flex-wrap items-center gap-2">
           <form action="/organisations" method="GET">
             {tabKey !== "all" ? <input type="hidden" name="tab" value={tabKey} /> : null}
-            <label className="flex h-[34px] items-center gap-2 rounded-[4px] border border-[var(--color-line)] bg-[var(--color-card)] px-3.5 text-[13px] text-[var(--color-muted)]">
+            <label className="flex h-9 items-center gap-2 rounded-[4px] border border-[var(--color-line)] bg-[var(--color-card)] px-3.5 text-[13px] text-[var(--color-muted)]">
               <Input name="q" defaultValue={q} placeholder="Filter by name, title or company" className="h-auto w-60 border-0 bg-transparent p-0 text-[var(--color-ink)] shadow-none focus-visible:ring-0" />
             </label>
           </form>

@@ -9,6 +9,7 @@ import { label } from "@/lib/labels";
 import { format, isBefore, startOfToday, isToday } from "date-fns";
 import { TaskCheckbox } from "./task-checkbox";
 import { QuickAddTask } from "./quick-add";
+import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { SuggestedTasksPanel } from "./suggested-tasks-panel";
 import { computeSuggestions } from "./suggestions";
 import type { Prisma } from "@prisma/client";
@@ -91,20 +92,14 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         description={`${overdue.length} overdue · ${todayText} · ${suggestions.length} suggested from your pipeline`}
         actions={
           <>
-            <div className="flex overflow-hidden rounded-[4px] border border-[var(--color-line)]">
-              <Link
-                href="/tasks?view=mine"
-                className={`flex h-9 items-center px-4 text-[13px] no-underline ${view === "mine" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "bg-[var(--color-card)] text-[var(--color-ink2)]"}`}
-              >
-                Mine
-              </Link>
-              <Link
-                href="/tasks?view=team"
-                className={`flex h-9 items-center border-l border-[var(--color-line)] px-4 text-[13px] no-underline ${view === "team" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "bg-[var(--color-card)] text-[var(--color-ink2)]"}`}
-              >
-                Team
-              </Link>
-            </div>
+            <LinkSegmentedToggle
+              name="Mine or team"
+              value={view}
+              options={[
+                { value: "mine", label: "Mine", href: "/tasks?view=mine" },
+                { value: "team", label: "Team", href: "/tasks?view=team" },
+              ]}
+            />
             <Button asChild>
               <Link href="/tasks/new">
                 <Plus className="h-[14px] w-[14px]" /> New task
@@ -112,6 +107,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             </Button>
           </>
         }
+        user={user}
       />
 
       <QuickAddTask currentUserId={user.id} />

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, List as ListIcon, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { MandateBoard, type BoardMandate } from "./mandate-board";
@@ -26,32 +27,20 @@ export function MandatesView({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center rounded-control border border-[var(--color-line)] bg-[var(--color-card)] p-[3px]">
-          <Link
-            href="?display=board"
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[13px]",
-              display === "board" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "text-[var(--color-ink2)]",
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> Board
-          </Link>
-          <Link
-            href="?display=list"
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[13px]",
-              display === "list" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "text-[var(--color-ink2)]",
-            )}
-          >
-            <ListIcon className="h-3.5 w-3.5" /> List
-          </Link>
-        </div>
+      <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
+        <LinkSegmentedToggle
+          name="Board or list"
+          value={display}
+          options={[
+            { value: "board", label: "Board", icon: LayoutGrid, href: "?display=board" },
+            { value: "list", label: "List", icon: ListIcon, href: "?display=list" },
+          ]}
+        />
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={() => setClosedOpen((v) => !v)}
-            className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-4 text-[13px] text-[var(--color-ink)]"
+            className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-[14px] text-[13px] text-[var(--color-ink)]"
           >
             Closed <span className="text-[var(--color-muted)]">{closedMandates.length}</span>
             <ChevronDown className="h-3.5 w-3.5 text-[var(--color-muted)]" />

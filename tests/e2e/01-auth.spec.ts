@@ -3,8 +3,8 @@ import { loginAs, ADAM_EMAIL } from "./helpers";
 
 test("sign in and reach the dashboard", async ({ page }) => {
   await loginAs(page, ADAM_EMAIL);
-  await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
-  await expect(page.getByText("My tasks due today")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /good morning|good afternoon|good evening/i })).toBeVisible();
+  await expect(page.getByText("Desk overview")).toBeVisible();
 });
 
 test("rejects an invalid password", async ({ page }) => {

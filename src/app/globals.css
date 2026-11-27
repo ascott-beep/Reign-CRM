@@ -42,7 +42,9 @@
   --color-alert: #ed3910;
 
   --radius-tag: 3px;
-  --radius-control: 4px;
+  /* Round 2 section 1: every toolbar control and dialog form input moved
+     from 4px to 6px radius for one consistent control system. */
+  --radius-control: 6px;
   --radius-card: 6px;
   /* Square-ish by design (SPEC section 2) — alias Tailwind's generic scale
      onto the same two sizes rather than its much larger defaults, so any

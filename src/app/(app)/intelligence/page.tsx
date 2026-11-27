@@ -58,6 +58,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
             </Button>
           </>
         }
+        user={user}
       />
 
       <div className="flex flex-wrap items-stretch gap-4">

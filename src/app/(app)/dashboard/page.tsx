@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { DeskPicker } from "@/components/shell/desk-picker";
+import { GlobalSearch } from "@/components/shell/global-search";
 import { TaskIndicator } from "@/components/shell/task-indicator";
 import { QuickCreate } from "@/components/shell/quick-create";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
@@ -336,8 +337,9 @@ export default async function DashboardPage() {
           </h1>
           <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Desk overview · {format(now, "EEEE d MMMM")}</div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div data-toolbar className="flex flex-wrap items-center gap-2">
           <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />
+          <GlobalSearch />
           <TaskIndicator user={user} />
           <QuickCreate />
         </div>

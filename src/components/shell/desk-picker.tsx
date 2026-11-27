@@ -33,7 +33,7 @@ export function DeskPicker({ options, initialValue }: { options: DeskOption[]; i
       <DropdownMenu.Trigger asChild>
         <button
           type="button"
-          className="flex h-[34px] items-center gap-2 rounded-control border border-[var(--color-line)] bg-[var(--color-card)] px-3.5 text-[13px] text-[var(--color-ink)]"
+          className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-line)] bg-[var(--color-card)] px-3.5 text-[13px] text-[var(--color-ink)]"
         >
           <Users className="h-[15px] w-[15px] text-[var(--color-muted)]" strokeWidth={1.7} />
           {current}

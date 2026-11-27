@@ -7,7 +7,21 @@ import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { prisma } from "@/lib/prisma";
 import type { SessionUser } from "@/lib/permissions";
 
-export async function Header({ user }: { user: SessionUser }) {
+/**
+ * Round 2 section 1: the desk picker, search, notifications and Quick
+ * create used to live in a separate top bar (components/shell/header.tsx).
+ * That bar is gone — every page now carries this same cluster inline in
+ * its own header row instead, vertically centred with the page title, as
+ * in 01-overview.
+ */
+export async function GlobalHeaderControls({
+  user,
+  showDeskPicker = true,
+}: {
+  user: SessionUser;
+  /** Reports already has its own desk picker wired to its own filtering — skip the duplicate there. */
+  showDeskPicker?: boolean;
+}) {
   const [cookieStore, consultants] = await Promise.all([
     cookies(),
     prisma.user.findMany({
@@ -19,11 +33,11 @@ export async function Header({ user }: { user: SessionUser }) {
   const deskOptions = consultants.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }));
 
   return (
-    <header className="flex h-14 items-center justify-end gap-2 border-b border-[var(--color-line)] bg-[var(--color-side)] px-4">
-      <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />
+    <div className="flex items-center gap-2">
+      {showDeskPicker ? <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} /> : null}
       <GlobalSearch />
       <TaskIndicator user={user} />
       <QuickCreate />
-    </header>
+    </div>
   );
 }

@@ -19,7 +19,9 @@ const buttonVariants = cva(
         link: "text-[var(--color-accent)] underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4",
+        // Round 2 section 1: every toolbar button is 36px tall with 14px
+        // horizontal padding, no exception for the primary variant.
+        default: "h-9 px-[14px]",
         sm: "h-8 px-3 text-xs",
         lg: "h-10 px-5",
         icon: "h-9 w-9",
@@ -29,9 +31,6 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-    // Primary (variant="default") gets 18px side padding at the default
-    // size, vs. 16px for every other variant — SPEC.md section 3.
-    compoundVariants: [{ variant: "default", size: "default", class: "px-[18px]" }],
   },
 );
 

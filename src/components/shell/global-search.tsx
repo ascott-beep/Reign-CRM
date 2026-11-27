@@ -84,7 +84,7 @@ export function GlobalSearch() {
         onClick={() => setOpen(true)}
         aria-label="Search (Cmd+K)"
         title="Search (Cmd+K)"
-        className="flex h-[34px] w-[34px] items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
       >
         <Search className="h-4 w-4" />
       </button>

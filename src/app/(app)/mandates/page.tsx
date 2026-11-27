@@ -93,7 +93,7 @@ export default async function MandatesPage({
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <PageHeader title="Mandates" description="Executive searches you are running for clients" />
+      <PageHeader title="Mandates" description="Executive searches you are running for clients" user={user} />
       {fix === "no-hiring-manager" ? <FixBanner label="Mandates without a hiring manager" clearHref="/mandates" /> : null}
       <MandatesView display={fix ? "list" : display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
       <UndoDeleteToast type="MANDATE" />

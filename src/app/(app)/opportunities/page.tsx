@@ -106,6 +106,7 @@ export default async function OpportunitiesPage({
             pipeline
           </>
         }
+        user={user}
       />
       {fix === "no-next-action" ? <FixBanner label="Opportunities with no next action" clearHref="/opportunities" /> : null}
       <OpportunitiesView

@@ -66,7 +66,7 @@ export function FilterPopover({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className={`flex h-9 items-center gap-1.5 rounded-md border px-4 text-[13px] ${open || totalSelected > 0 ? "border-[var(--color-navy)]" : "border-[var(--color-line)]"} bg-[var(--color-card)] text-[var(--color-ink)]`}
+            className={`flex h-9 items-center gap-1.5 rounded-md border px-[14px] text-[13px] ${open || totalSelected > 0 ? "border-[var(--color-navy)]" : "border-[var(--color-line)]"} bg-[var(--color-card)] text-[var(--color-ink)]`}
           >
             <Filter className="h-3.5 w-3.5" />
             Filter {totalSelected > 0 ? <span className="text-[var(--color-muted)]">{totalSelected}</span> : null}
