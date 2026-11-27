@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Phone, Mail, FileText } from "lucide-react";
+import { Pencil, Phone, Mail, FileText, PencilLine } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
@@ -11,13 +11,16 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { StageProgressBar } from "@/components/ui/stage-progress-bar";
+import { NextActionCard } from "@/components/ui/next-action-card";
+import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getMandateTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { AddCandidateDialog, type CandidateOption } from "../add-candidate-dialog";
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
-import { StageBar } from "../stage-bar";
+import { MandateStatusSelect } from "../status-select";
 import { MandateBanner } from "../mandate-banner";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
@@ -30,6 +33,10 @@ import {
   candidateNextStepFallback,
   candidateNextStepFallbackUrgent,
   isCandidateHidden,
+  MANDATE_STAGE_BAR_STEPS,
+  MANDATE_STAGE_BAR_LABELS,
+  mandateStageBarStep,
+  daysPerStage,
 } from "@/lib/rules";
 import { nextActionStatus } from "@/lib/next-action-status";
 
@@ -68,7 +75,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   });
   if (!mandate) notFound();
 
-  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, users] = await Promise.all([
+  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, users, statusHistory] = await Promise.all([
     getMandateTimeline(mandate.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
@@ -85,6 +92,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       orderBy: { lastName: "asc" },
     }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.mandateStatusHistory.findMany({ where: { mandateId: mandate.id }, orderBy: { changedAt: "asc" } }),
   ]);
 
   const existingStageByPerson = new Map(mandate.candidateProcesses.map((p) => [p.candidatePersonId, p.stage]));
@@ -145,6 +153,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   if (employmentParts.length) metaParts.push(employmentParts.join(" · "));
 
   const wonFromFund = mandate.sourceOpportunity?.relatedFunds[0]?.organization.name;
+  const stageBarStep = mandateStageBarStep(mandate.status);
+  const stageDays = daysPerStage(statusHistory.map((h) => ({ stage: h.toStatus, at: h.changedAt })));
 
   return (
     <div className="flex flex-col gap-6">
@@ -159,9 +169,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             </div>
             <h1 className="mt-2.5 text-[28px] font-light leading-tight tracking-[-0.01em]">{mandate.title}</h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-[14.5px] text-[var(--color-ink2)]">
-              <Link href={`/organisations/${mandate.hiringOrganizationId}`} className="text-[var(--color-ink)] no-underline">
-                {mandate.hiringOrganization.name}
-              </Link>
+              <OrganizationHoverCard organizationId={mandate.hiringOrganizationId} name={mandate.hiringOrganization.name} typeLabel={label(mandate.hiringOrganization.type)}>
+                <Link href={`/organisations/${mandate.hiringOrganizationId}`} className="text-[var(--color-ink)] no-underline">
+                  {mandate.hiringOrganization.name}
+                </Link>
+              </OrganizationHoverCard>
               {metaParts.map((p) => (
                 <span key={p} className="flex items-center gap-3.5">
                   <span className="h-3.5 w-px bg-[var(--color-line)]" />
@@ -172,27 +184,9 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 <Badge tone={mandate.priority === "CRITICAL" || mandate.priority === "HIGH" ? "warning" : "neutral"}>{label(mandate.priority)}</Badge>
               ) : null}
             </div>
-            {mandate.sourceOpportunity ? (
-              <div className="mt-2.5 text-[13.5px] text-[var(--color-muted)]">
-                Won from{" "}
-                <Link href={`/opportunities/${mandate.sourceOpportunity.id}`} className="border-b border-[var(--color-line)] text-[var(--color-ink2)] no-underline">
-                  {mandate.sourceOpportunity.name}
-                </Link>
-                {mandate.sourceOpportunity.closedAt ? ` · ${format(mandate.sourceOpportunity.closedAt, "d MMM yyyy")}` : ""}
-                {mandate.fixedFeeAmount
-                  ? ` · ${formatMoney(mandate.fixedFeeAmount, mandate.fixedFeeCurrency)} fee`
-                  : mandate.sourceOpportunity.estimatedFeeAmount
-                    ? ` · ${formatMoney(mandate.sourceOpportunity.estimatedFeeAmount, mandate.sourceOpportunity.estimatedFeeCurrency)} estimated fee`
-                    : ""}
-                {wonFromFund ? ` · introduced by ${wonFromFund}` : ""}
-              </div>
-            ) : null}
           </div>
           <div className="flex flex-wrap gap-2.5">
-            <LogActivityDialog users={users} currentUserId={user.id} linkContext={{ mandateId: mandate.id, label: `${mandate.reference} — ${mandate.title}` }} />
-            <Button variant="secondary" asChild>
-              <Link href={`/tasks/new?mandateId=${mandate.id}`}>Add task</Link>
-            </Button>
+            <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
             <AddCandidateDialog mandateId={mandate.id} mandateTitle={mandate.title} orgName={mandate.hiringOrganization.name} candidates={candidateOptions} />
             <Button variant="secondary" asChild>
               <Link href={`/mandates/${mandate.id}/edit`}>
@@ -203,18 +197,90 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        <StageBar status={mandate.status} />
+        <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
+          <StageProgressBar
+            steps={MANDATE_STAGE_BAR_STEPS.map((s) => ({ key: s, label: MANDATE_STAGE_BAR_LABELS[s] }))}
+            currentIndex={stageBarStep - 1}
+            days={stageDays}
+          />
+        </div>
       </header>
 
       {banner ? <MandateBanner mandateId={mandate.id} banner={banner} /> : null}
 
-      <Tabs defaultValue={flowTab}>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Left sidebar — key facts only (section 3). */}
+        <Card>
+          <CardContent className="flex flex-col gap-3 pt-4">
+            <h3 className="text-sm font-semibold">Key facts</h3>
+            <dl className="grid grid-cols-1 gap-2 text-sm">
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-subtle)]">Client</dt>
+                <dd className="truncate text-right">
+                  <OrganizationHoverCard organizationId={mandate.hiringOrganizationId} name={mandate.hiringOrganization.name} typeLabel={label(mandate.hiringOrganization.type)}>
+                    <Link href={`/organisations/${mandate.hiringOrganizationId}`} className="text-[var(--color-accent)]">
+                      {mandate.hiringOrganization.name}
+                    </Link>
+                  </OrganizationHoverCard>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-subtle)]">Fee</dt>
+                <dd>
+                  {mandate.feePercentage
+                    ? `${mandate.feePercentage}%`
+                    : mandate.fixedFeeAmount
+                      ? formatMoney(mandate.fixedFeeAmount, mandate.baseCurrency)
+                      : "—"}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-subtle)]">Lead consultant</dt>
+                <dd className="truncate text-right">
+                  <UserHoverCard firstName={mandate.owner.firstName} lastName={mandate.owner.lastName}>
+                    <span>{mandate.owner.firstName} {mandate.owner.lastName}</span>
+                  </UserHoverCard>
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-[var(--color-ink-subtle)]">Start date</dt>
+                <dd>{mandate.startDate ? format(mandate.startDate, "d MMM yyyy") : "—"}</dd>
+              </div>
+              {mandate.sourceOpportunity ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--color-ink-subtle)]">Won from</dt>
+                  <dd className="truncate text-right">
+                    <Link href={`/opportunities/${mandate.sourceOpportunity.id}`} className="text-[var(--color-accent)]">
+                      {mandate.sourceOpportunity.name}
+                    </Link>
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+            {mandate.sourceOpportunity ? (
+              <p className="text-xs text-[var(--color-muted)]">
+                {mandate.sourceOpportunity.closedAt ? `Won ${format(mandate.sourceOpportunity.closedAt, "d MMM yyyy")}` : "Won"}
+                {mandate.fixedFeeAmount
+                  ? ` · ${formatMoney(mandate.fixedFeeAmount, mandate.fixedFeeCurrency)} fee`
+                  : mandate.sourceOpportunity.estimatedFeeAmount
+                    ? ` · ${formatMoney(mandate.sourceOpportunity.estimatedFeeAmount, mandate.sourceOpportunity.estimatedFeeCurrency)} estimated fee`
+                    : ""}
+                {wonFromFund ? ` · introduced by ${wonFromFund}` : ""}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        {/* Main column — tabs, Activity (composer/Focus/History) first, Candidates next to it (section 3). */}
+        <Tabs defaultValue={flowTab}>
         <TabsList>
-          <TabsTrigger value="brief" className="gap-1.5">
-            {briefDone ? <DoneTick /> : null} Brief
-          </TabsTrigger>
+          <TabsTrigger value="activity-view">Activity</TabsTrigger>
           <TabsTrigger value="candidates" className="gap-1.5">
             {candidatesDone ? <DoneTick /> : null} Candidates
+          </TabsTrigger>
+          <span className="mb-3 h-[18px] w-px self-start bg-[var(--color-line)]" />
+          <TabsTrigger value="brief" className="gap-1.5">
+            {briefDone ? <DoneTick /> : null} Brief
           </TabsTrigger>
           <TabsTrigger value="interviews" className="gap-1.5">
             {interviewsDone ? <DoneTick /> : null} Interviews
@@ -222,12 +288,62 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="offer" className="gap-1.5">
             {offerDone ? <DoneTick /> : null} Offer
           </TabsTrigger>
-          <span className="mb-3 h-[18px] w-px self-start bg-[var(--color-line)]" />
           <TabsTrigger value="fees">Fees</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
         </TabsList>
+
+        <TabsContent value="activity-view">
+          <div className="flex flex-col gap-4">
+            <Card>
+              <CardContent className="flex items-center justify-between gap-3 pt-4">
+                <span className="flex items-center gap-2 text-sm text-[var(--color-ink2)]">
+                  <PencilLine className="h-4 w-4 text-[var(--color-muted)]" />
+                  Log a call, note, email or file against this search.
+                </span>
+                <LogActivityDialog users={users} currentUserId={user.id} linkContext={{ mandateId: mandate.id, label: `${mandate.reference} — ${mandate.title}` }} />
+              </CardContent>
+            </Card>
+
+            <NextActionCard
+              task={
+                mandate.primaryNextTask
+                  ? {
+                      id: mandate.primaryNextTask.id,
+                      title: mandate.primaryNextTask.title,
+                      dueDate: mandate.primaryNextTask.dueDate,
+                      status: mandate.primaryNextTask.status,
+                      assigneeName: `${mandate.primaryNextTask.assignedUser.firstName} ${mandate.primaryNextTask.assignedUser.lastName}`,
+                    }
+                  : null
+              }
+              newTaskHref={`/tasks/new?mandateId=${mandate.id}`}
+            />
+
+            <Card>
+              <CardContent className="pt-4">
+                <h3 className="mb-3.5 text-sm font-semibold">History</h3>
+                {timeline.length === 0 ? (
+                  <EmptyState title="Nothing logged yet" />
+                ) : (
+                  <ul className="flex flex-col gap-3">
+                    {timeline.map((t) => (
+                      <li key={`${t.kind}-${t.id}`} className="flex gap-3 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-4 py-3">
+                        {t.kind === "activity" ? <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" /> : <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm">
+                            {t.kind === "activity" ? (t.summary ?? label(t.activityType)) : t.kind === "task" ? t.title : `${label(t.fromLabel)} → ${label(t.toLabel)}`}
+                          </p>
+                          <p className="mt-0.5 text-xs text-[var(--color-muted)]">{format(t.date, "d MMM yyyy")}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
         <TabsContent value="candidates">
           <div className="flex flex-wrap items-start gap-4">
@@ -466,26 +582,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           )}
         </TabsContent>
 
-        <TabsContent value="activity">
-          {timeline.length === 0 ? (
-            <EmptyState title="Nothing logged yet" />
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {timeline.map((t) => (
-                <li key={`${t.kind}-${t.id}`} className="flex gap-3 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-4 py-3">
-                  {t.kind === "activity" ? <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" /> : <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" />}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm">
-                      {t.kind === "activity" ? (t.summary ?? label(t.activityType)) : t.kind === "task" ? t.title : `${label(t.fromLabel)} → ${label(t.toLabel)}`}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--color-muted)]">{format(t.date, "d MMM yyyy")}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </TabsContent>
-
         {canViewAuditLog(user.role) ? (
           <TabsContent value="audit">
             {auditLogs.length === 0 ? (
@@ -512,7 +608,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             )}
           </TabsContent>
         ) : null}
-      </Tabs>
+        </Tabs>
+      </div>
     </div>
   );
 }

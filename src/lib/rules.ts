@@ -187,6 +187,26 @@ export function daysAtStage(stageEnteredAt: Date, now: Date = new Date()): numbe
   return Math.max(0, Math.floor(ms / (24 * 60 * 60 * 1000)));
 }
 
+/**
+ * Round 2 section 3 — "days spent in each stage" on a record's stage
+ * progress bar. Takes an ordered-oldest-first stage history (each entry the
+ * stage it moved TO and when) and sums the days spent in each one, so a
+ * stage visited more than once (e.g. back out of On hold) still adds up.
+ */
+export function daysPerStage<T extends string>(history: { stage: T; at: Date }[], now: Date = new Date()): Partial<Record<T, number>> {
+  const result: Partial<Record<T, number>> = {};
+  for (let i = 0; i < history.length; i++) {
+    const entry = history[i];
+    if (!entry) continue;
+    const start = entry.at;
+    const next = history[i + 1];
+    const end = next ? next.at : now;
+    const days = Math.max(0, Math.floor((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
+    result[entry.stage] = (result[entry.stage] ?? 0) + days;
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Opportunities
 // ---------------------------------------------------------------------------
@@ -203,6 +223,41 @@ export const OPEN_OPPORTUNITY_STAGES: OpportunityStage[] = [
 
 /** Closed stages leave the board for the Closed tray (section 4.2). */
 export const CLOSED_OPPORTUNITY_STAGES: OpportunityStage[] = ["WON", "LOST", "ON_HOLD"];
+
+/** Round 2 section 3 — the record page's stage progress bar: the six open stages plus Won as step 7. */
+export const OPPORTUNITY_STAGE_BAR_STEPS = [
+  "SIGNAL_IDENTIFIED",
+  "CONTACT_IDENTIFIED",
+  "CONTACTED",
+  "DISCOVERY_ARRANGED",
+  "QUALIFIED",
+  "PROPOSAL_OR_TERMS",
+  "WON",
+] as const satisfies readonly OpportunityStage[];
+
+export const OPPORTUNITY_STAGE_BAR_LABELS: Record<(typeof OPPORTUNITY_STAGE_BAR_STEPS)[number], string> = {
+  SIGNAL_IDENTIFIED: "Signal",
+  CONTACT_IDENTIFIED: "Contact",
+  CONTACTED: "Contacted",
+  DISCOVERY_ARRANGED: "Discovery",
+  QUALIFIED: "Qualified",
+  PROPOSAL_OR_TERMS: "Proposal",
+  WON: "Won",
+};
+
+/** Step number (1–7). Lost/On hold fall back to the last open stage reached, from the history. */
+export function opportunityStageBarStep(stage: OpportunityStage, history: { toStage: OpportunityStage }[]): number {
+  const steps = OPPORTUNITY_STAGE_BAR_STEPS as readonly string[];
+  const idx = steps.indexOf(stage);
+  if (idx >= 0) return idx + 1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const entry = history[i];
+    if (!entry) continue;
+    const j = steps.indexOf(entry.toStage);
+    if (j >= 0) return j + 1;
+  }
+  return 1;
+}
 
 export function opportunityProbability(opportunity: {
   stage: OpportunityStage;

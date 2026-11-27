@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { label } from "@/lib/labels";
 import { changeOpportunityStageAction } from "./actions";
 import { LostReasonDialog, type LostReasonResult } from "./lost-reason-dialog";
@@ -42,8 +43,20 @@ export function StageSelect({ opportunityId, currentStage, context }: { opportun
     startTransition(() => changeOpportunityStageAction({ opportunityId, toStage }));
   }
 
+  const isClosed = currentStage === "WON" || currentStage === "LOST";
+
   return (
     <>
+      {!isClosed ? (
+        <>
+          <Button variant="secondary" className="text-[var(--color-pos)]" onClick={() => handleChange("WON")}>
+            Won
+          </Button>
+          <Button variant="secondary" className="text-[var(--color-warn)]" onClick={() => handleChange("LOST")}>
+            Lost
+          </Button>
+        </>
+      ) : null}
       <Select value={currentStage} onValueChange={handleChange}>
         <SelectTrigger aria-label="Change opportunity stage" className="w-56">
           <SelectValue />
