@@ -288,7 +288,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         {/* Main column — tabs, Activity (composer/Focus/History) first, Candidates next to it (section 3). */}
         <Tabs defaultValue={flowTab}>
         <TabsList>
-          <TabsTrigger value="activity-view">Activity</TabsTrigger>
+          <TabsTrigger value="activity-view">Timeline</TabsTrigger>
           <TabsTrigger value="candidates" className="gap-1.5">
             {candidatesDone ? <DoneTick /> : null} Candidates
           </TabsTrigger>
