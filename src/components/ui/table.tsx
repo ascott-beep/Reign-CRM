@@ -43,7 +43,10 @@ const TableHead = React.forwardRef<HTMLTableCellElement, React.ThHTMLAttributes<
     <th
       ref={ref}
       className={cn(
-        "h-9 px-3 text-left align-middle text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-subtle)] whitespace-nowrap",
+        // Round 3 item 12: sentence-case headers everywhere — the text passed in is already
+        // sentence case (e.g. "Linked work"), so this no longer forces it to upper case.
+        "h-9 px-3 text-left align-middle text-xs font-semibold text-[var(--color-ink-subtle)] whitespace-nowrap",
+        // (tracking-wide intentionally dropped along with uppercase — it only made sense paired with it)
         className,
       )}
       {...props}

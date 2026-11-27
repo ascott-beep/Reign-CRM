@@ -95,7 +95,7 @@ export function ReviewQueue({ pending, dismissed }: { pending: QueueItem[]; dism
   const items = tab === "pending" ? pending : dismissed;
 
   return (
-    <section className="flex-[1.6_1_480px] rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-[18px]">
+    <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-[18px]">
       <div className="flex items-baseline justify-between">
         <h2 className="m-0 text-base font-medium">
           Review queue <span className="ml-1 text-[var(--color-muted)]">{pending.length}</span>
@@ -110,8 +110,8 @@ export function ReviewQueue({ pending, dismissed }: { pending: QueueItem[]; dism
         </div>
       </div>
       {items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-[var(--color-muted)]">
-          {tab === "pending" ? "Nothing waiting for review. The research agent checks the watchlist on its daily sweep." : "No signals dismissed in the last 30 days."}
+        <p className="mt-3.5 text-sm text-[var(--color-muted)]">
+          {tab === "pending" ? "Nothing waiting for review" : "No signals dismissed in the last 30 days."}
         </p>
       ) : (
         <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2">
