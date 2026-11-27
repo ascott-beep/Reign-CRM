@@ -14,6 +14,9 @@ import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { orgShortName, OPEN_OPPORTUNITY_STAGES } from "@/lib/rules";
 import { Download } from "lucide-react";
 import { PeriodPicker } from "./period-picker";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Reports" };
 
 const CANDIDATE_FUNNEL_STAGES = ["SOURCED", "LONGLISTED", "CONTACTED", "QUALIFIED", "SUBMITTED", "FIRST_INTERVIEW", "OFFER", "PLACED"] as const;
 

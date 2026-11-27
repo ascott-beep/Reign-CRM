@@ -13,6 +13,9 @@ import { SourcesCard } from "./sources-card";
 import { ReviewQueue } from "./review-queue";
 import { TypeFilter } from "./type-filter";
 import type { Prisma, IntelligenceType } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Intelligence" };
 
 const ALL_TYPES: IntelligenceType[] = [
   "LEADERSHIP_CHANGE",

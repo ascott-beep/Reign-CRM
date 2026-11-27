@@ -1,7 +1,7 @@
 import "server-only";
 import { Resend } from "resend";
 
-const FROM = "Reign CRM <noreply@reign.partners>";
+const FROM = "Atlas <noreply@reign.partners>";
 
 function client() {
   if (!process.env.RESEND_API_KEY) return null;
@@ -32,10 +32,10 @@ function linkButton(url: string, label: string) {
 export async function sendInviteEmail(input: { to: string; firstName: string; url: string }) {
   return sendEmail({
     to: input.to,
-    subject: "You've been invited to Reign CRM",
+    subject: "You've been invited to Atlas",
     html: `<div style="font-family:sans-serif;color:#0c2139;max-width:480px">
       <p>Hi ${input.firstName},</p>
-      <p>You've been invited to join Reign CRM. Set a password to get started — this link lasts 7 days.</p>
+      <p>You've been invited to join Atlas. Set a password to get started — this link lasts 7 days.</p>
       <p style="margin:24px 0">${linkButton(input.url, "Set your password")}</p>
       <p style="color:#5d6b7a;font-size:13px">If you weren't expecting this, you can ignore this email.</p>
     </div>`,
@@ -45,7 +45,7 @@ export async function sendInviteEmail(input: { to: string; firstName: string; ur
 export async function sendPasswordResetEmail(input: { to: string; firstName: string; url: string }) {
   return sendEmail({
     to: input.to,
-    subject: "Reset your Reign CRM password",
+    subject: "Reset your Atlas password",
     html: `<div style="font-family:sans-serif;color:#0c2139;max-width:480px">
       <p>Hi ${input.firstName},</p>
       <p>Use this link to set a new password — it lasts 1 hour.</p>

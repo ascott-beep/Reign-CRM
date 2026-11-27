@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PanelLeftClose, PanelLeftOpen, Settings as SettingsIcon } from "lucide-react";
 import { NAV_GROUPS, SETTINGS_NAV_ITEM, type NavItem } from "@/lib/nav";
-import { ReignLogo, ReignMark } from "@/components/shell/reign-logo";
+import { ReignMark } from "@/components/shell/reign-logo";
+import { AtlasLogo } from "@/components/brand/atlas-logo";
 import { UserMenu } from "@/components/shell/user-menu";
 import { setSidebarCollapsedAction } from "@/lib/sidebar-actions";
 import { initials, cn } from "@/lib/utils";
@@ -118,8 +119,8 @@ export function Sidebar({
         </div>
       ) : (
         <div className="flex min-h-[30px] items-center justify-between pl-2.5">
-          <Link href="/dashboard" aria-label="Reign home" className="flex items-center text-[var(--color-ink)]">
-            <ReignLogo className="h-[26px] w-[88px]" />
+          <Link href="/dashboard" aria-label="Atlas home" className="flex items-center text-[var(--color-ink)]">
+            <AtlasLogo className="h-[26px] w-auto" />
           </Link>
           <button
             type="button"

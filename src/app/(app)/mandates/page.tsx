@@ -18,6 +18,9 @@ import type { BoardMandate } from "./mandate-board";
 import type { ClosedMandate } from "./mandates-view";
 import type { MandateListRow } from "./mandates-list";
 import type { Prisma } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Mandates" };
 
 export default async function MandatesPage({
   searchParams,

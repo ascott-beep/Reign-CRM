@@ -13,6 +13,9 @@ import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { SuggestedTasksPanel } from "./suggested-tasks-panel";
 import { computeSuggestions } from "./suggestions";
 import type { Prisma } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Tasks" };
 
 const TASK_INCLUDE = {
   organizations: { select: { organization: { select: { name: true } } } },

@@ -2,6 +2,9 @@ import { requireUser } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { PermissionDeniedState } from "@/components/shell/states";
 import { SettingsNav } from "./settings-nav";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();

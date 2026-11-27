@@ -26,6 +26,9 @@ import {
   orgShortName,
 } from "@/lib/rules";
 import type { CandidateProcessStage } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Overview" };
 
 function roundWord(stage: CandidateProcessStage) {
   if (stage === "FIRST_INTERVIEW") return "first";

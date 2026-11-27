@@ -17,6 +17,9 @@ import { initials } from "@/lib/utils";
 import { candidatePlainStatus, isCandidateHidden, orgShortName, fitLabel } from "@/lib/rules";
 import { PersonDuplicateTag } from "./duplicate-tag";
 import type { Prisma, PersonType } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "People" };
 
 const TABS: { key: string; label: string; personType?: PersonType }[] = [
   { key: "all", label: "All" },

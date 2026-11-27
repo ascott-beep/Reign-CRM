@@ -13,6 +13,9 @@ import type { BoardOpportunity } from "./opportunity-board";
 import type { ClosedOpportunity } from "./opportunities-view";
 import type { OpportunityListRow } from "./opportunities-table";
 import type { Prisma } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Opportunities" };
 
 export default async function OpportunitiesPage({
   searchParams,

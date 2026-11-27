@@ -17,6 +17,9 @@ import { formatDistanceToNow } from "date-fns";
 import { holdStageFromAcquisitionDate } from "@/lib/rules";
 import { OrganizationDuplicateTag } from "./duplicate-tag";
 import type { Prisma, OrganizationType, OrganizationStatus } from "@prisma/client";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Organisations" };
 
 const TABS: { key: string; label: string; type?: OrganizationType }[] = [
   { key: "all", label: "All" },

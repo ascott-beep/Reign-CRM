@@ -13,7 +13,7 @@ const interTight = Inter_Tight({
 });
 
 export const metadata: Metadata = {
-  title: "Reign Partners CRM",
+  title: { default: "Atlas", template: "%s · Atlas" },
   description: "Private equity executive recruitment CRM",
 };
 

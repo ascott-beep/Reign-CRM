@@ -3,6 +3,9 @@ import { auth } from "@/auth";
 import { configuredOAuthProviders } from "@/lib/oauth-providers";
 import { AuthShell } from "@/components/brand/auth-shell";
 import { LoginForm } from "./login-form";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Log in" };
 
 export default async function LoginPage({
   searchParams,
