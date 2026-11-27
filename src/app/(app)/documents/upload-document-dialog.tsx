@@ -42,7 +42,7 @@ export function UploadDocumentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
+        <Button variant="secondary">
           <Upload className="h-4 w-4" /> Upload document
         </Button>
       </DialogTrigger>

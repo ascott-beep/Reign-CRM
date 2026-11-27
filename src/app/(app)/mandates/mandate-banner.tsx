@@ -21,12 +21,12 @@ export function MandateBanner({ mandateId, banner }: { mandateId: string; banner
       <Banner
         message={banner.message}
         action={
-          <Button size="sm" onClick={() => startTransition(() => changeMandateStatusAction({ mandateId, toStatus: "OFFER" }))}>
+          <Button onClick={() => startTransition(() => changeMandateStatusAction({ mandateId, toStatus: "OFFER" }))}>
             Move search to Offer
           </Button>
         }
         onDismiss={
-          <button type="button" onClick={() => setDismissed(true)} className="h-8 px-3 text-[13px] text-[var(--color-chip-strong-ink)] opacity-80">
+          <button type="button" onClick={() => setDismissed(true)} className="h-9 px-3 text-[13px] text-[var(--color-chip-strong-ink)] opacity-80">
             Not yet
           </button>
         }
@@ -39,12 +39,12 @@ export function MandateBanner({ mandateId, banner }: { mandateId: string; banner
       <Banner
         message={banner.message}
         action={
-          <Button size="sm" onClick={() => setFillOpen(true)}>
+          <Button onClick={() => setFillOpen(true)}>
             Mark search as filled
           </Button>
         }
         onDismiss={
-          <button type="button" onClick={() => setDismissed(true)} className="h-8 px-3 text-[13px] text-[var(--color-chip-strong-ink)] opacity-80">
+          <button type="button" onClick={() => setDismissed(true)} className="h-9 px-3 text-[13px] text-[var(--color-chip-strong-ink)] opacity-80">
             Not yet
           </button>
         }

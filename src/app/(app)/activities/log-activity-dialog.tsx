@@ -34,7 +34,7 @@ export function LogActivityDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
+        <Button variant="secondary">
           <MessageSquarePlus className="h-4 w-4" /> {trigger}
         </Button>
       </DialogTrigger>

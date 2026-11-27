@@ -31,7 +31,7 @@ export function InterviewDialog({ candidateProcessId, onScheduled }: { candidate
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
+        <Button variant="secondary">
           <Plus className="h-3.5 w-3.5" /> Schedule interview
         </Button>
       </DialogTrigger>

@@ -175,7 +175,7 @@ export function ProcessDetailDialog({
                   <Textarea name="clientFeedback" rows={2} defaultValue={detail.clientFeedback ?? ""} />
                 </div>
                 <div>
-                  <Button type="submit" size="sm" variant="secondary">
+                  <Button type="submit" variant="secondary">
                     Save assessment
                   </Button>
                 </div>
@@ -207,7 +207,7 @@ export function ProcessDetailDialog({
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Offer</h3>
                 {detail.stage !== "PLACED" ? (
-                  <Button size="sm" variant="secondary" onClick={() => setOfferDialogOpen(true)}>
+                  <Button variant="secondary" onClick={() => setOfferDialogOpen(true)}>
                     Create offer
                   </Button>
                 ) : null}
@@ -232,7 +232,7 @@ export function ProcessDetailDialog({
               </p>
             ) : detail.stage !== "REJECTED" && detail.stage !== "WITHDRAWN" ? (
               <div>
-                <Button size="sm" onClick={() => setPlaceDialogOpen(true)}>
+                <Button onClick={() => setPlaceDialogOpen(true)}>
                   Mark as Placed
                 </Button>
               </div>

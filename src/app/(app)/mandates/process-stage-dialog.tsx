@@ -144,8 +144,8 @@ export function ProcessStageDialog({
                     onClick={() => setReason(r.value)}
                     className={
                       reason === r.value
-                        ? "h-8 rounded-control border border-[var(--color-navy)] bg-[var(--color-navy)] px-3 text-[13px] text-[var(--color-navy-ink)]"
-                        : "h-8 rounded-control border border-[var(--color-line)] bg-[var(--color-card)] px-3 text-[13px] text-[var(--color-ink2)]"
+                        ? "h-7 rounded-control border border-[var(--color-navy)] bg-[var(--color-navy)] px-3 text-[13px] text-[var(--color-navy-ink)]"
+                        : "h-7 rounded-control border border-[var(--color-line)] bg-[var(--color-card)] px-3 text-[13px] text-[var(--color-ink2)]"
                     }
                   >
                     {r.label}

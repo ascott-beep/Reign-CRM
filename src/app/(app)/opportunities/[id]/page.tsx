@@ -96,7 +96,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         actions={
           <>
             {opportunity.wonMandateId ? (
-              <Button variant="secondary" size="sm" asChild>
+              <Button variant="secondary" asChild>
                 <Link href={`/mandates/${opportunity.wonMandateId}`}>View live search →</Link>
               </Button>
             ) : (
@@ -112,7 +112,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
             )}
             {user.role === "ADMIN" && opportunity.archivedAt ? (
               <form action={() => restoreRecordAction("OPPORTUNITY", opportunity.id)}>
-                <Button type="submit" variant="secondary" size="sm">
+                <Button type="submit" variant="secondary">
                   <ArchiveRestore className="h-4 w-4" /> Restore
                 </Button>
               </form>
