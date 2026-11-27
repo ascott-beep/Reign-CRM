@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/permissions";
-import { EmptyState } from "@/components/shell/states";
+import { EmptyState, PermissionDeniedState } from "@/components/shell/states";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { listRecentlyDeleted, deletableTypeLabel, type DeletableType } from "@/lib/delete";
 import { format, addDays } from "date-fns";
@@ -21,6 +21,7 @@ export default async function SettingsRecentlyDeletedPage({
   searchParams: Promise<{ type?: string }>;
 }) {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const { type } = await searchParams;
   const rows = await listRecentlyDeleted(user.workspaceId);
   const filtered = type && type !== "ALL" ? rows.filter((r) => r.type === type) : rows;

@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/permissions";
-import { EmptyState } from "@/components/shell/states";
+import { requireUser, canViewAuditLog } from "@/lib/permissions";
+import { EmptyState, PermissionDeniedState } from "@/components/shell/states";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { format } from "date-fns";
 
 export default async function SettingsAuditLogPage() {
   const user = await requireUser();
+  if (!canViewAuditLog(user.role)) return <PermissionDeniedState description="This page is administrator-only." />;
   const auditLogs = await prisma.auditLog.findMany({
     where: { workspaceId: user.workspaceId },
     include: { actor: true },

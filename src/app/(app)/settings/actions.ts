@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { requireUser, requireAdmin } from "@/lib/permissions";
-import { inviteUserSchema, workspaceSettingsSchema, currencySettingsSchema, staleThresholdsSchema, lookupItemSchema } from "@/lib/validation/settings";
+import { inviteUserSchema, workspaceSettingsSchema, currencySettingsSchema, staleThresholdsSchema, lookupItemSchema, aiResearchSettingsSchema } from "@/lib/validation/settings";
 import { writeAuditLog } from "@/lib/audit";
 import { CURRENCY_CODES } from "@/lib/currency";
 import { createPasswordToken } from "@/lib/password-tokens";
@@ -166,6 +166,27 @@ export async function updateCurrencySettingsAction(formData: FormData) {
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: parsed.data });
   revalidatePath("/settings/currencies");
   revalidatePath("/");
+}
+
+/** Round 2 section 6 — Settings -> Connections "AI research: Claude" card. */
+export async function updateAiResearchSettingsAction(formData: FormData) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+
+  const raw = { ...Object.fromEntries(formData.entries()), signalTypes: formData.getAll("signalTypes") };
+  const parsed = aiResearchSettingsSchema.safeParse(raw);
+  if (!parsed.success) throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+
+  await prisma.workspace.update({
+    where: { id: user.workspaceId },
+    data: {
+      intelligenceSweepEnabled: parsed.data.sweepEnabled ?? false,
+      intelligenceSweepHourUtc: parsed.data.sweepHourUtc,
+      intelligenceSignalTypes: parsed.data.signalTypes,
+    },
+  });
+  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: parsed.data });
+  revalidatePath("/settings/connections");
 }
 
 export async function updateExchangeRatesAction(formData: FormData) {

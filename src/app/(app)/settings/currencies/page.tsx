@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
+import { PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +11,7 @@ import { format } from "date-fns";
 
 export default async function SettingsCurrenciesPage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId } });
   const exchangeRates = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 

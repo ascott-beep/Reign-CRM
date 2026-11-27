@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
+import { UserRole, IntelligenceType } from "@prisma/client";
 
 export const inviteUserSchema = z.object({
   firstName: z.string().trim().min(1),
@@ -20,6 +20,13 @@ export const workspaceSettingsSchema = z.object({
 export const currencySettingsSchema = z.object({
   defaultCurrency: z.string().trim().length(3),
   updateRatesAutomatically: z.coerce.boolean().optional(),
+});
+
+/** Round 2 section 6 — Settings -> Connections "AI research" card. */
+export const aiResearchSettingsSchema = z.object({
+  sweepEnabled: z.coerce.boolean().optional(),
+  sweepHourUtc: z.coerce.number().int().min(0).max(23),
+  signalTypes: z.array(z.nativeEnum(IntelligenceType)).default([]),
 });
 
 export const staleThresholdsSchema = z.object({

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
-import { EmptyState } from "@/components/shell/states";
+import { EmptyState, PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
@@ -9,6 +9,7 @@ import { format } from "date-fns";
 
 export default async function SettingsImportsPage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const importJobs = await prisma.importJob.findMany({
     where: { workspaceId: user.workspaceId },
     include: { createdBy: true },

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
+import { PermissionDeniedState } from "@/components/shell/states";
 import { initials, cn } from "@/lib/utils";
 import { ROLE_SHORT_LABEL } from "@/lib/labels";
 import { format, isToday, isYesterday, formatDistanceToNowStrict } from "date-fns";
@@ -29,6 +30,7 @@ function lastSignedInText(u: { passwordHash: string | null; lastLoginAt: Date | 
 
 export default async function SettingsUsersPage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const users = await prisma.user.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { firstName: "asc" } });
 
   const adminCount = users.filter((u) => u.role === "ADMIN").length;

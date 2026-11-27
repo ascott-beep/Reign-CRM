@@ -89,9 +89,12 @@ function toSignal(raw: unknown): ResearchSignal | null {
 export class ClaudeIntelligenceProvider implements IntelligenceProvider {
   readonly name = "claude";
 
-  async research({ companyName, website, context }: ResearchInput): Promise<ResearchResult> {
+  async research({ companyName, website, context, allowedTypes }: ResearchInput): Promise<ResearchResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set — the research agent is not configured yet.");
+
+    const types = allowedTypes && allowedTypes.length > 0 ? allowedTypes : SIGNAL_TYPES;
+    const systemPrompt = SYSTEM_PROMPT.replace(SIGNAL_TYPES.join(" | "), types.join(" | "));
 
     const client = new Anthropic({ apiKey });
     const userPrompt = [
@@ -104,7 +107,7 @@ export class ClaudeIntelligenceProvider implements IntelligenceProvider {
     const message = await client.messages.create({
       model: MODEL,
       max_tokens: 4000,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
       messages: [{ role: "user", content: userPrompt }],
     });
@@ -114,9 +117,10 @@ export class ClaudeIntelligenceProvider implements IntelligenceProvider {
       .map((block) => block.text)
       .join("\n");
 
+    const allowedSet = new Set<string>(types);
     const signals = extractJsonArray(text)
       .map(toSignal)
-      .filter((s): s is ResearchSignal => s !== null);
+      .filter((s): s is ResearchSignal => s !== null && allowedSet.has(s.type));
 
     const webSearchUses = message.content.filter((b) => b.type === "server_tool_use" && b.name === "web_search").length;
     const inputTokens = message.usage?.input_tokens ?? 0;

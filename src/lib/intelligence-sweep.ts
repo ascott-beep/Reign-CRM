@@ -57,7 +57,10 @@ async function findMentionedPerson(workspaceId: string, name: string | undefined
 
 /** One company's sweep: research, then persist new signals as PENDING_REVIEW, merging same-story duplicates onto one signal's source list. */
 export async function researchOrganization(workspaceId: string, organizationId: string, systemUserId: string) {
-  const org = await prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { id: true, name: true, website: true } });
+  const [org, workspace] = await Promise.all([
+    prisma.organization.findUniqueOrThrow({ where: { id: organizationId }, select: { id: true, name: true, website: true } }),
+    prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { intelligenceSignalTypes: true } }),
+  ]);
   const provider = getProvider();
 
   const run = await prisma.intelligenceRun.create({
@@ -66,7 +69,7 @@ export async function researchOrganization(workspaceId: string, organizationId: 
 
   try {
     const context = await dismissContextFor(workspaceId, organizationId);
-    const { signals, costUsd } = await provider.research({ companyName: org.name, website: org.website, context });
+    const { signals, costUsd } = await provider.research({ companyName: org.name, website: org.website, context, allowedTypes: workspace.intelligenceSignalTypes });
 
     const existingOpen = await prisma.intelligenceItem.findMany({
       where: { workspaceId, organizationId, reviewState: { in: ["PENDING_REVIEW", "ACCEPTED"] } },

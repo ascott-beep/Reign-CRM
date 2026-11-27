@@ -23,6 +23,8 @@ export type ResearchInput = {
   website?: string | null;
   /** Extra context to steer the agent, e.g. accumulated dismiss reasons so it learns what to skip. */
   context?: string;
+  /** Workspace's Settings -> Connections "signal types" selection; omitted or empty means all types. */
+  allowedTypes?: IntelligenceType[];
 };
 
 /**

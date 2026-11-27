@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
+import { PermissionDeniedState } from "@/components/shell/states";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { toggleLookupItemAction, updatePracticeAreaColorAction } from "../actions";
@@ -7,6 +8,7 @@ import { CreateLookupItemDialog, CreateTagDialog } from "../settings-dialogs";
 
 export default async function SettingsListsAndTagsPage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const [sectors, practiceAreas, specialisms, investorStrategies, ownershipTypes, tags] = await Promise.all([
     prisma.sector.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
     prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),

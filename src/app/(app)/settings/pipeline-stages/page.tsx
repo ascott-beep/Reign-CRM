@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
+import { PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
@@ -9,6 +10,7 @@ const EDITABLE_STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED",
 
 export default async function SettingsPipelineStagesPage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId } });
   const stageProbabilities = (workspace.opportunityStageProbabilities as Record<string, number> | null) ?? OPPORTUNITY_STAGE_PROBABILITY;
 

@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
+import { PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { updateWorkspaceAction, updateStaleThresholdsAction } from "../actions";
 
 export default async function SettingsWorkspacePage() {
   const user = await requireUser();
+  if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId } });
   const staleThresholds = workspace.staleThresholds as { personDays: number; priorityOrgDays: number; opportunityDays: number; candidateProcessDays: number };
 
