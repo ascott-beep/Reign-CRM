@@ -1,29 +1,30 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
 import { RecordViewTracker } from "@/components/shell/record-view-tracker";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { InteractiveStageBar } from "@/components/ui/interactive-stage-bar";
-import { NextActionCard } from "@/components/ui/next-action-card";
+import { NextUpCard } from "@/components/ui/next-up-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getMandateTimeline } from "@/lib/timeline";
-import { formatDate, formatShortDate, formatDateTime } from "@/lib/datetime";
+import { formatDate, formatShortDate, formatAuditWhen } from "@/lib/datetime";
+import { describeAuditLog } from "@/lib/audit";
+import { InterviewsTab } from "../interviews-tab";
+import { OfferTab } from "../offer-tab";
+import { DocumentsTab } from "../../documents/documents-tab";
 import type { CandidateOption } from "../add-candidate-dialog";
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
 import { MandateHeaderActions } from "../mandate-header-actions";
 import { changeMandateStatusAction } from "../actions";
 import { MandateBanner } from "../mandate-banner";
-import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import {
   mandateConsistencyCheck,
@@ -57,6 +58,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
     include: {
       hiringOrganization: true,
       owner: true,
+      hiringManagerPerson: true,
       sourceOpportunity: { include: { relatedFunds: { include: { organization: true } } } },
       relatedFunds: { include: { organization: true } },
       stakeholders: { include: { person: true } },
@@ -67,6 +69,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             include: { candidateProfile: true, employmentHistories: { where: { isCurrent: true }, take: 1 } },
           },
           primaryNextTask: true,
+          offers: { orderBy: { createdAt: "desc" } },
+          placement: true,
         },
         orderBy: { updatedAt: "desc" },
       },
@@ -75,14 +79,18 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   });
   if (!mandate) notFound();
 
-  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory, mailboxConnection] = await Promise.all([
+  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory, mailboxConnection, openTasks] = await Promise.all([
     getMandateTimeline(mandate.id, user.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
-      include: { candidateProcess: { include: { candidatePerson: true } } },
+      include: {
+        candidateProcess: { include: { candidatePerson: true } },
+        internalParticipants: { include: { user: true } },
+        externalParticipants: { include: { person: true } },
+      },
       orderBy: { scheduledStart: "desc" },
     }),
-    prisma.documentMandate.findMany({ where: { mandateId: mandate.id }, include: { document: true } }),
+    prisma.documentMandate.findMany({ where: { mandateId: mandate.id }, include: { document: { include: { uploadedBy: true } } } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Mandate", entityId: mandate.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
@@ -93,6 +101,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
     }),
     prisma.mandateStatusHistory.findMany({ where: { mandateId: mandate.id }, orderBy: { changedAt: "asc" } }),
     prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
+    prisma.task.findMany({
+      where: { mandates: { some: { mandateId: mandate.id } }, status: { in: ["TODO", "IN_PROGRESS"] }, archivedAt: null },
+      include: { assignedUser: true },
+      orderBy: { dueDate: "asc" },
+    }),
   ]);
 
   const existingStageByPerson = new Map(mandate.candidateProcesses.map((p) => [p.candidatePersonId, p.stage]));
@@ -259,6 +272,12 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                   </UserHoverCard>
                 </dd>
               </div>
+              {mandate.hiringManagerPerson ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--color-ink-subtle)]">Hiring manager</dt>
+                  <dd className="truncate text-right">{mandate.hiringManagerPerson.firstName} {mandate.hiringManagerPerson.lastName}</dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-2">
                 <dt className="text-[var(--color-ink-subtle)]">Start date</dt>
                 <dd>{mandate.startDate ? formatDate(mandate.startDate) : ""}</dd>
@@ -292,12 +311,12 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         <Tabs defaultValue={flowTab}>
         <TabsList>
           <TabsTrigger value="activity-view">Timeline</TabsTrigger>
-          <TabsTrigger value="candidates" className="gap-1.5">
-            {candidatesDone ? <DoneTick /> : null} Candidates
-          </TabsTrigger>
           <span className="mb-3 h-[18px] w-px self-start bg-[var(--color-line)]" />
           <TabsTrigger value="brief" className="gap-1.5">
             {briefDone ? <DoneTick /> : null} Brief
+          </TabsTrigger>
+          <TabsTrigger value="candidates" className="gap-1.5">
+            {candidatesDone ? <DoneTick /> : null} Candidates
           </TabsTrigger>
           <TabsTrigger value="interviews" className="gap-1.5">
             {interviewsDone ? <DoneTick /> : null} Interviews
@@ -305,6 +324,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           <TabsTrigger value="offer" className="gap-1.5">
             {offerDone ? <DoneTick /> : null} Offer
           </TabsTrigger>
+          <span className="mb-3 h-[18px] w-px self-start bg-[var(--color-line)]" />
           <TabsTrigger value="fees">Fees</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
@@ -320,18 +340,14 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               hasMailboxConnection={Boolean(mailboxConnection)}
             />
 
-            <NextActionCard
-              task={
-                mandate.primaryNextTask
-                  ? {
-                      id: mandate.primaryNextTask.id,
-                      title: mandate.primaryNextTask.title,
-                      dueDate: mandate.primaryNextTask.dueDate,
-                      status: mandate.primaryNextTask.status,
-                      assigneeName: `${mandate.primaryNextTask.assignedUser.firstName} ${mandate.primaryNextTask.assignedUser.lastName}`,
-                    }
-                  : null
-              }
+            <NextUpCard
+              tasks={openTasks.map((t) => ({
+                id: t.id,
+                title: t.title,
+                dueDate: t.dueDate,
+                status: t.status,
+                assigneeName: `${t.assignedUser.firstName} ${t.assignedUser.lastName}`,
+              }))}
               newTaskHref={`/tasks/new?mandateId=${mandate.id}`}
             />
 
@@ -412,9 +428,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
           <div className="flex flex-wrap items-start gap-4">
             <Card className="min-w-0 flex-[2_1_480px]">
               <CardContent className="flex flex-col gap-4 p-5">
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-[var(--color-muted)]">Terms signed:</span>
-                  <Badge tone={mandate.signedTerms ? "success" : "warning"}>{mandate.signedTerms ? "Yes" : "Not yet"}</Badge>
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">The role</h3>
+                  <Link href={`/mandates/${mandate.id}/edit`} className="text-[13px] font-medium text-[var(--color-accent)] hover:underline">
+                    Edit
+                  </Link>
                 </div>
                 <div>
                   <h3 className="mb-1.5 text-sm font-medium">Role summary</h3>
@@ -429,95 +447,83 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                   <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.requiredExperience || ""}</p>
                 </div>
                 <div>
-                  <h3 className="mb-1.5 text-sm font-medium">Assessment criteria</h3>
+                  <h3 className="mb-1.5 text-sm font-medium">Nice to have</h3>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.preferredExperience || ""}</p>
+                </div>
+                <div>
+                  <h3 className="mb-1.5 text-sm font-medium">How we will assess</h3>
                   <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.assessmentCriteria || ""}</p>
                 </div>
               </CardContent>
             </Card>
-            <Card className="min-w-0 flex-[1_1_280px]">
-              <CardContent className="flex flex-col gap-2 p-4 text-sm">
-                <h3 className="mb-1 text-[15px] font-medium">Details</h3>
-                <div className="flex justify-between border-t border-[var(--color-line)] py-2">
-                  <dt className="text-[var(--color-muted)]">Seniority</dt>
-                  <dd>{mandate.seniority ? label(mandate.seniority) : ""}</dd>
-                </div>
-                <div className="flex justify-between border-t border-[var(--color-line)] py-2">
-                  <dt className="text-[var(--color-muted)]">Number of hires</dt>
-                  <dd>{mandate.numberOfHires}</dd>
-                </div>
-                <div className="flex justify-between border-t border-[var(--color-line)] py-2">
-                  <dt className="text-[var(--color-muted)]">Target completion</dt>
-                  <dd>{mandate.targetCompletionDate ? formatDate(mandate.targetCompletionDate) : ""}</dd>
-                </div>
-                <div className="flex justify-between border-t border-[var(--color-line)] py-2">
-                  <dt className="text-[var(--color-muted)]">Related funds</dt>
-                  <dd className="text-right">{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || ""}</dd>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
+              <Card>
+                <CardContent className="flex flex-col gap-2 p-4 text-sm">
+                  <div className="mb-1 flex items-center justify-between">
+                    <h3 className="text-[15px] font-medium">Terms</h3>
+                    <Link href={`/mandates/${mandate.id}/edit`} className="text-[13px] font-medium text-[var(--color-accent)] hover:underline">
+                      Edit
+                    </Link>
+                  </div>
+                  <div className="flex items-center gap-2 border-t border-[var(--color-line)] py-2">
+                    {mandate.signedTerms ? <DoneTick /> : null}
+                    <span>{mandate.signedTerms && mandate.termsSignedDate ? `Terms signed · ${formatDate(mandate.termsSignedDate)}` : "Terms not yet signed"}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Engagement model</dt>
+                    <dd>{label(mandate.engagementModel)}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Fee basis</dt>
+                    <dd>
+                      {mandate.feePercentage
+                        ? `${label(mandate.feeType)} · ${mandate.feePercentage}%`
+                        : mandate.fixedFeeAmount
+                          ? formatMoney(mandate.fixedFeeAmount, mandate.baseCurrency)
+                          : ""}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Payment terms</dt>
+                    <dd>{mandate.paymentTermsDays ? `${mandate.paymentTermsDays} days` : ""}</dd>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="flex flex-col gap-2 p-4 text-sm">
+                  <h3 className="mb-1 text-[15px] font-medium">Details</h3>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Seniority</dt>
+                    <dd>{mandate.seniority ? label(mandate.seniority) : ""}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Number of hires</dt>
+                    <dd>{mandate.numberOfHires}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Target completion</dt>
+                    <dd>{mandate.targetCompletionDate ? formatDate(mandate.targetCompletionDate) : ""}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Related funds</dt>
+                    <dd className="text-right">{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || ""}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-[var(--color-line)] py-2">
+                    <dt className="text-[var(--color-muted)]">Confidential</dt>
+                    <dd>{mandate.confidentiality === "OPEN" ? "No" : label(mandate.confidentiality)}</dd>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="interviews">
-          {interviews.length === 0 ? (
-            <EmptyState title="No interviews scheduled" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Round</TableHead>
-                  <TableHead>When</TableHead>
-                  <TableHead>Outcome</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {interviews.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell>
-                      {i.candidateProcess.candidatePerson.firstName} {i.candidateProcess.candidatePerson.lastName}
-                    </TableCell>
-                    <TableCell>{label(i.type)}</TableCell>
-                    <TableCell>{i.roundNumber}</TableCell>
-                    <TableCell>{formatDateTime(i.scheduledStart)}</TableCell>
-                    <TableCell>
-                      <StatusBadge value={i.outcome} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <InterviewsTab interviews={interviews} />
         </TabsContent>
 
         <TabsContent value="offer">
-          {candidateRows.filter((r) => r.step >= 5).length === 0 ? (
-            <EmptyState title="No candidates at offer stage yet" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Candidate</TableHead>
-                  <TableHead>Where they are</TableHead>
-                  <TableHead>Next step</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {candidateRows
-                  .filter((r) => r.step >= 5)
-                  .map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell>{r.candidateName}</TableCell>
-                      <TableCell>
-                        <Badge tone={r.statusTone}>{r.statusLabel}</Badge>
-                      </TableCell>
-                      <TableCell>{r.nextStepText ?? ""}</TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          )}
+          <OfferTab candidates={mandate.candidateProcesses.filter((p) => p.offers.length > 0 || p.placement)} />
         </TabsContent>
 
         <TabsContent value="fees">
@@ -552,59 +558,39 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
         </TabsContent>
 
         <TabsContent value="documents">
-          <div className="mb-3 flex justify-end">
-            <UploadDocumentDialog linkField="mandateId" linkId={mandate.id} />
-          </div>
-          {documents.length === 0 ? (
-            <EmptyState title="No documents" />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {documents.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell>
-                      <a href={`/api/documents/${d.documentId}/download`} className="flex items-center gap-1.5 text-[var(--color-ink)]">
-                        <FileText className="h-3.5 w-3.5" /> {d.document.displayName}
-                      </a>
-                    </TableCell>
-                    <TableCell>{label(d.document.category)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <DocumentsTab linkField="mandateId" linkId={mandate.id} documents={documents.map((d) => ({ junctionId: d.id, ...d.document }))} />
         </TabsContent>
 
         {canViewAuditLog(user.role) ? (
           <TabsContent value="audit">
-            {auditLogs.length === 0 ? (
-              <EmptyState title="No audit history" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{label(a.action)}</TableCell>
-                      <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <Card>
+              <CardContent className="pt-4">
+                <h3 className="text-base font-semibold">Changes to this mandate</h3>
+                <p className="mb-3.5 mt-0.5 text-sm text-[var(--color-ink-subtle)]">Every edit, stage move, file and payment, newest first.</p>
+                {auditLogs.length === 0 ? (
+                  <EmptyState title="No audit history" />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>Who</TableHead>
+                        <TableHead>What changed</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditLogs.map((a) => (
+                        <TableRow key={a.id}>
+                          <TableCell className="whitespace-nowrap text-[var(--color-ink-subtle)]">{formatAuditWhen(a.timestamp)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
+                          <TableCell>{describeAuditLog(a)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         ) : null}
         </Tabs>

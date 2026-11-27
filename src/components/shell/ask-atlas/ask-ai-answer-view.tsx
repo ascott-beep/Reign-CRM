@@ -15,6 +15,7 @@ export function AskAiAnswerView({
   onFollowUpChange,
   onSubmitFollowUp,
   onCopy,
+  followUpPlaceholder = "Ask a follow-up",
 }: {
   result: AskAtlasResult | null;
   asking: boolean;
@@ -23,6 +24,7 @@ export function AskAiAnswerView({
   onFollowUpChange: (v: string) => void;
   onSubmitFollowUp: () => void;
   onCopy: () => void;
+  followUpPlaceholder?: string;
 }) {
   return (
     <div className="flex max-h-[520px] flex-col">
@@ -96,7 +98,7 @@ export function AskAiAnswerView({
             autoFocus
             value={followUp}
             onChange={(e) => onFollowUpChange(e.target.value)}
-            placeholder="Ask a follow-up"
+            placeholder={followUpPlaceholder}
             disabled={asking}
             className="h-10 flex-1 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-sm outline-none placeholder:text-[var(--color-ink-subtle)] disabled:opacity-60"
           />

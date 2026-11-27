@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArchiveRestore } from "lucide-react";
+import { ArchiveRestore, CheckCircle2, ArrowRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
@@ -14,15 +14,23 @@ import { MoreDetails } from "@/components/ui/more-details";
 import { StageProgressBar } from "@/components/ui/stage-progress-bar";
 import { InteractiveStageBar } from "@/components/ui/interactive-stage-bar";
 import { PersonHoverCard, OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
-import { NextActionCard } from "@/components/ui/next-action-card";
+import { NextUpCard } from "@/components/ui/next-up-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getOpportunityTimeline } from "@/lib/timeline";
-import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityStageBarStep, daysPerStage } from "@/lib/rules";
-import { formatDate, formatDateTime } from "@/lib/datetime";
+import {
+  OPPORTUNITY_STAGE_BAR_STEPS,
+  OPPORTUNITY_STAGE_BAR_LABELS,
+  opportunityStageBarStep,
+  daysPerStage,
+  weightedOpportunityValue,
+  opportunityProbability,
+} from "@/lib/rules";
+import { formatDate, formatAuditWhen } from "@/lib/datetime";
+import { describeAuditLog } from "@/lib/audit";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import { OpportunityHeaderActions } from "../opportunity-header-actions";
@@ -43,12 +51,11 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       relatedFunds: { include: { organization: true } },
       stakeholders: { include: { person: true } },
       wonMandate: true,
-      primaryNextTask: { include: { assignedUser: true } },
     },
   });
   if (!opportunity) notFound();
 
-  const [timeline, documents, auditLogs, stageHistory, mailboxConnection] = await Promise.all([
+  const [timeline, documents, auditLogs, stageHistory, mailboxConnection, openTasks] = await Promise.all([
     getOpportunityTimeline(opportunity.id, user.id),
     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
     canViewAuditLog(user.role)
@@ -56,6 +63,11 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       : Promise.resolve([]),
     prisma.opportunityStageHistory.findMany({ where: { opportunityId: opportunity.id }, orderBy: { changedAt: "asc" } }),
     prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
+    prisma.task.findMany({
+      where: { opportunities: { some: { opportunityId: opportunity.id } }, status: { in: ["TODO", "IN_PROGRESS"] }, archivedAt: null },
+      include: { assignedUser: true },
+      orderBy: { dueDate: "asc" },
+    }),
   ]);
 
   const barStep = opportunityStageBarStep(opportunity.stage, stageHistory);
@@ -86,32 +98,29 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 {opportunity.hiringOrganization.name}
               </Link>
             </OrganizationHoverCard>
-            {opportunity.wonMandate ? (
-              <Link href={`/mandates/${opportunity.wonMandate.id}`} className="text-[var(--color-accent)]">
-                Now a live search: {label(opportunity.wonMandate.status)} →
-              </Link>
-            ) : (
-              <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
-            )}
+            <span>
+              {opportunity.wonMandateId && opportunity.wonMandate
+                ? formatMoney(opportunity.wonMandate.fixedFeeAmount ?? opportunity.estimatedFeeAmount, opportunity.wonMandate.fixedFeeCurrency ?? opportunity.estimatedFeeCurrency)
+                : formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}{" "}
+              {opportunity.wonMandateId ? "agreed fee" : "estimated fee"}
+            </span>
+            <UserHoverCard firstName={opportunity.owner.firstName} lastName={opportunity.owner.lastName}>
+              <span>Owner {opportunity.owner.firstName} {opportunity.owner.lastName}</span>
+            </UserHoverCard>
           </div>
         }
         actions={
           <>
-            {opportunity.wonMandateId ? (
-              <Button variant="secondary" asChild>
-                <Link href={`/mandates/${opportunity.wonMandateId}`}>View live search →</Link>
-              </Button>
-            ) : (
-              <OpportunityHeaderActions
-                opportunityId={opportunity.id}
-                currentStage={opportunity.stage}
-                context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
-                recordName={opportunity.name}
-                editHref={`/opportunities/${opportunity.id}/edit`}
-                listHref="/opportunities"
-                isAdmin={user.role === "ADMIN"}
-              />
-            )}
+            <OpportunityHeaderActions
+              opportunityId={opportunity.id}
+              currentStage={opportunity.stage}
+              context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
+              recordName={opportunity.name}
+              editHref={`/opportunities/${opportunity.id}/edit`}
+              listHref="/opportunities"
+              isAdmin={user.role === "ADMIN"}
+              locked={Boolean(opportunity.wonMandateId)}
+            />
             {user.role === "ADMIN" && opportunity.archivedAt ? (
               <form action={() => restoreRecordAction("OPPORTUNITY", opportunity.id)}>
                 <Button type="submit" variant="secondary">
@@ -123,6 +132,25 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
       />
 
+      {opportunity.wonMandateId && opportunity.wonMandate ? (
+        <div className="mb-4 flex items-center justify-between gap-4 rounded-[6px] border border-[var(--color-status-success-ink)]/20 bg-[var(--color-status-success-bg)] px-5 py-3.5">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 shrink-0 text-[var(--color-status-success-ink)]" />
+            <div>
+              <p className="text-sm font-medium text-[var(--color-ink)]">
+                Won on {opportunity.closedAt ? formatDate(opportunity.closedAt) : formatDate(opportunity.wonMandate.createdAt)} · now a live search
+              </p>
+              <p className="text-xs text-[var(--color-ink-subtle)]">Contacts, notes, files and activity history moved to the mandate. Stage changes are locked.</p>
+            </div>
+          </div>
+          <Button asChild>
+            <Link href={`/mandates/${opportunity.wonMandate.id}`}>
+              View live search <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
+
       {!["LOST"].includes(opportunity.stage) ? (
         <div className="mb-4 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
           {opportunity.wonMandateId ? (
@@ -130,6 +158,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
               currentIndex={barStep - 1}
               days={days}
+              finalStepDateLabel={opportunity.closedAt ? formatDate(opportunity.closedAt) : undefined}
             />
           ) : (
             <InteractiveStageBar
@@ -146,14 +175,14 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         </div>
       ) : null}
 
-      <Tabs defaultValue="overview">
+      <Tabs defaultValue="activity">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
           {canViewAuditLog(user.role) ? <TabsTrigger value="audit">Audit</TabsTrigger> : null}
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="activity">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
             {/* Left sidebar — key facts only (section 3); everything else under More details. */}
             <Card>
@@ -184,22 +213,59 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                       )}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--color-ink-subtle)]">Fee</dt>
-                    <dd>{formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--color-ink-subtle)]">Owner</dt>
-                    <dd className="truncate text-right">
-                      <UserHoverCard firstName={opportunity.owner.firstName} lastName={opportunity.owner.lastName}>
-                        <span>{opportunity.owner.firstName} {opportunity.owner.lastName}</span>
-                      </UserHoverCard>
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-[var(--color-ink-subtle)]">Expected close</dt>
-                    <dd>{opportunity.expectedDecisionDate ? formatDate(opportunity.expectedDecisionDate) : ""}</dd>
-                  </div>
+                  {opportunity.wonMandateId && opportunity.wonMandate ? (
+                    <>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Agreed fee</dt>
+                        <dd>{formatMoney(opportunity.wonMandate.fixedFeeAmount ?? opportunity.estimatedFeeAmount, opportunity.wonMandate.fixedFeeCurrency ?? opportunity.estimatedFeeCurrency)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Owner</dt>
+                        <dd className="truncate text-right">
+                          <UserHoverCard firstName={opportunity.owner.firstName} lastName={opportunity.owner.lastName}>
+                            <span>{opportunity.owner.firstName} {opportunity.owner.lastName}</span>
+                          </UserHoverCard>
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Live search</dt>
+                        <dd className="truncate text-right">
+                          <Link href={`/mandates/${opportunity.wonMandate.id}`} className="text-[var(--color-accent)]">
+                            {opportunity.wonMandate.reference} · {label(opportunity.wonMandate.status)}
+                          </Link>
+                        </dd>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Estimated fee</dt>
+                        <dd>{formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Likely fee</dt>
+                        <dd>
+                          {formatMoney(weightedOpportunityValue(opportunity), opportunity.estimatedFeeCurrency)} · {opportunityProbability(opportunity)}%
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Owner</dt>
+                        <dd className="truncate text-right">
+                          <UserHoverCard firstName={opportunity.owner.firstName} lastName={opportunity.owner.lastName}>
+                            <span>{opportunity.owner.firstName} {opportunity.owner.lastName}</span>
+                          </UserHoverCard>
+                        </dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Expected close</dt>
+                        <dd>{opportunity.expectedDecisionDate ? formatDate(opportunity.expectedDecisionDate) : ""}</dd>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <dt className="text-[var(--color-ink-subtle)]">Source</dt>
+                        <dd>{label(opportunity.source)}</dd>
+                      </div>
+                    </>
+                  )}
                 </dl>
 
                 <MoreDetails>
@@ -258,30 +324,30 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               </CardContent>
             </Card>
 
-            {/* Main column — composer, then Focus, then History (section 4). */}
+            {/* Main column — composer, then Next up, then History (section 4). Round 4 screen 09: a won-and-converted opportunity shows History only -- no composer, no Next up, no stage changes. */}
             <div className="flex flex-col gap-4">
-              <Composer
-                linkContext={{ opportunityId: opportunity.id, organizationId: opportunity.hiringOrganizationId }}
-                currentUserId={user.id}
-                people={composerPeople}
-                documentLinkField="opportunityId"
-                hasMailboxConnection={Boolean(mailboxConnection)}
-              />
+              {!opportunity.wonMandateId ? (
+                <>
+                  <Composer
+                    linkContext={{ opportunityId: opportunity.id, organizationId: opportunity.hiringOrganizationId }}
+                    currentUserId={user.id}
+                    people={composerPeople}
+                    documentLinkField="opportunityId"
+                    hasMailboxConnection={Boolean(mailboxConnection)}
+                  />
 
-              <NextActionCard
-                task={
-                  opportunity.primaryNextTask
-                    ? {
-                        id: opportunity.primaryNextTask.id,
-                        title: opportunity.primaryNextTask.title,
-                        dueDate: opportunity.primaryNextTask.dueDate,
-                        status: opportunity.primaryNextTask.status,
-                        assigneeName: `${opportunity.primaryNextTask.assignedUser.firstName} ${opportunity.primaryNextTask.assignedUser.lastName}`,
-                      }
-                    : null
-                }
-                newTaskHref={`/tasks/new?opportunityId=${opportunity.id}`}
-              />
+                  <NextUpCard
+                    tasks={openTasks.map((t) => ({
+                      id: t.id,
+                      title: t.title,
+                      dueDate: t.dueDate,
+                      status: t.status,
+                      assigneeName: `${t.assignedUser.firstName} ${t.assignedUser.lastName}`,
+                    }))}
+                    newTaskHref={`/tasks/new?opportunityId=${opportunity.id}`}
+                  />
+                </>
+              ) : null}
 
               <Card>
                 <CardContent className="pt-4">
@@ -325,28 +391,34 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
         {canViewAuditLog(user.role) ? (
           <TabsContent value="audit">
-            {auditLogs.length === 0 ? (
-              <EmptyState title="No audit history" />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Timestamp</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{label(a.action)}</TableCell>
-                      <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <Card>
+              <CardContent className="pt-4">
+                <h3 className="text-base font-semibold">Changes to this opportunity</h3>
+                <p className="mb-3.5 mt-0.5 text-sm text-[var(--color-ink-subtle)]">Every edit and stage move, newest first.</p>
+                {auditLogs.length === 0 ? (
+                  <EmptyState title="No audit history" />
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>When</TableHead>
+                        <TableHead>Who</TableHead>
+                        <TableHead>What changed</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditLogs.map((a) => (
+                        <TableRow key={a.id}>
+                          <TableCell className="whitespace-nowrap text-[var(--color-ink-subtle)]">{formatAuditWhen(a.timestamp)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
+                          <TableCell>{describeAuditLog(a)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         ) : null}
       </Tabs>

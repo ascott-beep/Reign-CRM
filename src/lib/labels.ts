@@ -67,6 +67,14 @@ const OVERRIDES: Record<string, string> = {
 
   CV: "CV",
   JOB_DESCRIPTION: "Job Description",
+
+  // InterviewOutcome
+  COMPLETED_PROGRESS: "Positive, moved forward",
+  COMPLETED_HOLD: "On hold",
+  COMPLETED_REJECT: "Not progressing",
+  CANDIDATE_WITHDREW: "Candidate withdrew",
+  AWAITING_FEEDBACK: "Awaiting feedback",
+  RESCHEDULED: "Rescheduled",
 };
 
 export function label(value: string | null | undefined): string {

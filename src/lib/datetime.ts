@@ -105,6 +105,13 @@ export function currentHourInLondon(): number {
   return Number(formatInLondon(new Date(), "H"));
 }
 
+/** "Today, 11:20" / "Yesterday, 16:02" / "24 Nov, 15:02" -- the Audit tab's "When" column (screen 17). */
+export function formatAuditWhen(date: Date | string | number): string {
+  if (isTodayInLondon(date)) return `Today, ${formatTime(date)}`;
+  if (isYesterdayInLondon(date)) return `Yesterday, ${formatTime(date)}`;
+  return formatInLondon(date, "d MMM, HH:mm");
+}
+
 /** Midnight on the Sunday that starts the given date's London week, as a UTC instant. */
 export function startOfWeekInLondon(date: Date | string | number = new Date()): Date {
   const isoDay = Number(formatInLondon(date, "i")); // Mon=1 ... Sun=7

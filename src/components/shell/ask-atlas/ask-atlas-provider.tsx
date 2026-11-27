@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { askAtlasAction } from "./actions";
 import { AskAiEmptyView } from "./ask-ai-empty-view";
 import { AskAiResultsView } from "./ask-ai-results-view";
@@ -45,6 +45,20 @@ function recordContextQuestions(recordContext: string): SuggestedQuestion[] {
   ];
 }
 
+function parseRecordContext(recordContext: string): { kind: string; name: string; noun: string } {
+  const match = recordContext.match(/viewing the (\w+) "([^"]+)"/);
+  const kind = match?.[1] ?? "";
+  const name = match?.[2] ?? "this record";
+  const noun = ({ opportunity: "this opportunity", mandate: "this search", person: "this person", company: "this organisation" } as Record<string, string>)[kind] ?? "this record";
+  return { kind, name, noun };
+}
+
+/** Round 4 screen 18 (R4RecordAsk): the docked side panel's starter chips -- same four prompts every time, the noun adapts to what record is open. */
+function dockedChips(recordContext: string): string[] {
+  const { noun } = parseRecordContext(recordContext);
+  return [`Summarise ${noun}`, "What is the latest?", "Who else could fit?", "Draft a client update"];
+}
+
 export function AskAtlasProvider({ children, suggestedQuestions }: { children: React.ReactNode; suggestedQuestions: SuggestedQuestion[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -60,6 +74,7 @@ export function AskAtlasProvider({ children, suggestedQuestions }: { children: R
   const [recordContext, setRecordContext] = useState<string | undefined>();
   const [recent, setRecent] = useState<ReturnType<typeof getRecentRecords>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [selectedChip, setSelectedChip] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -92,6 +107,7 @@ export function AskAtlasProvider({ children, suggestedQuestions }: { children: R
     setRecordContext(opts?.recordContext);
     setContextQuestions(opts?.recordContext ? recordContextQuestions(opts.recordContext) : null);
     setRecent(getRecentRecords(3));
+    setSelectedChip(null);
     setOpen(true);
     if (opts?.question) ask(opts.question, opts.recordContext, []);
   }, [ask]);
@@ -208,6 +224,87 @@ export function AskAtlasProvider({ children, suggestedQuestions }: { children: R
 
   const lastTurn = turns[turns.length - 1] ?? null;
   const headerText = view === "answer" ? (lastTurn?.question ?? "") : query;
+  const docked = Boolean(recordContext);
+  const dockedName = recordContext ? parseRecordContext(recordContext).name : "";
+  const dockedPlaceholder = recordContext ? `Ask about ${parseRecordContext(recordContext).noun}` : "Ask a follow-up";
+
+  function askChip(index: number, text: string) {
+    setSelectedChip(index);
+    ask(text, recordContext, []);
+  }
+
+  if (open && docked) {
+    return (
+      <AskAtlasContext.Provider value={{ open: openPanel }}>
+        {children}
+        <div
+          onKeyDown={(e) => {
+            if (e.key === "Escape") closePanel();
+          }}
+          className="fixed inset-y-0 right-0 z-50 flex w-[440px] flex-col border-l border-[var(--color-line)] bg-[var(--color-surface)] shadow-xl"
+        >
+          <div className="flex items-center gap-2.5 border-b border-[var(--color-line)] px-4 py-3">
+            <Sparkles className="h-4 w-4 shrink-0 text-[var(--color-ai-icon)]" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[15px] font-medium text-[var(--color-ink)]">Ask AI</p>
+              <p className="truncate text-xs text-[var(--color-ink-subtle)]">About {dockedName}</p>
+            </div>
+            <button type="button" onClick={closePanel} aria-label="Close" className="shrink-0 text-[var(--color-ink-subtle)] hover:text-[var(--color-ink)]">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 border-b border-[var(--color-line)] p-3">
+            {dockedChips(recordContext!).map((chip, i) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => askChip(i, chip)}
+                className={`rounded-[6px] px-2.5 py-1.5 text-[13px] ${
+                  selectedChip === i ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "bg-[var(--color-chip)] text-[var(--color-ink2)] hover:bg-[var(--color-active)]"
+                }`}
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
+
+          {turns.length === 0 && !asking && !askError ? (
+            <p className="p-4 text-sm text-[var(--color-ink-subtle)]">Pick a prompt above, or ask your own question below.</p>
+          ) : (
+            <AskAiAnswerView
+              result={lastTurn?.result ?? null}
+              asking={asking}
+              error={askError}
+              followUp={followUp}
+              onFollowUpChange={setFollowUp}
+              onSubmitFollowUp={submitFollowUp}
+              onCopy={copyAnswer}
+              followUpPlaceholder={dockedPlaceholder}
+            />
+          )}
+          {turns.length === 0 && !asking && !askError ? (
+            <div className="mt-auto border-t border-[var(--color-line)] p-3">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submitFollowUp();
+                }}
+              >
+                <input
+                  autoFocus
+                  value={followUp}
+                  onChange={(e) => setFollowUp(e.target.value)}
+                  placeholder={dockedPlaceholder}
+                  className="h-10 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-sm outline-none placeholder:text-[var(--color-ink-subtle)]"
+                />
+              </form>
+            </div>
+          ) : null}
+        </div>
+      </AskAtlasContext.Provider>
+    );
+  }
 
   return (
     <AskAtlasContext.Provider value={{ open: openPanel }}>

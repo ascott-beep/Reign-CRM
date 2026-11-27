@@ -29,6 +29,7 @@ export function OpportunityHeaderActions({
   editHref,
   listHref,
   isAdmin,
+  locked = false,
 }: {
   opportunityId: string;
   currentStage: string;
@@ -37,6 +38,8 @@ export function OpportunityHeaderActions({
   editHref: string;
   listHref: string;
   isAdmin: boolean;
+  /** Round 4 screen 09 (R4OppWon): already converted to a mandate -- no Won/Lost, no On hold, no Delete, just Edit and Ask behind the "..." menu. */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const askAtlas = useAskAtlas();
@@ -47,8 +50,8 @@ export function OpportunityHeaderActions({
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   const isLost = currentStage === "LOST";
-  const isWonUnconverted = currentStage === "WON";
-  const isOpen = !isLost && !isWonUnconverted;
+  const isWonUnconverted = currentStage === "WON" && !locked;
+  const isOpen = !isLost && !isWonUnconverted && !locked;
 
   /**
    * Round 4 Part A item 3: Won only opens the pop-up — nothing changes until
@@ -100,7 +103,7 @@ export function OpportunityHeaderActions({
           <DropdownMenuItem onSelect={() => askAtlas.open({ recordContext: `The user is viewing the opportunity "${recordName}" in Atlas.`, suggestedPrompts: ["Summarise", "What's the latest", "Who could fit this role"] })}>
             <Sparkles className="h-3.5 w-3.5" /> Ask
           </DropdownMenuItem>
-          {isAdmin ? (
+          {isAdmin && !locked ? (
             <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-[var(--color-warn)]">
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </DropdownMenuItem>

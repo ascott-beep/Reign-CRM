@@ -18,31 +18,44 @@ export function StageProgressBar({
   days,
   stepCountLabel,
   onStepClick,
+  finalStepDateLabel,
 }: {
   steps: { key: string; label: string }[];
   currentIndex: number;
   days: Partial<Record<string, number>>;
   stepCountLabel?: string;
   onStepClick?: (key: string, index: number) => void;
+  /** Round 4 screen 09 (R4OppWon): once a process is complete, the last step shows the date it was reached ("27 Nov") instead of a day count. */
+  finalStepDateLabel?: string;
 }) {
   return (
     <ol className="grid gap-2" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}>
       {steps.map((s, i) => {
         const done = i < currentIndex;
         const current = i === currentIndex;
+        const isFinal = i === steps.length - 1;
         const d = days[s.key];
-        const clickable = Boolean(onStepClick) && !current && i !== steps.length - 1;
-        const dayText = d === undefined ? "" : current ? `, ${d} days so far` : `, ${d} days`;
+        const clickable = Boolean(onStepClick) && !current && !isFinal;
+        const dayText =
+          isFinal && finalStepDateLabel
+            ? `, ${finalStepDateLabel}`
+            : d === undefined
+              ? done || current
+                ? ""
+                : ", not started"
+              : current
+                ? `, ${d} days so far`
+                : `, ${d} days`;
         const stepAriaLabel = `${done ? "Done" : current ? "Current stage" : "Upcoming"}: ${s.label}${dayText}`;
+        const stepText =
+          isFinal && finalStepDateLabel ? finalStepDateLabel : d === undefined ? (done || current ? "" : "Not started") : current ? `${d}d so far` : `${d}d`;
         const content = (
           <>
             <span className={cn("h-1.5 rounded-full", done ? "bg-[var(--color-dot)]" : current ? "bg-[var(--color-bar)]" : "bg-[var(--color-track)]")} />
             <span className={cn("truncate text-[13.5px]", current ? "font-medium text-[var(--color-ink)]" : done ? "text-[var(--color-ink2)]" : "text-[var(--color-muted)]")}>
               {s.label}
             </span>
-            <span className="truncate text-xs text-[var(--color-muted)]">
-              {d === undefined ? "" : current ? `${d}d so far` : `${d}d`}
-            </span>
+            <span className="truncate text-xs text-[var(--color-muted)]">{stepText}</span>
           </>
         );
         return (

@@ -245,7 +245,7 @@ export function Composer({
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={markAsDone} onCheckedChange={(v) => setMarkAsDone(v === true)} />
-                  Mark as done
+                  Already happened, log it as done
                 </label>
                 {markAsDone && kind === "CALL" ? (
                   <Select value={outcome} onValueChange={setOutcome}>
@@ -280,7 +280,11 @@ export function Composer({
                 }}
                 disabled={pending}
               >
-                {pending ? "Saving…" : tab === "activity" && canMarkDone && !markAsDone ? "Schedule" : "Save"}
+                {pending
+                  ? "Saving…"
+                  : tab === "activity" && canMarkDone
+                    ? `${markAsDone ? "Log" : "Schedule"} ${KIND_OPTIONS.find((k) => k.value === kind)?.label.toLowerCase()}`
+                    : "Save"}
               </Button>
             </div>
           </div>
