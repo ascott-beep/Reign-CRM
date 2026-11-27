@@ -33,6 +33,7 @@ import { MergeButton } from "../merge-button";
 import { PracticeAreaPicker } from "../practice-area-picker";
 import { AddToMandateDialog, type MandateOption } from "../add-to-mandate-dialog";
 import { AnonymiseButton } from "../anonymise-button";
+import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 
@@ -149,6 +150,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
           </div>
         </div>
         <div className="flex flex-wrap gap-2.5">
+          <AskAtlasButton recordType="person" recordName={`${person.firstName} ${person.lastName}`} />
           {person.primaryEmail ? (
             <Button variant="secondary" asChild>
               <a href={`mailto:${person.primaryEmail}`}>Email</a>

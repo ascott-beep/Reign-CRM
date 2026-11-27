@@ -25,6 +25,7 @@ import { AddRelationshipDialog } from "../add-relationship-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 import { ResearchNowButton } from "../research-now-button";
+import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 
 const HOLD_STAGE_LABEL: Record<string, string> = {
   NEWLY_ACQUIRED: "Newly acquired",
@@ -202,6 +203,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
             </Link>
           </Button>
           <ResearchNowButton organizationId={org.id} />
+          <AskAtlasButton recordType="organization" recordName={org.name} />
           {user.role === "ADMIN" ? <MoreMenu type="ORGANIZATION" id={org.id} listHref="/organisations" /> : null}
         </div>
       </header>

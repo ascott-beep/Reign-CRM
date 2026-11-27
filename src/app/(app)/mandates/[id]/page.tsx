@@ -23,6 +23,7 @@ import { AddCandidateDialog, type CandidateOption } from "../add-candidate-dialo
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
 import { MandateStatusSelect } from "../status-select";
 import { MandateBanner } from "../mandate-banner";
+import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import {
@@ -193,6 +194,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
           <div className="flex flex-wrap gap-2.5">
+            <AskAtlasButton recordType="mandate" recordName={mandate.title} />
             <MandateStatusSelect mandateId={mandate.id} currentStatus={mandate.status} />
             <AddCandidateDialog mandateId={mandate.id} mandateTitle={mandate.title} orgName={mandate.hiringOrganization.name} candidates={candidateOptions} />
             <Button variant="secondary" asChild>

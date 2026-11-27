@@ -608,6 +608,8 @@ model Workspace {
   intelligenceSweepHourUtc      Int                @default(6)
   /// Empty = every IntelligenceType is in scope.
   intelligenceSignalTypes       IntelligenceType[] @default([])
+  /// Round 2 section 8 "Admins can switch Ask Atlas off in Settings."
+  askAtlasEnabled               Boolean            @default(true)
   createdAt                     DateTime           @default(now())
   updatedAt                     DateTime           @updatedAt
 
@@ -634,6 +636,7 @@ model Workspace {
   practiceAreas             PracticeArea[]
   functionalSpecialisms     FunctionalSpecialism[]
   importJobs                ImportJob[]
+  askAtlasQueries           AskAtlasQuery[]
 }
 
 model User {
@@ -693,6 +696,7 @@ model User {
   passwordTokens          PasswordToken[]
   mailboxConnections      MailboxConnection[]
   neverSyncAddresses      NeverSyncAddress[]
+  askAtlasQueries         AskAtlasQuery[]
 
   @@unique([workspaceId, email])
   @@index([workspaceId])
@@ -772,6 +776,25 @@ model NeverSyncAddress {
   createdAt    DateTime @default(now())
 
   @@unique([userId, emailAddress])
+}
+
+// =============================================================================
+// ROUND 2 SECTION 8 — ASK ATLAS
+// =============================================================================
+
+/// Section 8 "Log every question." — one row per question asked, read-only feature so there's nothing else to audit here.
+model AskAtlasQuery {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  question      String
+  answer        String
+  usedWebSearch Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
 }
 
 // =============================================================================

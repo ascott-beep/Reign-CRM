@@ -26,6 +26,7 @@ import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import { StageSelect } from "../stage-select";
 import { ConvertToMandateButton } from "../convert-to-mandate-button";
+import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -99,6 +100,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
         actions={
           <>
+            <AskAtlasButton recordType="opportunity" recordName={opportunity.name} />
             <StageSelect
               opportunityId={opportunity.id}
               currentStage={opportunity.stage}

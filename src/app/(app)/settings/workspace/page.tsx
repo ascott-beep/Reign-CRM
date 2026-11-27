@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/permissions";
 import { PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { updateWorkspaceAction, updateStaleThresholdsAction } from "../actions";
+import { Switch } from "@/components/ui/switch";
+import { updateWorkspaceAction, updateStaleThresholdsAction, updateAskAtlasEnabledAction } from "../actions";
 
 export default async function SettingsWorkspacePage() {
   const user = await requireUser();
@@ -68,6 +69,24 @@ export default async function SettingsWorkspacePage() {
             ))}
             <div>
               <Button type="submit">Save thresholds</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardContent className="pt-4">
+          <h3 className="mb-1 text-sm font-semibold">Ask Atlas</h3>
+          <p className="mb-3 text-xs text-[var(--color-ink-subtle)]">The built-in AI search (⌘K questions and the Ask button on records). Switching this off hides it for everyone.</p>
+          <form action={updateAskAtlasEnabledAction} className="flex flex-col gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch name="askAtlasEnabled" defaultChecked={workspace.askAtlasEnabled} />
+              Ask Atlas is {workspace.askAtlasEnabled ? "on" : "off"}
+            </label>
+            <div>
+              <Button type="submit" size="sm">
+                Save
+              </Button>
             </div>
           </form>
         </CardContent>

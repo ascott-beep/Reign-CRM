@@ -150,6 +150,17 @@ export async function updateWorkspaceAction(formData: FormData) {
   revalidatePath("/");
 }
 
+/** Round 2 section 8 "Admins can switch Ask Atlas off in Settings." */
+export async function updateAskAtlasEnabledAction(formData: FormData) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+
+  const askAtlasEnabled = formData.get("askAtlasEnabled") === "on";
+  await prisma.workspace.update({ where: { id: user.workspaceId }, data: { askAtlasEnabled } });
+  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: { askAtlasEnabled } });
+  revalidatePath("/settings/workspace");
+}
+
 /** Section 9.6 — "Show totals in" + the opt-in daily FX auto-update toggle. */
 export async function updateCurrencySettingsAction(formData: FormData) {
   const user = await requireUser();

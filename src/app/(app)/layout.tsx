@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { Sidebar, type NavCounts } from "@/components/shell/sidebar";
 import { WhatsNextProvider } from "@/components/shell/whats-next-provider";
+import { AskAtlasProvider } from "@/components/shell/ask-atlas/ask-atlas-provider";
 import { requireUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/sidebar-cookie";
@@ -8,8 +9,6 @@ import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/sidebar-cookie";
 async function getNavCounts(workspaceId: string, userId: string): Promise<NavCounts> {
   const endOfToday = new Date();
   endOfToday.setHours(23, 59, 59, 999);
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
   const [tasks, mandates, opportunities, intelligence] = await Promise.all([
     prisma.task.count({
@@ -17,9 +16,8 @@ async function getNavCounts(workspaceId: string, userId: string): Promise<NavCou
     }),
     prisma.mandate.count({ where: { workspaceId, status: { notIn: ["FILLED", "CANCELLED", "ON_HOLD"] } } }),
     prisma.opportunity.count({ where: { workspaceId, stage: { notIn: ["WON", "LOST", "ON_HOLD"] } } }),
-    // No reviewState field yet (SPEC.md section 6 lists it as a field to add later) —
-    // approximated here as "received in the last 7 days" until that lands.
-    prisma.intelligenceItem.count({ where: { workspaceId, dateReceived: { gte: sevenDaysAgo } } }),
+    // Round 2 section 5 added reviewState — this now counts signals actually waiting for review, not just "recent".
+    prisma.intelligenceItem.count({ where: { workspaceId, reviewState: "PENDING_REVIEW" } }),
   ]);
 
   return { tasks, mandates, opportunities, intelligence };
@@ -43,7 +41,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             the desk picker/search/notifications/Quick create cluster in its
             own header row instead (see PageHeader's `user` prop). */}
         <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">
-          <WhatsNextProvider>{children}</WhatsNextProvider>
+          <WhatsNextProvider>
+            <AskAtlasProvider>{children}</AskAtlasProvider>
+          </WhatsNextProvider>
         </main>
       </div>
     </div>
