@@ -165,10 +165,10 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
               currentIndex={barStep - 1}
               days={days}
-              recordLabel="opportunity"
-              onChangeStage={async (toStage) => {
+              recordName={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}`}
+              onChangeStage={async (toStage, note) => {
                 "use server";
-                await changeOpportunityStageAction({ opportunityId: opportunity.id, toStage });
+                await changeOpportunityStageAction({ opportunityId: opportunity.id, toStage, notes: note });
               }}
             />
           )}

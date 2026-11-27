@@ -5,14 +5,10 @@ import { useRouter } from "next/navigation";
 import { ArrowRightCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { label } from "@/lib/labels";
 import { formatShortDate } from "@/lib/datetime";
+import { cn } from "@/lib/utils";
 import { acceptIntelligenceItemAction, convertIntelligenceToOpportunityAction, dismissIntelligenceItemAction } from "./actions";
 import type { IntelligenceConfidence, IntelligenceDismissReason, IntelligenceType } from "@prisma/client";
 
@@ -30,9 +26,75 @@ export type QueueItem = {
   sources: { id: string; url: string; title: string | null }[];
 };
 
+/** Round 4 screen 23 (DlgR4Dismiss) — one reason picked in one click. */
+function DismissDialog({ item, open, onClose }: { item: QueueItem; open: boolean; onClose: () => void }) {
+  const router = useRouter();
+  const [reason, setReason] = useState<IntelligenceDismissReason>("NOT_RELEVANT");
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Dismiss this signal</DialogTitle>
+        </DialogHeader>
+        <div className="rounded-[6px] bg-[var(--color-sunk)] p-3">
+          <p className="text-[13.5px] font-medium text-[var(--color-ink)]">{item.title}</p>
+          <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
+            {item.organization.name} · {label(item.type)} · {item.sources.length} source{item.sources.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          {DISMISS_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setReason(r)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-[6px] border px-3.5 py-2.5 text-left text-[13.5px]",
+                reason === r ? "border-[var(--color-navy)]" : "border-[var(--color-line)]",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-[1.5px]",
+                  reason === r ? "border-[var(--color-navy)]" : "border-[var(--color-muted)]",
+                )}
+              >
+                {reason === r ? <span className="h-2 w-2 rounded-full bg-[var(--color-navy)]" /> : null}
+              </span>
+              {label(r)}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-[var(--color-ink-subtle)]">Your reason teaches the research agent what to skip next time.</p>
+        <DialogFooter>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                await dismissIntelligenceItemAction(item.id, reason);
+                router.refresh();
+                onClose();
+              })
+            }
+          >
+            {pending ? "Dismissing…" : "Dismiss"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function QueueCard({ item, mode }: { item: QueueItem; mode: "pending" | "dismissed" }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [dismissOpen, setDismissOpen] = useState(false);
 
   return (
     <div className="rounded-[6px] border border-[var(--color-line)] p-3.5">
@@ -62,20 +124,10 @@ function QueueCard({ item, mode }: { item: QueueItem; mode: "pending" | "dismiss
               <ArrowRightCircle className="h-[13px] w-[13px]" /> Accept &amp; create opportunity
             </Button>
           </form>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" disabled={pending}>
-                Dismiss
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {DISMISS_REASONS.map((reason) => (
-                <DropdownMenuItem key={reason} onSelect={() => startTransition(async () => { await dismissIntelligenceItemAction(item.id, reason); router.refresh(); })}>
-                  {label(reason)}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissOpen(true)}>
+            Dismiss
+          </Button>
+          <DismissDialog item={item} open={dismissOpen} onClose={() => setDismissOpen(false)} />
         </div>
       ) : (
         <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-muted)]">

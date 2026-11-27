@@ -8,6 +8,7 @@ export function ConfirmDialog({
   open,
   title,
   description,
+  children,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   pending = false,
@@ -17,6 +18,8 @@ export function ConfirmDialog({
   open: boolean;
   title: string;
   description?: string;
+  /** Richer body content (e.g. from/to tags, a note field) in place of the plain description string. */
+  children?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   pending?: boolean;
@@ -30,6 +33,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button type="button" variant="secondary" onClick={onCancel}>
             {cancelLabel}

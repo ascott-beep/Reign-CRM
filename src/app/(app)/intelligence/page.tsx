@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
@@ -12,6 +10,7 @@ import { subDays } from "date-fns";
 import { formatShortDate } from "@/lib/datetime";
 import { ReviewQueue } from "./review-queue";
 import { TypeFilter } from "./type-filter";
+import { LogSignalButton } from "./log-signal-button";
 import type { Prisma, IntelligenceType } from "@prisma/client";
 import type { Metadata } from "next";
 
@@ -50,7 +49,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
     sources: { select: { id: true, url: true, title: true } },
   } satisfies Prisma.IntelligenceItemSelect;
 
-  const [items, pendingReview, dismissedRecently] = await Promise.all([
+  const [items, pendingReview, dismissedRecently, organizations] = await Promise.all([
     prisma.intelligenceItem.findMany({
       where,
       orderBy: { dateReceived: "desc" },
@@ -66,6 +65,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
       orderBy: { dismissedAt: "desc" },
       select: queueSelect,
     }),
+    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -76,11 +76,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
         actions={
           <>
             <TypeFilter types={ALL_TYPES} current={typeFilter ?? "ALL"} />
-            <Button asChild>
-              <Link href="/intelligence/new">
-                <Plus className="h-[14px] w-[14px]" /> Log signal
-              </Link>
-            </Button>
+            <LogSignalButton organizations={organizations} currentUserId={user.id} />
           </>
         }
       />

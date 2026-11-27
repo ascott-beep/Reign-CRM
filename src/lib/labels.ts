@@ -68,6 +68,11 @@ const OVERRIDES: Record<string, string> = {
   CV: "CV",
   JOB_DESCRIPTION: "Job Description",
 
+  // IntelligenceDismissReason (screen 23, DlgR4Dismiss)
+  NOT_RELEVANT: "Not relevant to our work",
+  WRONG_COMPANY: "Wrong company",
+  ALREADY_KNEW: "We already knew",
+
   // InterviewOutcome
   COMPLETED_PROGRESS: "Positive, moved forward",
   COMPLETED_HOLD: "On hold",

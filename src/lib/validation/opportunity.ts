@@ -62,6 +62,7 @@ export const createMandateFromOpportunitySchema = z.object({
   ownerId: z.string().min(1),
   engagementModel: z.enum(["RETAINED", "EXCLUSIVE_CONTINGENT", "CONTINGENT", "INTERIM"]),
   agreedFeeAmount: z.coerce.number().min(0).optional().nullable(),
+  agreedFeeCurrency: z.string().length(3).optional(),
   minBaseAmount: z.coerce.number().min(0).optional().nullable(),
   maxBaseAmount: z.coerce.number().min(0).optional().nullable(),
   signedTerms: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()).default(false),

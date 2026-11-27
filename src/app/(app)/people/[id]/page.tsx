@@ -56,7 +56,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
       organizationAssociations: { include: { organization: true } },
       employmentHistories: { include: { organization: true }, orderBy: { startDate: "desc" } },
       practiceAreas: { include: { practiceArea: true } },
-      placements: { select: { id: true } },
+      placements: { select: { id: true, mandate: { select: { title: true } } } },
     },
   });
   if (!person) notFound();
@@ -172,9 +172,16 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
-          {user.role === "ADMIN" && isPlacedCandidate ? <AnonymiseButton personId={person.id} firstName={person.firstName} /> : null}
+          {user.role === "ADMIN" && isPlacedCandidate ? (
+            <AnonymiseButton personId={person.id} firstName={person.firstName} mandateTitle={person.placements[0]?.mandate.title ?? null} />
+          ) : null}
           {user.role === "ADMIN" ? (
-            <MoreMenu type="PERSON" id={person.id} listHref="/people" downloadDataHref={`/api/people/${person.id}/gdpr-export`} />
+            <MoreMenu
+              type="PERSON"
+              id={person.id}
+              listHref="/people"
+              downloadDataFor={user.role === "ADMIN" ? { personId: person.id, personName: `${person.firstName} ${person.lastName}` } : undefined}
+            />
           ) : null}
         </div>
       </header>

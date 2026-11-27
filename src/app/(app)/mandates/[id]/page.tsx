@@ -227,10 +227,10 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             steps={MANDATE_STAGE_BAR_STEPS.map((s) => ({ key: s, label: MANDATE_STAGE_BAR_LABELS[s] }))}
             currentIndex={stageBarStep - 1}
             days={stageDays}
-            recordLabel="mandate"
-            onChangeStage={async (toStatus) => {
+            recordName={`${mandate.title} · ${mandate.hiringOrganization.name}`}
+            onChangeStage={async (toStatus, note) => {
               "use server";
-              await changeMandateStatusAction({ mandateId: mandate.id, toStatus });
+              await changeMandateStatusAction({ mandateId: mandate.id, toStatus, notes: note });
             }}
           />
         </div>
