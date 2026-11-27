@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { writeAuditLog } from "@/lib/audit";
 import { syncPrimaryNextTask } from "@/lib/next-task";
-import { startOfToday } from "date-fns";
+import { startOfTodayInLondon } from "@/lib/datetime";
 
 async function createTask(args: {
   workspaceId: string;
@@ -47,13 +47,13 @@ export async function addSuggestedTaskAction(input:
       assignedUserId: user.id,
       createdById: user.id,
       title: input.title,
-      dueDate: startOfToday(),
+      dueDate: startOfTodayInLondon(),
       candidateProcessId: input.candidateProcessId,
     });
     await syncPrimaryNextTask({ candidateProcessId: input.candidateProcessId });
     await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: task.id, action: "CREATE" });
   } else if (input.kind === "SET_NEXT_STEPS") {
-    const task = await createTask({ workspaceId: user.workspaceId, assignedUserId: user.id, createdById: user.id, title: input.title, dueDate: startOfToday() });
+    const task = await createTask({ workspaceId: user.workspaceId, assignedUserId: user.id, createdById: user.id, title: input.title, dueDate: startOfTodayInLondon() });
     await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Task", entityId: task.id, action: "CREATE" });
   } else if (input.kind === "GUARANTEE_CHECKIN") {
     const task = await createTask({

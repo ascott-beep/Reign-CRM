@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/permissions";
 import { PermissionDeniedState } from "@/components/shell/states";
 import { initials, cn } from "@/lib/utils";
 import { ROLE_SHORT_LABEL } from "@/lib/labels";
-import { format, isToday, isYesterday, formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
+import { formatTime, isTodayInLondon, isYesterdayInLondon } from "@/lib/datetime";
 import { InviteUserDialog } from "../settings-dialogs";
 import { UserRowMenu } from "../user-row-controls";
 
@@ -23,8 +24,8 @@ const STATUS_CHIP: Record<UserStatus, { label: string; className: string }> = {
 function lastSignedInText(u: { passwordHash: string | null; lastLoginAt: Date | null; createdAt: Date }): string {
   if (!u.passwordHash) return `Invite sent ${formatDistanceToNowStrict(u.createdAt)} ago`;
   if (!u.lastLoginAt) return "Never";
-  if (isToday(u.lastLoginAt)) return `Today, ${format(u.lastLoginAt, "HH:mm")}`;
-  if (isYesterday(u.lastLoginAt)) return "Yesterday";
+  if (isTodayInLondon(u.lastLoginAt)) return `Today, ${formatTime(u.lastLoginAt)}`;
+  if (isYesterdayInLondon(u.lastLoginAt)) return "Yesterday";
   return `${formatDistanceToNowStrict(u.lastLoginAt)} ago`;
 }
 

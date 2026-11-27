@@ -18,7 +18,7 @@ import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
 import { formatMoney, initials } from "@/lib/utils";
 import { getPersonTimeline } from "@/lib/timeline";
-import { format } from "date-fns";
+import { formatDate, formatMonthYear, formatDateTime } from "@/lib/datetime";
 import {
   candidatePlainStatus,
   candidateNextStepFallback,
@@ -449,7 +449,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-[var(--color-muted)]">Last qualified</dt>
-                        <dd>{person.candidateProfile.lastQualifiedAt ? format(person.candidateProfile.lastQualifiedAt, "d MMM yyyy") : "—"}</dd>
+                        <dd>{person.candidateProfile.lastQualifiedAt ? formatDate(person.candidateProfile.lastQualifiedAt) : "—"}</dd>
                       </div>
                     </dl>
                   </CardContent>
@@ -497,7 +497,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                       {e.isCurrent ? <Badge tone="success">Current</Badge> : null}
                     </div>
                     <p className="mt-1 text-xs text-[var(--color-muted)]">
-                      {e.startDate ? format(e.startDate, "MMM yyyy") : "?"} – {e.isCurrent ? "Present" : e.endDate ? format(e.endDate, "MMM yyyy") : "?"}
+                      {e.startDate ? formatMonthYear(e.startDate) : "?"} – {e.isCurrent ? "Present" : e.endDate ? formatMonthYear(e.endDate) : "?"}
                       {e.seniority ? ` · ${label(e.seniority)}` : ""}
                       {e.workArrangement ? ` · ${label(e.workArrangement)}` : ""}
                     </p>
@@ -561,7 +561,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

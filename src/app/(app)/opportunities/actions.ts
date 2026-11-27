@@ -227,6 +227,12 @@ export async function setProbabilityOverrideAction(opportunityId: string, probab
  * unique + Mandate.sourceOpportunityId unique). d01's dialog submits a
  * FormData with the reviewed/edited fields; a bare opportunityId falls back
  * to sensible defaults from the opportunity itself.
+ *
+ * Round 4 Part A item 3: pressing Won only opens this dialog — nothing is
+ * mutated until it's confirmed. So the stage change to WON happens here,
+ * atomically with the mandate it creates, rather than before the dialog
+ * opens; a still-open opportunity is moved to WON in the same transaction,
+ * one already WON (unconverted) is just converted as before.
  */
 export async function convertOpportunityToMandateAction(opportunityId: string, formData?: FormData) {
   const user = await requireUser();
@@ -247,15 +253,34 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
     },
   });
 
-  if (opportunity.stage !== "WON") throw new Error("Only a Won opportunity can be converted to a mandate.");
+  if (opportunity.stage === "LOST") throw new Error("A lost opportunity can't be converted to a mandate.");
   if (opportunity.wonMandateId) {
     // Already converted — idempotent no-op, just route to the existing mandate.
     redirect(`/mandates/${opportunity.wonMandateId}`);
   }
 
+  const wasAlreadyWon = opportunity.stage === "WON";
   const reference = await generateMandateReference(user.workspaceId);
+  const stageProbabilities = wasAlreadyWon ? null : await getWorkspaceStageProbabilities(user.workspaceId);
 
   const mandate = await prisma.$transaction(async (tx) => {
+    if (!wasAlreadyWon) {
+      await tx.opportunity.update({
+        where: { id: opportunity.id },
+        data: {
+          stage: "WON",
+          stageEnteredAt: new Date(),
+          stageProbabilityDefault: defaultProbabilityFor("WON", stageProbabilities),
+          isProbabilityOverridden: false,
+          probabilityOverride: null,
+          closedAt: new Date(),
+        },
+      });
+      await tx.opportunityStageHistory.create({
+        data: { opportunityId: opportunity.id, fromStage: opportunity.stage, toStage: "WON", changedById: user.id },
+      });
+    }
+
     const created = await tx.mandate.create({
       data: {
         workspaceId: user.workspaceId,
@@ -346,7 +371,19 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
     return created;
   });
 
+  if (!wasAlreadyWon) {
+    await writeAuditLog({
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      entityType: "Opportunity",
+      entityId: opportunity.id,
+      action: "STAGE_CHANGE",
+      changedFields: { fromStage: opportunity.stage, toStage: "WON" },
+    });
+  }
+
   revalidatePath(`/opportunities/${opportunityId}`);
+  revalidatePath("/opportunities");
   revalidatePath("/mandates");
   redirect(`/mandates/${mandate.id}`);
 }

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatShortDate } from "@/lib/datetime";
 import { acceptIntelligenceItemAction, convertIntelligenceToOpportunityAction, dismissIntelligenceItemAction } from "./actions";
 import type { IntelligenceConfidence, IntelligenceDismissReason, IntelligenceType } from "@prisma/client";
 
@@ -79,7 +79,7 @@ function QueueCard({ item, mode }: { item: QueueItem; mode: "pending" | "dismiss
         </div>
       ) : (
         <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-muted)]">
-          <span>Dismissed {item.dismissedAt ? format(item.dismissedAt, "d MMM") : ""} · {item.dismissReason ? label(item.dismissReason) : "—"}</span>
+          <span>Dismissed {item.dismissedAt ? formatShortDate(item.dismissedAt) : ""} · {item.dismissReason ? label(item.dismissReason) : "—"}</span>
           <Button size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await acceptIntelligenceItemAction(item.id); router.refresh(); })}>
             Undo
           </Button>

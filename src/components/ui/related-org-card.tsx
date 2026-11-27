@@ -3,7 +3,7 @@ import { Building2, Landmark } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatMonthYear } from "@/lib/datetime";
 
 export function RelatedOrgCard({
   id,
@@ -32,7 +32,7 @@ export function RelatedOrgCard({
             <p className="truncate text-xs text-[var(--color-ink-subtle)]">{subtitle ?? label(type)}</p>
             <div className="mt-1.5 flex items-center gap-1.5">
               {investmentStatus ? <Badge tone={investmentStatus === "CURRENT" ? "success" : "neutral"}>{label(investmentStatus)}</Badge> : null}
-              {date ? <span className="text-xs text-[var(--color-ink-subtle)]">{format(date, "MMM yyyy")}</span> : null}
+              {date ? <span className="text-xs text-[var(--color-ink-subtle)]">{formatMonthYear(date)}</span> : null}
             </div>
           </div>
         </CardContent>

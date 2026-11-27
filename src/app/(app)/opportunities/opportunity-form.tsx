@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { MoneyInput } from "@/components/ui/money-input";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ export function OpportunityForm({
   const [state, formAction] = useActionState(action, {});
   const values = { ...defaultValues, ...(state.formValues ?? {}) } as Record<string, any>;
   const errors = state.errors ?? {};
+  const [estimatedFeeCurrency, setEstimatedFeeCurrency] = useState(values.estimatedFeeCurrency ?? "GBP");
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -86,8 +88,8 @@ export function OpportunityForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="estimatedFeeAmount">Estimated fee</Label>
         <div className="flex gap-2">
-          <Input id="estimatedFeeAmount" name="estimatedFeeAmount" type="number" min={0} placeholder="e.g. 30000" defaultValue={values.estimatedFeeAmount} />
-          <Select name="estimatedFeeCurrency" defaultValue={values.estimatedFeeCurrency ?? "GBP"}>
+          <MoneyInput id="estimatedFeeAmount" name="estimatedFeeAmount" currency={estimatedFeeCurrency} placeholder="e.g. £30,000" defaultValue={values.estimatedFeeAmount} />
+          <Select name="estimatedFeeCurrency" value={estimatedFeeCurrency} onValueChange={setEstimatedFeeCurrency}>
             <SelectTrigger className="w-24">
               <SelectValue />
             </SelectTrigger>

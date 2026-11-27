@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { parseCsv } from "@/lib/csv";
@@ -45,6 +46,9 @@ export async function importOrganizationsAction(formData: FormData): Promise<Imp
     action: "CREATE",
     changedFields: { totalRows: rows.length, created: results.filter((r) => r.status === "created").length },
   });
+
+  revalidatePath("/organisations");
+  revalidatePath("/settings/imports");
 
   return results;
 }

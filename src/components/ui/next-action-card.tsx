@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/datetime";
 import { Card, CardContent } from "@/components/ui/card";
 import { NextActionDot } from "@/components/ui/next-action-dot";
 import { TaskRowActions } from "@/app/(app)/tasks/task-row-actions";
@@ -34,7 +34,7 @@ export function NextActionCard({
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-[var(--color-ink)]">{task.title}</p>
           <p className="text-xs text-[var(--color-ink-subtle)]">
-            Due {format(task.dueDate, "d MMM yyyy")} · {task.assigneeName}
+            Due {formatDate(task.dueDate)} · {task.assigneeName}
           </p>
         </div>
         <TaskRowActions taskId={task.id} status={task.status} />

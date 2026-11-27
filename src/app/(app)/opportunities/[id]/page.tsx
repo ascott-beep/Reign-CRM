@@ -21,7 +21,7 @@ import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getOpportunityTimeline } from "@/lib/timeline";
 import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityStageBarStep, daysPerStage } from "@/lib/rules";
-import { format } from "date-fns";
+import { formatDate, formatDateTime } from "@/lib/datetime";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { Composer } from "../../activities/composer";
 import { OpportunityHeaderActions } from "../opportunity-header-actions";
@@ -196,7 +196,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-[var(--color-ink-subtle)]">Expected close</dt>
-                    <dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd>
+                    <dd>{opportunity.expectedDecisionDate ? formatDate(opportunity.expectedDecisionDate) : "—"}</dd>
                   </div>
                 </dl>
 
@@ -248,7 +248,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                       <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">On hold</h4>
                       {opportunity.onHoldReason ? <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p> : null}
                       {opportunity.holdReviewDate ? (
-                        <p className="mt-1 text-xs text-[var(--color-ink-subtle)]">Review on {format(opportunity.holdReviewDate, "d MMM yyyy")}</p>
+                        <p className="mt-1 text-xs text-[var(--color-ink-subtle)]">Review on {formatDate(opportunity.holdReviewDate)}</p>
                       ) : null}
                     </div>
                   ) : null}
@@ -339,7 +339,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

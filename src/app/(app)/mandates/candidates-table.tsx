@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { formatShortDate } from "@/lib/datetime";
 import { Badge } from "@/components/ui/badge";
 import { CANDIDATE_STEP_COUNT } from "@/lib/rules";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ function Row({ r, onOpenDetail, onExit }: { r: CandidateRow; onOpenDetail: (id: 
           {r.nextStepDueDate ? (
             <>
               {" · "}
-              <span className={r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink-subtle)]"}>{format(r.nextStepDueDate, "d MMM")}</span>
+              <span className={r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink-subtle)]"}>{formatShortDate(r.nextStepDueDate)}</span>
             </>
           ) : null}
         </span>

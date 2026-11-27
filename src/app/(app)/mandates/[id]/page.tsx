@@ -16,7 +16,7 @@ import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getMandateTimeline } from "@/lib/timeline";
-import { format } from "date-fns";
+import { formatDate, formatShortDate, formatDateTime } from "@/lib/datetime";
 import type { CandidateOption } from "../add-candidate-dialog";
 import { CandidatesTable, type CandidateRow } from "../candidates-table";
 import { MandateHeaderActions } from "../mandate-header-actions";
@@ -259,7 +259,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-[var(--color-ink-subtle)]">Start date</dt>
-                <dd>{mandate.startDate ? format(mandate.startDate, "d MMM yyyy") : "—"}</dd>
+                <dd>{mandate.startDate ? formatDate(mandate.startDate) : "—"}</dd>
               </div>
               {mandate.sourceOpportunity ? (
                 <div className="flex flex-col gap-1">
@@ -274,7 +274,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             </dl>
             {mandate.sourceOpportunity ? (
               <p className="text-xs text-[var(--color-muted)]">
-                {mandate.sourceOpportunity.closedAt ? `Won ${format(mandate.sourceOpportunity.closedAt, "d MMM yyyy")}` : "Won"}
+                {mandate.sourceOpportunity.closedAt ? `Won ${formatDate(mandate.sourceOpportunity.closedAt)}` : "Won"}
                 {mandate.fixedFeeAmount
                   ? ` · ${formatMoney(mandate.fixedFeeAmount, mandate.fixedFeeCurrency)} fee`
                   : mandate.sourceOpportunity.estimatedFeeAmount
@@ -368,9 +368,9 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                     <>
                       <div className="mt-1.5 text-sm">{mandate.primaryNextTask.title}</div>
                       {nextActionStatus(mandate.primaryNextTask.dueDate) === "overdue" ? (
-                        <div className="mt-1 text-[13px] text-[var(--color-warn)]">Overdue since {format(mandate.primaryNextTask.dueDate, "d MMM")}</div>
+                        <div className="mt-1 text-[13px] text-[var(--color-warn)]">Overdue since {formatShortDate(mandate.primaryNextTask.dueDate)}</div>
                       ) : (
-                        <div className="mt-1 text-[13px] text-[var(--color-muted)]">Due {format(mandate.primaryNextTask.dueDate, "d MMM")}</div>
+                        <div className="mt-1 text-[13px] text-[var(--color-muted)]">Due {formatShortDate(mandate.primaryNextTask.dueDate)}</div>
                       )}
                     </>
                   ) : (
@@ -396,7 +396,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </Card>
               <Card>
                 <CardContent className="p-4">
-                  <div className="text-[13px] text-[var(--color-muted)]">{latestNoteDate ? `Latest note · ${format(latestNoteDate, "d MMM")}` : "Latest note"}</div>
+                  <div className="text-[13px] text-[var(--color-muted)]">{latestNoteDate ? `Latest note · ${formatShortDate(latestNoteDate)}` : "Latest note"}</div>
                   <div className="mt-1.5 text-sm leading-relaxed">
                     {latestNote && latestNote.kind === "activity" ? latestNote.summary : "Nothing logged yet."}
                   </div>
@@ -445,7 +445,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Target completion</dt>
-                  <dd>{mandate.targetCompletionDate ? format(mandate.targetCompletionDate, "d MMM yyyy") : "—"}</dd>
+                  <dd>{mandate.targetCompletionDate ? formatDate(mandate.targetCompletionDate) : "—"}</dd>
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Related funds</dt>
@@ -478,7 +478,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                     </TableCell>
                     <TableCell>{label(i.type)}</TableCell>
                     <TableCell>{i.roundNumber}</TableCell>
-                    <TableCell>{format(i.scheduledStart, "d MMM yyyy HH:mm")}</TableCell>
+                    <TableCell>{formatDateTime(i.scheduledStart)}</TableCell>
                     <TableCell>
                       <StatusBadge value={i.outcome} />
                     </TableCell>
@@ -597,7 +597,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

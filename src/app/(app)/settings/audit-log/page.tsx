@@ -3,7 +3,7 @@ import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { EmptyState, PermissionDeniedState } from "@/components/shell/states";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/datetime";
 
 export default async function SettingsAuditLogPage() {
   const user = await requireUser();
@@ -34,7 +34,7 @@ export default async function SettingsAuditLogPage() {
               <TableCell>{a.entityType}</TableCell>
               <TableCell>{label(a.action)}</TableCell>
               <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-              <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+              <TableCell>{formatDateTime(a.timestamp)}</TableCell>
             </TableRow>
           ))}
         </TableBody>

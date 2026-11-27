@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MoneyInput } from "@/components/ui/money-input";
 import { label } from "@/lib/labels";
 import { CURRENCIES } from "@/lib/iso";
 import { placeCandidateAction } from "./candidate-process-actions";
@@ -28,6 +29,7 @@ export function PlaceCandidateDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [offers, setOffers] = useState<{ id: string; status: string; baseAmount: string | null; baseCurrency: string | null }[]>([]);
+  const [agreedBaseCurrency, setAgreedBaseCurrency] = useState("GBP");
 
   useEffect(() => {
     if (!candidateProcessId) return;
@@ -113,11 +115,11 @@ export function PlaceCandidateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="agreedBaseAmount">Agreed base</Label>
-              <Input id="agreedBaseAmount" name="agreedBaseAmount" type="number" min={0} />
+              <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} placeholder="e.g. £90,000" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="agreedBaseCurrency">Currency</Label>
-              <Select name="agreedBaseCurrency" defaultValue="GBP">
+              <Select name="agreedBaseCurrency" value={agreedBaseCurrency} onValueChange={setAgreedBaseCurrency}>
                 <SelectTrigger id="agreedBaseCurrency">
                   <SelectValue />
                 </SelectTrigger>
@@ -134,7 +136,7 @@ export function PlaceCandidateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="feeAmount">Fee amount</Label>
-              <Input id="feeAmount" name="feeAmount" type="number" min={0} />
+              <MoneyInput id="feeAmount" name="feeAmount" currency={agreedBaseCurrency} placeholder="e.g. £18,000" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="guaranteeMonths">Guarantee (months)</Label>

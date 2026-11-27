@@ -5,7 +5,7 @@ import { EmptyState, PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/datetime";
 
 export default async function SettingsImportsPage() {
   const user = await requireUser();
@@ -57,7 +57,7 @@ export default async function SettingsImportsPage() {
               {j.successRows} / {j.errorRows}
             </TableCell>
             <TableCell>{j.createdBy.firstName} {j.createdBy.lastName}</TableCell>
-            <TableCell>{format(j.createdAt, "d MMM yyyy HH:mm")}</TableCell>
+            <TableCell>{formatDateTime(j.createdAt)}</TableCell>
           </TableRow>
         ))}
       </TableBody>

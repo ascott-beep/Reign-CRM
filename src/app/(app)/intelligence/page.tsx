@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { format, subDays } from "date-fns";
+import { subDays } from "date-fns";
+import { formatShortDate } from "@/lib/datetime";
 import { ReviewQueue } from "./review-queue";
 import { TypeFilter } from "./type-filter";
 import type { Prisma, IntelligenceType } from "@prisma/client";
@@ -123,7 +124,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
                     <Badge tone={i.commercialRelevance === "IMMEDIATE" || i.commercialRelevance === "HIGH" ? "warning" : "neutral"}>{label(i.commercialRelevance)}</Badge>
                   </TableCell>
                   <TableCell>{i.convertedOpportunity ? `Opportunity · ${i.convertedOpportunity.potentialRoleTitle ?? i.convertedOpportunity.name}` : "—"}</TableCell>
-                  <TableCell className="text-[var(--color-muted)]">{format(i.dateReceived, "d MMM")}</TableCell>
+                  <TableCell className="text-[var(--color-muted)]">{formatShortDate(i.dateReceived)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

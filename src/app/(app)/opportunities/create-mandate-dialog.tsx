@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney } from "@/lib/utils";
+import { formatMoneyAsTyped } from "@/components/ui/money-input";
 import { convertOpportunityToMandateAction } from "./actions";
 
 type WonDetails = {
@@ -27,7 +27,6 @@ type WonDetails = {
  * three fields are all this dialog asks for; everything else is editable on the mandate itself.
  */
 export function CreateMandateDialog({ open, opportunityId, onClose }: { open: boolean; opportunityId: string | null; onClose: () => void }) {
-  const router = useRouter();
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [data, setData] = useState<WonDetails | null>(null);
   const [ownerId, setOwnerId] = useState("");
@@ -87,7 +86,16 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
           <div className="flex flex-col gap-[18px] py-1">
             <div>
               <Label htmlFor="agreedFee">Agreed fee</Label>
-              <Input id="agreedFee" type="number" min={0} value={agreedFee} onChange={(e) => setAgreedFee(e.target.value)} />
+              <Input
+                id="agreedFee"
+                type="text"
+                inputMode="decimal"
+                value={formatMoneyAsTyped(agreedFee, current.estimatedFeeCurrency)}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/[^\d]/g, "");
+                  setAgreedFee(digits ? String(Number(digits)) : "");
+                }}
+              />
               {current.estimatedFeeAmount ? (
                 <p className="mt-1.5 text-xs text-[var(--color-muted)]">
                   Estimate on the opportunity was {formatMoney(current.estimatedFeeAmount, current.estimatedFeeCurrency)}
@@ -121,16 +129,15 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
         )}
 
         <DialogFooter className="items-center">
-          <span className="mr-auto text-[13px] text-[var(--color-muted)]">The opportunity is marked Won either way.</span>
+          <span className="mr-auto text-[13px] text-[var(--color-muted)]">Creating the mandate marks this opportunity Won.</span>
           <Button
             type="button"
             variant="secondary"
             onClick={() => {
               onClose();
-              router.refresh();
             }}
           >
-            Not now
+            Cancel
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={!current || pending}>
             {pending ? "Creating…" : "Create mandate"}

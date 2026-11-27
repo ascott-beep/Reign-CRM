@@ -18,7 +18,7 @@ import { countryName } from "@/lib/iso";
 import { formatMoney, formatConvertedMoney, initials } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { getOrganizationTimeline } from "@/lib/timeline";
-import { format } from "date-fns";
+import { formatDate, formatShortDate, formatMonthYear, formatDateTime } from "@/lib/datetime";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
 import { LIVE_MANDATE_STATUSES, OPEN_OPPORTUNITY_STAGES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
@@ -148,7 +148,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
     },
     {
       label: "Last contact",
-      value: lastActivity ? format(lastActivity.date, "d MMM") : "—",
+      value: lastActivity ? formatShortDate(lastActivity.date) : "—",
       detail: lastActivity ? null : "Nothing logged",
     },
   ].filter(Boolean) as { label: string; value: string; detail: string | null }[];
@@ -178,7 +178,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               </span>
               <StatusBadge value={org.status} />
               {org.accountPriority === "PRIORITY" ? <Badge tone="info">Priority</Badge> : null}
-              <Badge tone={stale ? "warning" : "neutral"}>{org.lastVerifiedAt ? `Verified ${format(org.lastVerifiedAt, "d MMM")} · re-verify` : "Never verified"}</Badge>
+              <Badge tone={stale ? "warning" : "neutral"}>{org.lastVerifiedAt ? `Verified ${formatShortDate(org.lastVerifiedAt)} · re-verify` : "Never verified"}</Badge>
             </div>
           </div>
         </div>
@@ -285,7 +285,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     >
                       <span>{r.sourceOrganization.name}</span>
                       <span className="whitespace-nowrap text-[13px] text-[var(--color-muted)]">
-                        {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : inverseRelationshipLabel(r.type)}
+                        {r.exitDate ? `exited ${formatMonthYear(r.exitDate)}` : r.investmentDate ? `since ${formatMonthYear(r.investmentDate)}` : inverseRelationshipLabel(r.type)}
                       </span>
                     </Link>
                   ))
@@ -307,7 +307,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
                         <span className="block text-xs text-[var(--color-muted)]">
-                          via {r.sourceOrganization.name} · {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                          via {r.sourceOrganization.name} · {r.exitDate ? `exited ${formatMonthYear(r.exitDate)}` : r.investmentDate ? `since ${formatMonthYear(r.investmentDate)}` : ""}
                         </span>
                       </span>
                       <Badge tone={siblingHasLiveMandate.has(r.targetOrganizationId) ? "info" : "neutral"}>
@@ -351,7 +351,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
                         <span className="block text-xs text-[var(--color-muted)]">
-                          {forwardRelationshipLabel(r.type)} {r.investmentDate ? `· since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                          {forwardRelationshipLabel(r.type)} {r.investmentDate ? `· since ${formatMonthYear(r.investmentDate)}` : ""}
                         </span>
                       </span>
                       <Badge tone={r.exitDate ? "neutral" : "info"}>{r.exitDate ? "Exited" : "Live"}</Badge>
@@ -501,8 +501,8 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     </TableCell>
                     <TableCell>{forwardRelationshipLabel(r.type)}</TableCell>
                     <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? format(r.investmentDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? format(r.exitDate, "d MMM yyyy") : "—"}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : "—"}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : "—"}</TableCell>
                     <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
                   </TableRow>
                 ))}
@@ -515,8 +515,8 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     </TableCell>
                     <TableCell>{inverseRelationshipLabel(r.type)}</TableCell>
                     <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? format(r.investmentDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? format(r.exitDate, "d MMM yyyy") : "—"}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : "—"}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : "—"}</TableCell>
                     <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
                   </TableRow>
                 ))}
@@ -554,7 +554,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       ) : null}
                     </TableCell>
                     <TableCell>{label(d.document.category)}</TableCell>
-                    <TableCell>{format(d.document.uploadedAt, "d MMM yyyy")}</TableCell>
+                    <TableCell>{formatDate(d.document.uploadedAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -580,7 +580,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -50,11 +50,14 @@ export function OpportunityHeaderActions({
   const isWonUnconverted = currentStage === "WON";
   const isOpen = !isLost && !isWonUnconverted;
 
+  /**
+   * Round 4 Part A item 3: Won only opens the pop-up — nothing changes until
+   * the dialog is confirmed. The stage change to WON happens inside
+   * convertOpportunityToMandateAction itself, atomically with the mandate
+   * it creates, so Cancel/Esc here leaves the opportunity exactly as it was.
+   */
   function handleWon() {
-    startTransition(async () => {
-      await changeOpportunityStageAction({ opportunityId, toStage: "WON" });
-      setPendingWon(true);
-    });
+    setPendingWon(true);
   }
 
   return (

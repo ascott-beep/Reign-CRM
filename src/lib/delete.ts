@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/utils";
-import { format } from "date-fns";
+import { formatLongDate } from "@/lib/datetime";
 
 export type DeletableType = "ORGANIZATION" | "PERSON" | "MANDATE" | "OPPORTUNITY";
 
@@ -50,7 +50,7 @@ async function mandateImpact(id: string, workspaceId: string): Promise<DeleteImp
   const placement = mandate.placements[0];
   const blocked: BlockedInfo | null = placement
     ? {
-        message: `${formatMoney(placement.feeAmount, mandate.baseCurrency ?? "GBP")} has been invoiced on this search (placement fee, ${format(placement.placementDate, "d MMMM yyyy")}). Deleting it would take that fee out of your reports and fee forecast.`,
+        message: `${formatMoney(placement.feeAmount, mandate.baseCurrency ?? "GBP")} has been invoiced on this search (placement fee, ${formatLongDate(placement.placementDate)}). Deleting it would take that fee out of your reports and fee forecast.`,
         alternativeLabel: "Close search",
         alternativeHref: `/mandates/${id}`,
       }
@@ -114,7 +114,7 @@ async function personImpact(id: string, workspaceId: string): Promise<DeleteImpa
   const placement = person.placements[0];
   const blocked: BlockedInfo | null = placement
     ? {
-        message: `${person.firstName} was placed on ${format(placement.placementDate, "d MMMM yyyy")}. Deleting a placed candidate would take that placement out of your reports — anonymise them instead.`,
+        message: `${person.firstName} was placed on ${formatLongDate(placement.placementDate)}. Deleting a placed candidate would take that placement out of your reports — anonymise them instead.`,
         alternativeLabel: "Go to person",
         alternativeHref: `/people/${id}`,
       }
@@ -138,6 +138,8 @@ export type RecentlyDeletedRow = {
   id: string;
   label: string;
   subtitle: string;
+  /** The hiring organisation name for a mandate/opportunity, so the Record column can read "Org · Title". */
+  orgName: string | null;
   archivedAt: Date;
   archivedByName: string | null;
   archiveReason: string | null;
@@ -172,6 +174,7 @@ export async function listRecentlyDeleted(workspaceId: string): Promise<Recently
       id: o.id,
       label: o.name,
       subtitle: deletableTypeLabel("ORGANIZATION"),
+      orgName: null,
       archivedAt: o.archivedAt!,
       archivedByName: byName(o.archivedBy),
       archiveReason: o.archiveReason,
@@ -181,6 +184,7 @@ export async function listRecentlyDeleted(workspaceId: string): Promise<Recently
       id: p.id,
       label: `${p.firstName} ${p.lastName}`,
       subtitle: deletableTypeLabel("PERSON"),
+      orgName: null,
       archivedAt: p.archivedAt!,
       archivedByName: byName(p.archivedBy),
       archiveReason: p.archiveReason,
@@ -190,6 +194,7 @@ export async function listRecentlyDeleted(workspaceId: string): Promise<Recently
       id: m.id,
       label: m.title,
       subtitle: `${deletableTypeLabel("MANDATE")} · ${m.hiringOrganization.name}`,
+      orgName: m.hiringOrganization.name,
       archivedAt: m.archivedAt!,
       archivedByName: byName(m.archivedBy),
       archiveReason: m.archiveReason,
@@ -199,6 +204,7 @@ export async function listRecentlyDeleted(workspaceId: string): Promise<Recently
       id: o.id,
       label: o.name,
       subtitle: `${deletableTypeLabel("OPPORTUNITY")} · ${o.hiringOrganization.name}`,
+      orgName: o.hiringOrganization.name,
       archivedAt: o.archivedAt!,
       archivedByName: byName(o.archivedBy),
       archiveReason: o.archiveReason,

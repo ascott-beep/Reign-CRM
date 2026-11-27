@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { MoneyInput } from "@/components/ui/money-input";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ export function MandateForm({
 }) {
   const [state, formAction] = useActionState(action, {});
   const values = { ...defaultValues, ...(state.formValues ?? {}) } as Record<string, any>;
+  const [baseCurrency, setBaseCurrency] = useState(values.baseCurrency ?? "GBP");
   const errors = state.errors ?? {};
 
   const hasAdvancedErrors = Boolean(errors.source);
@@ -264,13 +266,13 @@ export function MandateForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="minBaseAmount">Min base</Label>
-              <Input id="minBaseAmount" name="minBaseAmount" type="number" min={0} placeholder="e.g. 90000" defaultValue={values.minBaseAmount} />
+              <MoneyInput id="minBaseAmount" name="minBaseAmount" currency={baseCurrency} placeholder="e.g. £90,000" defaultValue={values.minBaseAmount} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="maxBaseAmount">Max base</Label>
               <div className="flex gap-2">
-                <Input id="maxBaseAmount" name="maxBaseAmount" type="number" min={0} placeholder="e.g. 120000" defaultValue={values.maxBaseAmount} />
-                <Select name="baseCurrency" defaultValue={values.baseCurrency ?? "GBP"}>
+                <MoneyInput id="maxBaseAmount" name="maxBaseAmount" currency={baseCurrency} placeholder="e.g. £120,000" defaultValue={values.maxBaseAmount} />
+                <Select name="baseCurrency" value={baseCurrency} onValueChange={setBaseCurrency}>
                   <SelectTrigger className="w-24">
                     <SelectValue />
                   </SelectTrigger>

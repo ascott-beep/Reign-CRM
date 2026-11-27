@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import { AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import { formatLongDate } from "@/lib/datetime";
 import { deleteRecordAction } from "@/lib/delete-actions";
 import type { DeletableType, DeleteImpact } from "@/lib/delete";
 
@@ -25,7 +25,7 @@ export function DeleteDialog({ type, id, listHref, onClose }: { type: DeletableT
   const [reason, setReason] = useState<(typeof REASONS)[number]["value"] | "">("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [restoreDeadline] = useState(() => format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "d MMMM yyyy"));
+  const [restoreDeadline] = useState(() => formatLongDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
 
   useEffect(() => {
     fetch(`/api/delete-impact?type=${type}&id=${id}`)
