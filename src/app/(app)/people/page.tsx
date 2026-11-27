@@ -213,7 +213,12 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           {rows.map((p) => {
             const isCandidate = p.personTypes.includes("CANDIDATE");
             const dup = duplicates.get(p.id);
-            const orgName = p.currentOrganizationOverride?.name ?? p.organizationAssociations[0]?.organization.name ?? p.employmentHistories[0]?.organization?.name ?? null;
+            const orgName =
+              p.currentOrganizationOverride?.name ??
+              p.organizationAssociations[0]?.organization.name ??
+              p.employmentHistories[0]?.organization?.name ??
+              p.employmentHistories[0]?.employerNameFallback ??
+              null;
             const title = p.headlineOverride?.split(",")[0] ?? p.employmentHistories[0]?.jobTitle ?? null;
             const fit = p.candidateProfile ? fitLabel(p.candidateProfile.rating) : null;
 
