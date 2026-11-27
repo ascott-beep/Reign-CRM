@@ -95,8 +95,9 @@ export async function GET(request: NextRequest) {
       items: organizations.map((o) => ({
         id: o.id,
         title: o.name,
-        subtitle: orgDuplicates.has(o.id) ? "Possible duplicate" : `${label(o.type)}${o.relationshipsAsTarget[0] ? ` · ${o.relationshipsAsTarget[0].sourceOrganization.name}` : ""}`,
+        subtitle: orgDuplicates.has(o.id) ? `Possible duplicate of ${orgDuplicates.get(o.id)!.survivorName}` : `${label(o.type)}${o.relationshipsAsTarget[0] ? ` · ${o.relationshipsAsTarget[0].sourceOrganization.name}` : ""}`,
         tag: orgDuplicates.has(o.id) ? null : label(o.status),
+        duplicate: orgDuplicates.has(o.id),
         href: `/organisations/${o.id}`,
       })),
     },
@@ -131,8 +132,9 @@ export async function GET(request: NextRequest) {
         return {
           id: p.id,
           title: `${p.firstName} ${p.lastName}`,
-          subtitle: personDuplicates.has(p.id) ? "Possible duplicate" : [title, org].filter(Boolean).join(" · "),
+          subtitle: personDuplicates.has(p.id) ? `Possible duplicate of ${personDuplicates.get(p.id)!.survivorName}` : [title, org].filter(Boolean).join(" · "),
           tag: personDuplicates.has(p.id) ? null : p.personTypes.includes("CANDIDATE") ? "Candidate" : "Contact",
+          duplicate: personDuplicates.has(p.id),
           href: `/people/${p.id}`,
         };
       }),

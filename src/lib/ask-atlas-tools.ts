@@ -232,6 +232,75 @@ export const ASK_ATLAS_TOOL_DEFINITIONS = [
   },
 ];
 
+export type RecordRefSummary = { type: "person" | "organization" | "opportunity" | "mandate"; id: string; label: string; meta: string; tag: string | null; href: string };
+
+/**
+ * Round 4 screen 02 "Supporting records appear as rows below the text, with
+ * status tags matching the rest of Atlas" -- looks up a one-line meta and a
+ * status tag for each record Ask Atlas named, scoped to the asking user's
+ * workspace and visibility (confidential mandates excluded the same way
+ * every mandate query in this file already is).
+ */
+export async function summariseRecordRefs(
+  user: SessionUser,
+  refs: { type: "person" | "organization" | "opportunity" | "mandate"; id: string; label: string }[],
+): Promise<RecordRefSummary[]> {
+  const ids = (type: string) => refs.filter((r) => r.type === type).map((r) => r.id);
+
+  const [people, organizations, opportunities, mandates] = await Promise.all([
+    ids("person").length
+      ? prisma.person.findMany({
+          where: { id: { in: ids("person") }, workspaceId: user.workspaceId },
+          select: { id: true, headlineOverride: true, employmentHistories: { where: { isCurrent: true }, take: 1, select: { jobTitle: true } }, candidateProfile: { select: { status: true } } },
+        })
+      : Promise.resolve([]),
+    ids("organization").length
+      ? prisma.organization.findMany({ where: { id: { in: ids("organization") }, workspaceId: user.workspaceId }, select: { id: true, type: true, status: true } })
+      : Promise.resolve([]),
+    ids("opportunity").length
+      ? prisma.opportunity.findMany({
+          where: { id: { in: ids("opportunity") }, workspaceId: user.workspaceId },
+          select: { id: true, stage: true, hiringOrganization: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+    ids("mandate").length
+      ? prisma.mandate.findMany({
+          where: { id: { in: ids("mandate") }, workspaceId: user.workspaceId, ...mandateVisibilityWhere(user) },
+          select: { id: true, status: true, hiringOrganization: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const personById = new Map(people.map((p) => [p.id, p]));
+  const orgById = new Map(organizations.map((o) => [o.id, o]));
+  const oppById = new Map(opportunities.map((o) => [o.id, o]));
+  const mandateById = new Map(mandates.map((m) => [m.id, m]));
+
+  const basePath: Record<string, string> = { person: "/people", organization: "/organisations", opportunity: "/opportunities", mandate: "/mandates" };
+
+  return refs.flatMap((ref): RecordRefSummary[] => {
+    if (ref.type === "person") {
+      const p = personById.get(ref.id);
+      if (!p) return [];
+      const title = p.headlineOverride?.split(",")[0] ?? p.employmentHistories[0]?.jobTitle ?? "";
+      return [{ type: "person", id: ref.id, label: ref.label, meta: title, tag: p.candidateProfile ? label(p.candidateProfile.status) : null, href: `${basePath.person}/${ref.id}` }];
+    }
+    if (ref.type === "organization") {
+      const o = orgById.get(ref.id);
+      if (!o) return [];
+      return [{ type: "organization", id: ref.id, label: ref.label, meta: label(o.type), tag: label(o.status), href: `${basePath.organization}/${ref.id}` }];
+    }
+    if (ref.type === "opportunity") {
+      const o = oppById.get(ref.id);
+      if (!o) return [];
+      return [{ type: "opportunity", id: ref.id, label: ref.label, meta: o.hiringOrganization.name, tag: label(o.stage), href: `${basePath.opportunity}/${ref.id}` }];
+    }
+    const m = mandateById.get(ref.id);
+    if (!m) return [];
+    return [{ type: "mandate", id: ref.id, label: ref.label, meta: m.hiringOrganization.name, tag: label(m.status), href: `${basePath.mandate}/${ref.id}` }];
+  });
+}
+
 export async function runAskAtlasTool(name: string, input: Record<string, unknown>, user: SessionUser): Promise<unknown> {
   switch (name) {
     case "search_people":

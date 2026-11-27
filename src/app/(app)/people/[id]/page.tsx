@@ -34,6 +34,7 @@ import { PracticeAreaPicker } from "../practice-area-picker";
 import { AddToMandateDialog, type MandateOption } from "../add-to-mandate-dialog";
 import { AnonymiseButton } from "../anonymise-button";
 import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
+import { RecordViewTracker } from "@/components/shell/record-view-tracker";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 
@@ -113,6 +114,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex flex-col gap-6">
+      <RecordViewTracker type="person" id={person.id} label={`${person.firstName} ${person.lastName}`} meta={currentTitle(person) ?? ""} href={`/people/${person.id}`} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-[18px]">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--color-navy)] text-[15px] font-semibold text-[var(--color-navy-ink)]">

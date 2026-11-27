@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Fragment } from "react";
-
-const TOKEN_SOURCE = /\[\[(person|organization|opportunity|mandate):([\w-]+):([^\]]+)\]\]/g;
+import { RECORD_TOKEN_RE } from "@/lib/ask-atlas-tokens";
 
 const BASE_PATH: Record<string, string> = {
   person: "/people",
@@ -10,20 +9,20 @@ const BASE_PATH: Record<string, string> = {
   mandate: "/mandates",
 };
 
-/** Round 2 section 8 "Every record named in an answer is a link" — parses the [[type:id:Label]] tokens Ask Atlas is instructed to emit, no markdown dependency needed. */
+/** Round 2 section 8 "Every record named in an answer is a link" — parses the [[type:id:Label]] tokens Ask Atlas is instructed to emit, no markdown dependency needed. Round 4 screen 02: these render in the AI blue, underlined, not the general accent colour. */
 export function AnswerText({ text }: { text: string }) {
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
 
-  const token = new RegExp(TOKEN_SOURCE);
+  const token = new RegExp(RECORD_TOKEN_RE);
   while ((match = token.exec(text))) {
     const [full, type, id, label] = match;
     if (match.index > lastIndex) parts.push(<Fragment key={key++}>{text.slice(lastIndex, match.index)}</Fragment>);
     const basePath = BASE_PATH[type ?? ""] ?? "/";
     parts.push(
-      <Link key={key++} href={`${basePath}/${id}`} className="font-medium text-[var(--color-accent)] hover:underline">
+      <Link key={key++} href={`${basePath}/${id}`} className="font-medium text-[var(--color-ai-icon)] underline underline-offset-2">
         {label}
       </Link>,
     );

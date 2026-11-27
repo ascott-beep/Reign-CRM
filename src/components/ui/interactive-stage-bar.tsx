@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { StageProgressBar } from "@/components/ui/stage-progress-bar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/shell/toast-provider";
 
 /**
  * Round 3 item 8: "Remove the stage dropdown; change stage by clicking a
@@ -27,6 +28,7 @@ export function InteractiveStageBar({
 }) {
   const [pendingStep, setPendingStep] = useState<{ key: string; label: string } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { showToast } = useToast();
 
   return (
     <>
@@ -47,9 +49,17 @@ export function InteractiveStageBar({
         onCancel={() => setPendingStep(null)}
         onConfirm={() => {
           if (!pendingStep) return;
+          const fromStep = steps[currentIndex];
+          const toLabel = pendingStep.label;
           startTransition(async () => {
             await onChangeStage(pendingStep.key);
             setPendingStep(null);
+            showToast({
+              kind: "undo",
+              title: `Moved to "${toLabel}"`,
+              actionLabel: fromStep ? "Undo" : undefined,
+              onAction: fromStep ? () => onChangeStage(fromStep.key) : undefined,
+            });
           });
         }}
       />

@@ -1,15 +1,18 @@
 import { cookies } from "next/headers";
 import { Sidebar, type NavCounts } from "@/components/shell/sidebar";
-import { TaskIndicator } from "@/components/shell/task-indicator";
+import { NotificationBell } from "@/components/shell/notification-bell";
 import { WhatsNextProvider } from "@/components/shell/whats-next-provider";
 import { AskAtlasProvider } from "@/components/shell/ask-atlas/ask-atlas-provider";
+import { ToastProvider } from "@/components/shell/toast-provider";
 import { requireUser } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
+import { getUnreadNotificationCount } from "@/lib/notifications";
+import { getSuggestedAskQuestions } from "@/lib/ask-ai-suggestions";
+import { endOfTodayInLondon } from "@/lib/datetime";
 import { SIDEBAR_COLLAPSED_COOKIE } from "@/lib/sidebar-cookie";
 
 async function getNavCounts(workspaceId: string, userId: string): Promise<NavCounts> {
-  const endOfToday = new Date();
-  endOfToday.setHours(23, 59, 59, 999);
+  const endOfToday = endOfTodayInLondon();
 
   const [tasks, mandates, opportunities, intelligence] = await Promise.all([
     prisma.task.count({
@@ -28,29 +31,35 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await requireUser();
   const cookieStore = await cookies();
   const defaultCollapsed = cookieStore.get(SIDEBAR_COLLAPSED_COOKIE)?.value === "1";
-  const counts = await getNavCounts(user.workspaceId, user.id);
+  const [counts, unreadNotifications, suggestedQuestions] = await Promise.all([
+    getNavCounts(user.workspaceId, user.id),
+    getUnreadNotificationCount(user.id),
+    getSuggestedAskQuestions(user),
+  ]);
 
   return (
-    <AskAtlasProvider>
-      <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
-        <Sidebar
-          user={{ firstName: user.firstName, lastName: user.lastName, role: user.role }}
-          counts={counts}
-          defaultCollapsed={defaultCollapsed}
-          notificationBell={<TaskIndicator user={user} />}
-        />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Round 3 item 7: no separate top header bar — search/ask, + New and
-              notifications live in the sidebar now (its "Search or ask…" bar
-              needs AskAtlasProvider too, so that now wraps the whole layout,
-              not just the page content). A page's own PageHeader only ever
-              carries that page's own actions, plus the desk picker on the
-              five pages it filters (see GlobalHeaderControls). */}
-          <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">
-            <WhatsNextProvider>{children}</WhatsNextProvider>
-          </main>
+    <AskAtlasProvider suggestedQuestions={suggestedQuestions}>
+      <ToastProvider>
+        <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+          <Sidebar
+            user={{ firstName: user.firstName, lastName: user.lastName, role: user.role }}
+            counts={counts}
+            defaultCollapsed={defaultCollapsed}
+            notificationBell={<NotificationBell initialUnreadCount={unreadNotifications} />}
+          />
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Round 3 item 7: no separate top header bar — search/ask, + New and
+                notifications live in the sidebar now (its "Ask AI or search" bar
+                needs AskAtlasProvider too, so that now wraps the whole layout,
+                not just the page content). A page's own PageHeader only ever
+                carries that page's own actions, plus the desk picker on the
+                five pages it filters (see GlobalHeaderControls). */}
+            <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">
+              <WhatsNextProvider>{children}</WhatsNextProvider>
+            </main>
+          </div>
         </div>
-      </div>
+      </ToastProvider>
     </AskAtlasProvider>
   );
 }

@@ -4,6 +4,7 @@ import { ExternalLink, Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { EmptyState } from "@/components/shell/states";
+import { RecordViewTracker } from "@/components/shell/record-view-tracker";
 import { MoreMenu } from "@/components/shell/more-menu";
 import { restoreRecordAction } from "@/lib/delete-actions";
 import { Button } from "@/components/ui/button";
@@ -155,6 +156,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
 
   return (
     <div className="flex flex-col gap-6">
+      <RecordViewTracker type="organization" id={org.id} label={org.name} meta={label(org.type)} href={`/organisations/${org.id}`} />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-[18px]">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[6px] bg-[var(--color-navy)] text-[15px] font-semibold text-[var(--color-navy-ink)]">

@@ -3,7 +3,6 @@ import { requireUser } from "@/lib/permissions";
 import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
-import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
 import { formatConvertedMoney } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
@@ -125,7 +124,6 @@ export default async function OpportunitiesPage({
         displayCurrency={displayCurrency}
         ratesToGbp={ratesToGbp}
       />
-      <UndoDeleteToast type="OPPORTUNITY" />
     </div>
   );
 }

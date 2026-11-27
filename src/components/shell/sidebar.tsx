@@ -81,7 +81,7 @@ export function Sidebar({
   user: { firstName: string; lastName: string; role: string };
   counts: NavCounts;
   defaultCollapsed: boolean;
-  /** Server-rendered (needs DB access for the overdue/due-today count) — see (app)/layout.tsx. */
+  /** NotificationBell, seeded with a server-computed initial unread count — see (app)/layout.tsx. Sits next to "+ New" (screen 05), not in the footer. */
   notificationBell: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -147,7 +147,10 @@ export function Sidebar({
       ) : (
         <div className="flex flex-col gap-3">
           <GlobalSearch />
-          <QuickCreate />
+          <div className="flex items-center gap-2">
+            <QuickCreate />
+            {notificationBell}
+          </div>
         </div>
       )}
 
@@ -204,7 +207,6 @@ export function Sidebar({
               </button>
             }
           />
-          {!collapsed ? notificationBell : null}
           {!collapsed ? (
             <Link
               href={SETTINGS_NAV_ITEM.href}

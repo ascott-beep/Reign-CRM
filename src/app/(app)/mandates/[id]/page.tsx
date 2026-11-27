@@ -4,6 +4,7 @@ import { FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
+import { RecordViewTracker } from "@/components/shell/record-view-tracker";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -165,6 +166,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex flex-col gap-6">
+      <RecordViewTracker type="mandate" id={mandate.id} label={mandate.title} meta={mandate.hiringOrganization.name} href={`/mandates/${mandate.id}`} />
       <header className="flex flex-col gap-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">

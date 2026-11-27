@@ -1,8 +1,22 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { prisma } from "@/lib/prisma";
-import { ASK_ATLAS_TOOL_DEFINITIONS, runAskAtlasTool } from "@/lib/ask-atlas-tools";
+import { ASK_ATLAS_TOOL_DEFINITIONS, runAskAtlasTool, summariseRecordRefs, type RecordRefSummary } from "@/lib/ask-atlas-tools";
+import { extractRecordTokens } from "@/lib/ask-atlas-tokens";
 import type { SessionUser } from "@/lib/permissions";
+
+/** Round 4 screen 02 "Sources: ... 3 candidate records, 2 interview notes" -- a plain-English label per tool, used to summarise what Ask Atlas read. */
+const TOOL_SOURCE_LABEL: Record<string, string> = {
+  search_people: "person record",
+  search_organizations: "organisation record",
+  search_opportunities: "opportunity record",
+  search_mandates: "mandate record",
+  search_candidate_processes: "candidate record",
+  search_activities_notes: "interview note",
+};
+
+export type AskAtlasSource = { label: string; count: number };
+export type AskAtlasWebPage = { title: string; url: string };
 
 const MODEL = "claude-sonnet-5-5";
 
@@ -26,9 +40,26 @@ You are read-only: you only answer questions, you never change any data. If aske
 
 Be concise and direct. If nothing matches, say so plainly rather than guessing.`;
 
-export type AskAtlasResult = { answer: string; usedWebSearch: boolean };
+export type AskAtlasResult = {
+  answer: string;
+  usedWebSearch: boolean;
+  recordRefs: RecordRefSummary[];
+  sources: AskAtlasSource[];
+  webPages: AskAtlasWebPage[];
+};
 
-export async function askAtlas(user: SessionUser, question: string, recordContext?: string): Promise<AskAtlasResult> {
+/**
+ * `history` carries prior turns of the same conversation (Round 4 screen 02's
+ * "Ask a follow-up" box) -- askAtlas itself is stateless per call, so the
+ * caller (the Ask AI panel) is the one holding the running conversation and
+ * replays it here each time.
+ */
+export async function askAtlas(
+  user: SessionUser,
+  question: string,
+  recordContext?: string,
+  history?: { question: string; answer: string }[],
+): Promise<AskAtlasResult> {
   const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { askAtlasEnabled: true } });
   if (!workspace.askAtlasEnabled) throw new Error("Ask Atlas is switched off for this workspace.");
 
@@ -38,9 +69,17 @@ export async function askAtlas(user: SessionUser, question: string, recordContex
   const client = new Anthropic({ apiKey });
   const userPrompt = recordContext ? `${recordContext}\n\nQuestion: ${question}` : question;
 
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: userPrompt }];
+  const messages: Anthropic.MessageParam[] = [
+    ...(history ?? []).flatMap((turn): Anthropic.MessageParam[] => [
+      { role: "user", content: turn.question },
+      { role: "assistant", content: turn.answer },
+    ]),
+    { role: "user", content: userPrompt },
+  ];
   let usedWebSearch = false;
   let finalText = "";
+  const toolCallCounts = new Map<string, number>();
+  const webPages: AskAtlasWebPage[] = [];
 
   // Section 8 "Log every question" — logged whether this turns out to succeed or fail, so admins can see what's being asked either way.
   try {
@@ -53,7 +92,14 @@ export async function askAtlas(user: SessionUser, question: string, recordContex
         messages,
       });
 
-      if (response.content.some((b) => b.type === "server_tool_use" && b.name === "web_search")) usedWebSearch = true;
+      for (const block of response.content) {
+        if (block.type === "server_tool_use" && block.name === "web_search") usedWebSearch = true;
+        if (block.type === "web_search_tool_result" && Array.isArray(block.content)) {
+          for (const page of block.content) {
+            if (page.type === "web_search_result") webPages.push({ title: page.title, url: page.url });
+          }
+        }
+      }
 
       const toolUseBlocks = response.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
       finalText = response.content
@@ -67,6 +113,9 @@ export async function askAtlas(user: SessionUser, question: string, recordContex
       const toolResults = await Promise.all(
         toolUseBlocks.map(async (block) => {
           const result = await runAskAtlasTool(block.name, block.input as Record<string, unknown>, user).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+          if (Array.isArray(result) && TOOL_SOURCE_LABEL[block.name]) {
+            toolCallCounts.set(block.name, (toolCallCounts.get(block.name) ?? 0) + result.length);
+          }
           return { type: "tool_result" as const, tool_use_id: block.id, content: JSON.stringify(result) };
         }),
       );
@@ -84,5 +133,11 @@ export async function askAtlas(user: SessionUser, question: string, recordContex
     data: { workspaceId: user.workspaceId, userId: user.id, question, answer, usedWebSearch },
   });
 
-  return { answer, usedWebSearch };
+  const sources: AskAtlasSource[] = [...toolCallCounts.entries()]
+    .filter(([, count]) => count > 0)
+    .map(([name, count]) => ({ label: `${TOOL_SOURCE_LABEL[name]}${count === 1 ? "" : "s"}`, count }));
+
+  const recordRefs = await summariseRecordRefs(user, extractRecordTokens(answer));
+
+  return { answer, usedWebSearch, recordRefs, sources, webPages };
 }
