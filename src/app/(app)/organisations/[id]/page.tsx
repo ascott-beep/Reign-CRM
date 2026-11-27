@@ -148,7 +148,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
     },
     {
       label: "Last contact",
-      value: lastActivity ? formatShortDate(lastActivity.date) : "—",
+      value: lastActivity ? formatShortDate(lastActivity.date) : "",
       detail: lastActivity ? null : "Nothing logged",
     },
   ].filter(Boolean) as { label: string; value: string; detail: string | null }[];
@@ -174,7 +174,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <span>
                 {label(org.type)}
                 {org.sectors.length > 0 ? ` · ${org.sectors.map((s) => s.sector.name).join(", ")}` : ""}
-                {org.employeeCountMin || org.employeeCountMax ? ` · ${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"} employees` : ""}
+                {org.employeeCountMin || org.employeeCountMax ? ` · ${org.employeeCountMin ?? "?"} to ${org.employeeCountMax ?? "?"} employees` : ""}
               </span>
               <StatusBadge value={org.status} />
               {org.accountPriority === "PRIORITY" ? <Badge tone="info">Priority</Badge> : null}
@@ -291,7 +291,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                   ))
                 )}
                 <div className="mt-3.5 text-xs text-[var(--color-muted)]">Investment thesis</div>
-                <p className="mt-1 text-[13px] leading-relaxed">{org.investmentThesisSummary || "—"}</p>
+                <p className="mt-1 text-[13px] leading-relaxed">{org.investmentThesisSummary || ""}</p>
               </div>
               <div>
                 <h2 className="m-0 text-base font-medium">Other companies these investors own</h2>
@@ -325,7 +325,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                 <dl className="mt-2.5 flex flex-col gap-2 text-[13px]">
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">Current fund / vintage</dt>
-                    <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
+                    <dd>{org.fundVintageOrCurrentFundName || ""}</dd>
                   </div>
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">AUM</dt>
@@ -333,7 +333,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                   </div>
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">Strategies</dt>
-                    <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
+                    <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || ""}</dd>
                   </div>
                 </dl>
               </div>
@@ -387,7 +387,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px]">{a.person.firstName} {a.person.lastName}</span>
                       <span className="block truncate text-xs text-[var(--color-muted)]">
-                        {a.isPrimaryContact ? "Primary" : a.stakeholderRoles[0] ? label(a.stakeholderRoles[0]) : "—"}
+                        {a.isPrimaryContact ? "Primary" : a.stakeholderRoles[0] ? label(a.stakeholderRoles[0]) : ""}
                       </span>
                     </span>
                   </Link>
@@ -416,15 +416,15 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <h3 className="m-0 mb-2 text-sm font-medium">Details</h3>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Owner</span>
-                <span>{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+                <span>{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Ownership</span>
-                <span>{org.ownershipType?.name || "—"}</span>
+                <span>{org.ownershipType?.name || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Headquarters</span>
-                <span>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</span>
+                <span>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Source</span>
@@ -463,7 +463,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
 
       <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px]">
         <h2 className="m-0 mb-3.5 text-base font-medium">Activity</h2>
-        <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+        <Timeline items={timeline} emptyLabel="Nothing logged yet, use “Log activity” above to record a call, email, or note." />
       </section>
 
       <Tabs defaultValue="relationships">
@@ -500,10 +500,10 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       </Link>
                     </TableCell>
                     <TableCell>{forwardRelationshipLabel(r.type)}</TableCell>
-                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : "—"}</TableCell>
-                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
+                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : ""}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : ""}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : ""}</TableCell>
+                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : ""}</TableCell>
                   </TableRow>
                 ))}
                 {org.relationshipsAsTarget.map((r) => (
@@ -514,10 +514,10 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       </Link>
                     </TableCell>
                     <TableCell>{inverseRelationshipLabel(r.type)}</TableCell>
-                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : "—"}</TableCell>
-                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
+                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : ""}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : ""}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : ""}</TableCell>
+                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : ""}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

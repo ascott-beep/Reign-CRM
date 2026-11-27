@@ -15,10 +15,10 @@ const OVERRIDES: Record<string, string> = {
   PE_FUND: "PE Fund",
 
   // CandidateRating
-  A_STRONG: "A — Strong",
-  B_RELEVANT: "B — Relevant",
-  C_UNQUALIFIED: "C — Unqualified",
-  D_NOT_RELEVANT: "D — Not Relevant",
+  A_STRONG: "A · Strong",
+  B_RELEVANT: "B · Relevant",
+  C_UNQUALIFIED: "C · Unqualified",
+  D_NOT_RELEVANT: "D · Not Relevant",
   NOT_RATED: "Not Rated",
 
   // Seniority
@@ -54,8 +54,8 @@ const OVERRIDES: Record<string, string> = {
 
   // Investment stage
   NEWLY_ACQUIRED: "Newly Acquired (< 12 months)",
-  EARLY_HOLD: "Early Hold (12–24 months)",
-  MID_HOLD: "Mid Hold (25–48 months)",
+  EARLY_HOLD: "Early Hold (12 to 24 months)",
+  MID_HOLD: "Mid Hold (25 to 48 months)",
   LATE_HOLD: "Late Hold (> 48 months)",
   EXIT_ANNOUNCED: "Exit Announced",
 
@@ -70,7 +70,7 @@ const OVERRIDES: Record<string, string> = {
 };
 
 export function label(value: string | null | undefined): string {
-  if (!value) return "—";
+  if (!value) return "";
   return OVERRIDES[value] ?? humanizeEnum(value);
 }
 

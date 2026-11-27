@@ -68,13 +68,13 @@ export function PersonForm({
           <ul className="mt-2 list-disc pl-5">
             {state.duplicates.map((d) => (
               <li key={d.id}>
-                {d.firstName} {d.lastName} — {d.reason}
+                {d.firstName} {d.lastName} · {d.reason}
               </li>
             ))}
           </ul>
           <label className="mt-3 flex items-center gap-2 text-sm font-normal">
             <input type="checkbox" name="confirmNotDuplicate" value="true" />
-            This is a distinct person — create it anyway
+            This is a distinct person, create it anyway
           </label>
         </div>
       ) : null}

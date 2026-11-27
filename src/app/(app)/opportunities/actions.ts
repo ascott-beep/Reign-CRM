@@ -129,7 +129,7 @@ export async function changeOpportunityStageAction(input: {
   const opportunity = await prisma.opportunity.findUniqueOrThrow({ where: { id: data.opportunityId } });
   if (opportunity.stage === data.toStage) return;
   if (opportunity.wonMandateId) {
-    throw new Error("This opportunity is already linked to a mandate — its stage can't be changed. Go to the mandate instead.");
+    throw new Error("This opportunity is already linked to a mandate, its stage can't be changed. Go to the mandate instead.");
   }
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
 
@@ -164,7 +164,7 @@ export async function changeOpportunityStageAction(input: {
       await tx.task.create({
         data: {
           workspaceId: user.workspaceId,
-          title: `Check back in — ${opportunity.name}`,
+          title: `Check back in · ${opportunity.name}`,
           type: "FOLLOW_UP",
           status: "TODO",
           priority: "NORMAL",
@@ -183,7 +183,7 @@ export async function changeOpportunityStageAction(input: {
       await tx.task.create({
         data: {
           workspaceId: user.workspaceId,
-          title: `Review on-hold opportunity — ${opportunity.name}`,
+          title: `Review on-hold opportunity · ${opportunity.name}`,
           type: "FOLLOW_UP",
           status: "TODO",
           priority: "NORMAL",

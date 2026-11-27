@@ -21,7 +21,7 @@ export function AnonymiseButton({ personId, firstName }: { personId: string; fir
           <DialogHeader>
             <DialogTitle>Anonymise {firstName}?</DialogTitle>
             <p className="mt-1.5 text-sm text-[var(--color-muted)]">
-              {firstName} was placed, so they can&apos;t be deleted — this replaces their name and contact details with
+              {firstName} was placed, so they can&apos;t be deleted, this replaces their name and contact details with
               &ldquo;Erased person&rdquo; instead. The placement and fee figures stay in your reports. This can&apos;t be undone.
             </p>
           </DialogHeader>

@@ -85,7 +85,7 @@ export default async function SettingsConnectionsPage({ searchParams }: { search
         <div className="flex flex-col gap-3">
           <MailboxConnectionCard
             title="Outlook (Microsoft 365) email"
-            description="Only emails to or from someone matching a Person in Atlas are synced into their history. Connect your own mailbox — nothing is shared with other users' connections."
+            description="Only emails to or from someone matching a Person in Atlas are synced into their history. Connect your own mailbox, nothing is shared with other users' connections."
             provider="MICROSOFT"
             kind="email"
             configured={microsoftConfigured}
@@ -93,7 +93,7 @@ export default async function SettingsConnectionsPage({ searchParams }: { search
           />
           <MailboxConnectionCard
             title="Gmail email"
-            description="Only emails to or from someone matching a Person in Atlas are synced into their history. Connect your own mailbox — nothing is shared with other users' connections."
+            description="Only emails to or from someone matching a Person in Atlas are synced into their history. Connect your own mailbox, nothing is shared with other users' connections."
             provider="GOOGLE"
             kind="email"
             configured={googleConfigured}

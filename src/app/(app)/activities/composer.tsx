@@ -268,7 +268,7 @@ export function Composer({
               <p className="text-xs text-[var(--color-muted)]">
                 {hasMailboxConnection
                   ? "Sends through your connected mailbox and lands in your Sent folder."
-                  : "Connect your mailbox in Settings → Connections to send for real — for now this logs the email."}
+                  : "Connect your mailbox in Settings → Connections to send for real, for now this logs the email."}
               </p>
             ) : null}
 

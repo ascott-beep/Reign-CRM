@@ -117,13 +117,13 @@ export function MergePersonDialog({ survivorId, duplicateId, duplicateName, onCl
               <span className="text-[var(--color-muted)]">{current.duplicate.name} · merged in</span>
             </div>
             <Row field="name" label="Name" survivorValue={current.survivor.name} duplicateValue={current.duplicate.name} picks={picks} onPick={pick} />
-            <Row field="title" label="Title" survivorValue={current.survivor.title ?? "—"} duplicateValue={current.duplicate.title ?? "—"} picks={picks} onPick={pick} />
+            <Row field="title" label="Title" survivorValue={current.survivor.title ?? ""} duplicateValue={current.duplicate.title ?? ""} picks={picks} onPick={pick} />
             <Row field="status" label="Status" survivorValue={label(current.survivor.status)} duplicateValue={label(current.duplicate.status)} picks={picks} onPick={pick} />
             <Row field="owner" label="Owner" survivorValue={current.survivor.ownerName} duplicateValue={current.duplicate.ownerName} picks={picks} onPick={pick} />
-            <Row field="fit" label="Fit" survivorValue={current.survivor.rating ? label(current.survivor.rating) : "—"} duplicateValue={current.duplicate.rating ? label(current.duplicate.rating) : "—"} picks={picks} onPick={pick} />
+            <Row field="fit" label="Fit" survivorValue={current.survivor.rating ? label(current.survivor.rating) : ""} duplicateValue={current.duplicate.rating ? label(current.duplicate.rating) : ""} picks={picks} onPick={pick} />
             <div className="grid grid-cols-[110px_1fr] items-center gap-3 border-t border-[var(--color-line)] py-2.5 text-sm">
               <span className="text-[var(--color-muted)]">Practice areas</span>
-              <span className="text-[var(--color-ink2)]">{[...new Set([...current.survivor.practiceAreaNames, ...current.duplicate.practiceAreaNames])].join(", ") || "—"}</span>
+              <span className="text-[var(--color-ink2)]">{[...new Set([...current.survivor.practiceAreaNames, ...current.duplicate.practiceAreaNames])].join(", ") || ""}</span>
             </div>
 
             <p className="mt-3 rounded-md bg-[var(--color-sunk)] px-3.5 py-3 text-[13px] text-[var(--color-ink2)]">

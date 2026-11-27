@@ -405,7 +405,7 @@ export async function placeCandidateAction(formData: FormData) {
       await tx.task.create({
         data: {
           workspaceId: user.workspaceId,
-          title: `Guarantee period ends — check in on placement`,
+          title: `Guarantee period ends · check in on placement`,
           type: "FOLLOW_UP",
           status: "TODO",
           priority: "NORMAL",

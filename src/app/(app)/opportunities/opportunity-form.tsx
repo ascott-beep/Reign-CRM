@@ -107,7 +107,7 @@ export function OpportunityForm({
       <MoreDetails defaultOpen={Boolean(errors.name)}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Opportunity name</Label>
-          <Input id="name" name="name" placeholder="e.g. Oakfield Professional Services — Group FD" defaultValue={values.name} />
+          <Input id="name" name="name" placeholder="e.g. Oakfield Professional Services · Group FD" defaultValue={values.name} />
           <p className="text-xs text-[var(--color-ink-subtle)]">Leave blank to use &ldquo;Role · Company&rdquo;.</p>
           {errors.name ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.name[0]}</p> : null}
         </div>

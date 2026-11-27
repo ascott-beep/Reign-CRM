@@ -60,13 +60,13 @@ export function OrganizationForm({
           <ul className="mt-2 list-disc pl-5">
             {state.duplicates.map((d) => (
               <li key={d.id}>
-                {d.name} — {d.reason}
+                {d.name} · {d.reason}
               </li>
             ))}
           </ul>
           <label className="mt-3 flex items-center gap-2 text-sm font-normal">
             <input type="checkbox" name="confirmNotDuplicate" value="true" />
-            This is a distinct organisation — create it anyway
+            This is a distinct organisation, create it anyway
           </label>
         </div>
       ) : null}

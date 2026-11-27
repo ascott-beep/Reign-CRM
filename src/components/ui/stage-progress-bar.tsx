@@ -41,7 +41,7 @@ export function StageProgressBar({
               {s.label}
             </span>
             <span className="truncate text-xs text-[var(--color-muted)]">
-              {d === undefined ? "—" : current ? `${d}d so far` : `${d}d`}
+              {d === undefined ? "" : current ? `${d}d so far` : `${d}d`}
             </span>
           </>
         );

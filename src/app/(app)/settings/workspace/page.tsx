@@ -48,10 +48,10 @@ export default async function SettingsWorkspacePage() {
           <p className="mb-3 text-xs text-[var(--color-ink-subtle)]">How long without activity before a record is flagged as stale.</p>
           <form action={updateStaleThresholdsAction} className="flex flex-col gap-4">
             {[
-              { key: "personDays", label: "Active person relationship — no activity for" },
-              { key: "priorityOrgDays", label: "Priority organisation — no activity for" },
-              { key: "opportunityDays", label: "Active opportunity — no movement for" },
-              { key: "candidateProcessDays", label: "Active candidate process — no movement for" },
+              { key: "personDays", label: "Active person relationship · no activity for" },
+              { key: "priorityOrgDays", label: "Priority organisation · no activity for" },
+              { key: "opportunityDays", label: "Active opportunity · no movement for" },
+              { key: "candidateProcessDays", label: "Active candidate process · no movement for" },
             ].map((f) => (
               <div key={f.key} className="flex items-center justify-between gap-4">
                 <label className="text-sm">{f.label}</label>

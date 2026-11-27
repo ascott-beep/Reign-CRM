@@ -144,7 +144,7 @@ export function candidateNextStepFallback(stage: CandidateProcessStage, candidat
     case "LONGLISTED":
       return "Decide whether to approach";
     case "CONTACT_REQUIRED":
-      return `Call ${candidateFirstName} — first contact`;
+      return `Call ${candidateFirstName} · first contact`;
     case "CONTACTED":
       return "Follow up on interest";
     case "INTERESTED":

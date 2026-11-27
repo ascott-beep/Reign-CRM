@@ -178,7 +178,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                           </Link>
                         </PersonHoverCard>
                       ) : (
-                        "—"
+                        ""
                       )}
                     </dd>
                   </div>
@@ -196,16 +196,16 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                   </div>
                   <div className="flex justify-between gap-2">
                     <dt className="text-[var(--color-ink-subtle)]">Expected close</dt>
-                    <dd>{opportunity.expectedDecisionDate ? formatDate(opportunity.expectedDecisionDate) : "—"}</dd>
+                    <dd>{opportunity.expectedDecisionDate ? formatDate(opportunity.expectedDecisionDate) : ""}</dd>
                   </div>
                 </dl>
 
                 <MoreDetails>
                   <dl className="grid grid-cols-1 gap-2 text-sm">
                     <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || ""}</dd></div>
                     <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd className="truncate text-right">{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd className="truncate text-right">{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || ""}</dd></div>
                     <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
                   </dl>
                   <div>
@@ -229,17 +229,17 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                   </div>
                   <div>
                     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Next step</h4>
-                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
+                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || ""}</p>
                   </div>
                   <div>
                     <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Notes</h4>
-                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
+                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || ""}</p>
                   </div>
                   {opportunity.stage === "LOST" ? (
                     <div>
                       <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Loss reason</h4>
                       <p className="text-sm text-[var(--color-ink-muted)]">
-                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
+                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `· ${opportunity.lossExplanation}` : ""}
                       </p>
                     </div>
                   ) : null}
@@ -284,7 +284,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               <Card>
                 <CardContent className="pt-4">
                   <h3 className="mb-3.5 text-sm font-semibold">History</h3>
-                  <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet — use the composer above to log a call, note, email or file." />
+                  <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet, use the composer above to log a call, note, email or file." />
                 </CardContent>
               </Card>
             </div>

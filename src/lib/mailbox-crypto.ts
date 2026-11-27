@@ -5,9 +5,9 @@ const ALGORITHM = "aes-256-gcm";
 
 function getKey(): Buffer {
   const raw = process.env.MAILBOX_TOKEN_ENCRYPTION_KEY;
-  if (!raw) throw new Error("MAILBOX_TOKEN_ENCRYPTION_KEY is not set — mailbox connections are not configured yet.");
+  if (!raw) throw new Error("MAILBOX_TOKEN_ENCRYPTION_KEY is not set, mailbox connections are not configured yet.");
   const key = Buffer.from(raw, "base64");
-  if (key.length !== 32) throw new Error("MAILBOX_TOKEN_ENCRYPTION_KEY must decode to 32 bytes — generate with: openssl rand -base64 32");
+  if (key.length !== 32) throw new Error("MAILBOX_TOKEN_ENCRYPTION_KEY must decode to 32 bytes, generate with: openssl rand -base64 32");
   return key;
 }
 

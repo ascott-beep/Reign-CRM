@@ -79,7 +79,7 @@ function QueueCard({ item, mode }: { item: QueueItem; mode: "pending" | "dismiss
         </div>
       ) : (
         <div className="mt-3 flex items-center justify-between text-xs text-[var(--color-muted)]">
-          <span>Dismissed {item.dismissedAt ? formatShortDate(item.dismissedAt) : ""} · {item.dismissReason ? label(item.dismissReason) : "—"}</span>
+          <span>Dismissed {item.dismissedAt ? formatShortDate(item.dismissedAt) : ""} · {item.dismissReason ? label(item.dismissReason) : ""}</span>
           <Button size="sm" variant="ghost" disabled={pending} onClick={() => startTransition(async () => { await acceptIntelligenceItemAction(item.id); router.refresh(); })}>
             Undo
           </Button>

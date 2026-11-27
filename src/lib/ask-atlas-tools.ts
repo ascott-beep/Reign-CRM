@@ -178,7 +178,7 @@ async function searchActivitiesAndNotes(user: SessionUser, args: { query?: strin
     activityType: label(a.type),
     date: a.occurredAt.toISOString().slice(0, 10),
     subject: a.private ? null : a.subject,
-    summary: a.private ? "(private — content hidden)" : a.summary,
+    summary: a.private ? "(private · content hidden)" : a.summary,
     people: a.people.map((p) => ({ id: p.person.id, href: `/people/${p.person.id}`, name: `${p.person.firstName} ${p.person.lastName}` })),
   }));
 }

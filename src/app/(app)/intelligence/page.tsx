@@ -123,7 +123,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
                   <TableCell>
                     <Badge tone={i.commercialRelevance === "IMMEDIATE" || i.commercialRelevance === "HIGH" ? "warning" : "neutral"}>{label(i.commercialRelevance)}</Badge>
                   </TableCell>
-                  <TableCell>{i.convertedOpportunity ? `Opportunity · ${i.convertedOpportunity.potentialRoleTitle ?? i.convertedOpportunity.name}` : "—"}</TableCell>
+                  <TableCell>{i.convertedOpportunity ? `Opportunity · ${i.convertedOpportunity.potentialRoleTitle ?? i.convertedOpportunity.name}` : ""}</TableCell>
                   <TableCell className="text-[var(--color-muted)]">{formatShortDate(i.dateReceived)}</TableCell>
                 </TableRow>
               ))}

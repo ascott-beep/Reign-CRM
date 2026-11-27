@@ -148,7 +148,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
 
   const metaParts: string[] = [];
   if (mandate.minBaseAmount || mandate.maxBaseAmount) {
-    metaParts.push(`${formatMoney(mandate.minBaseAmount, mandate.baseCurrency)}–${formatMoney(mandate.maxBaseAmount, mandate.baseCurrency)} base`);
+    metaParts.push(`${formatMoney(mandate.minBaseAmount, mandate.baseCurrency)} to ${formatMoney(mandate.maxBaseAmount, mandate.baseCurrency)} base`);
   }
   const employmentParts = [label(mandate.employmentType), mandate.workArrangement ? label(mandate.workArrangement) : null, mandate.city].filter(Boolean);
   if (employmentParts.length) metaParts.push(employmentParts.join(" · "));
@@ -246,7 +246,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                     ? `${mandate.feePercentage}%`
                     : mandate.fixedFeeAmount
                       ? formatMoney(mandate.fixedFeeAmount, mandate.baseCurrency)
-                      : "—"}
+                      : ""}
                 </dd>
               </div>
               <div className="flex justify-between gap-2">
@@ -259,7 +259,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex justify-between gap-2">
                 <dt className="text-[var(--color-ink-subtle)]">Start date</dt>
-                <dd>{mandate.startDate ? formatDate(mandate.startDate) : "—"}</dd>
+                <dd>{mandate.startDate ? formatDate(mandate.startDate) : ""}</dd>
               </div>
               {mandate.sourceOpportunity ? (
                 <div className="flex flex-col gap-1">
@@ -336,7 +336,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             <Card>
               <CardContent className="pt-4">
                 <h3 className="mb-3.5 text-sm font-semibold">History</h3>
-                <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet — use the composer above to log a call, note, email or file." />
+                <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet, use the composer above to log a call, note, email or file." />
               </CardContent>
             </Card>
           </div>
@@ -416,19 +416,19 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 </div>
                 <div>
                   <h3 className="mb-1.5 text-sm font-medium">Role summary</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.roleSummary || "—"}</p>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.roleSummary || ""}</p>
                 </div>
                 <div>
                   <h3 className="mb-1.5 text-sm font-medium">Business context</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.businessContext || "—"}</p>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.businessContext || ""}</p>
                 </div>
                 <div>
                   <h3 className="mb-1.5 text-sm font-medium">Must-haves</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.requiredExperience || "—"}</p>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.requiredExperience || ""}</p>
                 </div>
                 <div>
                   <h3 className="mb-1.5 text-sm font-medium">Assessment criteria</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.assessmentCriteria || "—"}</p>
+                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink2)]">{mandate.assessmentCriteria || ""}</p>
                 </div>
               </CardContent>
             </Card>
@@ -437,7 +437,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 <h3 className="mb-1 text-[15px] font-medium">Details</h3>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Seniority</dt>
-                  <dd>{mandate.seniority ? label(mandate.seniority) : "—"}</dd>
+                  <dd>{mandate.seniority ? label(mandate.seniority) : ""}</dd>
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Number of hires</dt>
@@ -445,11 +445,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Target completion</dt>
-                  <dd>{mandate.targetCompletionDate ? formatDate(mandate.targetCompletionDate) : "—"}</dd>
+                  <dd>{mandate.targetCompletionDate ? formatDate(mandate.targetCompletionDate) : ""}</dd>
                 </div>
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                   <dt className="text-[var(--color-muted)]">Related funds</dt>
-                  <dd className="text-right">{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd>
+                  <dd className="text-right">{mandate.relatedFunds.map((f) => f.organization.name).join(", ") || ""}</dd>
                 </div>
               </CardContent>
             </Card>
@@ -510,7 +510,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                       <TableCell>
                         <Badge tone={r.statusTone}>{r.statusLabel}</Badge>
                       </TableCell>
-                      <TableCell>{r.nextStepText ?? "—"}</TableCell>
+                      <TableCell>{r.nextStepText ?? ""}</TableCell>
                     </TableRow>
                   ))}
               </TableBody>
@@ -531,11 +531,11 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--color-muted)]">Fee</dt>
-                <dd>{mandate.feePercentage ? `${mandate.feePercentage}%` : mandate.fixedFeeAmount ? formatMoney(mandate.fixedFeeAmount, mandate.baseCurrency) : "—"}</dd>
+                <dd>{mandate.feePercentage ? `${mandate.feePercentage}%` : mandate.fixedFeeAmount ? formatMoney(mandate.fixedFeeAmount, mandate.baseCurrency) : ""}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--color-muted)]">Payment terms</dt>
-                <dd>{mandate.paymentTermsDays ? `${mandate.paymentTermsDays} days` : "—"}</dd>
+                <dd>{mandate.paymentTermsDays ? `${mandate.paymentTermsDays} days` : ""}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--color-muted)]">Exclusivity</dt>
@@ -543,7 +543,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </div>
               <div className="flex justify-between">
                 <dt className="text-[var(--color-muted)]">Guarantee</dt>
-                <dd>{mandate.guaranteeValue ? `${mandate.guaranteeValue} ${mandate.guaranteeUnit}` : "—"}</dd>
+                <dd>{mandate.guaranteeValue ? `${mandate.guaranteeValue} ${mandate.guaranteeUnit}` : ""}</dd>
               </div>
             </CardContent>
           </Card>

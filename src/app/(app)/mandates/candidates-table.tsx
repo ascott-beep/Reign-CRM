@@ -34,7 +34,7 @@ function Row({ r, onOpenDetail, onExit }: { r: CandidateRow; onOpenDetail: (id: 
     <div className={cn(GRID, "group border-t border-[var(--color-line)] py-4 text-[var(--color-ink)]", r.hidden && "opacity-70")}>
       <button type="button" onClick={() => onOpenDetail(r.id)} className="min-w-0 text-left">
         <span className="block truncate text-sm">{r.candidateName}</span>
-        <span className="mt-0.5 block truncate text-[13px] text-[var(--color-muted)]">{r.candidateTitle ?? "—"}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-[var(--color-muted)]">{r.candidateTitle ?? ""}</span>
       </button>
       <span>
         <Badge tone={r.statusTone}>{r.statusLabel}</Badge>
@@ -49,10 +49,10 @@ function Row({ r, onOpenDetail, onExit }: { r: CandidateRow; onOpenDetail: (id: 
           Step {r.step} of {CANDIDATE_STEP_COUNT}
         </span>
       </span>
-      <span className="text-[13.5px] text-[var(--color-ink2)]">{r.fit ?? "—"}</span>
+      <span className="text-[13.5px] text-[var(--color-ink2)]">{r.fit ?? ""}</span>
       <span className="flex items-start justify-between gap-2">
         <span className="line-clamp-2 text-[13.5px] text-[var(--color-ink)]">
-          {r.nextStepText ?? "—"}
+          {r.nextStepText ?? ""}
           {r.nextStepDueDate ? (
             <>
               {" · "}

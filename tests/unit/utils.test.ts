@@ -15,10 +15,10 @@ describe("formatMoney", () => {
     expect(formatMoney(amount, "GBP")).toBe("£130,000");
   });
 
-  it("returns an em dash for null/undefined/empty amounts", () => {
-    expect(formatMoney(null, "GBP")).toBe("—");
-    expect(formatMoney(undefined, "GBP")).toBe("—");
-    expect(formatMoney("", "GBP")).toBe("—");
+  it("returns blank for null/undefined/empty amounts", () => {
+    expect(formatMoney(null, "GBP")).toBe("");
+    expect(formatMoney(undefined, "GBP")).toBe("");
+    expect(formatMoney("", "GBP")).toBe("");
   });
 
   it("defaults to GBP when no currency is provided", () => {
@@ -36,7 +36,7 @@ describe("humanizeEnum", () => {
   it("title-cases snake case enum values", () => {
     expect(humanizeEnum("BOARD_OR_C_SUITE")).toBe("Board Or C Suite");
   });
-  it("returns an em dash for empty input", () => {
-    expect(humanizeEnum(null)).toBe("—");
+  it("returns blank for empty input", () => {
+    expect(humanizeEnum(null)).toBe("");
   });
 });

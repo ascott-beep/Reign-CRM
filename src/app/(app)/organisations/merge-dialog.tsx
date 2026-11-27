@@ -112,8 +112,8 @@ export function MergeOrganizationDialog({ survivorId, duplicateId, duplicateName
               <span className="text-[var(--color-muted)]">{current.duplicate.name} · merged in</span>
             </div>
             <Row field="name" label="Name" survivorValue={current.survivor.name} duplicateValue={current.duplicate.name} picks={picks} onPick={pick} />
-            <Row field="website" label="Website" survivorValue={current.survivor.website ?? "—"} duplicateValue={current.duplicate.website ?? "—"} picks={picks} onPick={pick} />
-            <Row field="hq" label="Headquarters" survivorValue={current.survivor.hqCity ?? "—"} duplicateValue={current.duplicate.hqCity ?? "—"} picks={picks} onPick={pick} />
+            <Row field="website" label="Website" survivorValue={current.survivor.website ?? ""} duplicateValue={current.duplicate.website ?? ""} picks={picks} onPick={pick} />
+            <Row field="hq" label="Headquarters" survivorValue={current.survivor.hqCity ?? ""} duplicateValue={current.duplicate.hqCity ?? ""} picks={picks} onPick={pick} />
             <Row field="status" label="Status" survivorValue={label(current.survivor.status)} duplicateValue={label(current.duplicate.status)} picks={picks} onPick={pick} />
             <Row field="owner" label="Owner" survivorValue={current.survivor.ownerName} duplicateValue={current.duplicate.ownerName} picks={picks} onPick={pick} />
 

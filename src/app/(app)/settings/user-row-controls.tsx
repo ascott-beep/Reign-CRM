@@ -134,7 +134,7 @@ function ReassignWorkDialog({
     setPending(true);
     const counts = await reassignOpenWorkAction(userId, targetId);
     const total = counts.opportunities + counts.mandates + counts.tasks + counts.candidateProcesses;
-    setResult(total === 0 ? "Nothing open to reassign — this person has no open work." : `Reassigned ${total} open item${total === 1 ? "" : "s"}.`);
+    setResult(total === 0 ? "Nothing open to reassign, this person has no open work." : `Reassigned ${total} open item${total === 1 ? "" : "s"}.`);
     setPending(false);
   }
 

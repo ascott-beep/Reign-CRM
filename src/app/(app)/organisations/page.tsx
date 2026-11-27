@@ -261,11 +261,11 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
                 </Link>
                 <span>{dup ? <OrganizationDuplicateTag organizationId={org.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={org.status} />}</span>
                 <span className="truncate text-[var(--color-ink2)]">
-                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? "—"}
+                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? ""}
                 </span>
-                <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : "—"}</span>
-                <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : "—"}</span>
-                <span className="truncate text-[var(--color-ink2)]">{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : ""}</span>
+                <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : ""}</span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : ""}</span>
                 <span className={verified === "stale" ? "text-[var(--color-warn)]" : "text-[var(--color-muted)]"}>{org.lastVerifiedAt ? formatDistanceToNow(org.lastVerifiedAt, { addSuffix: true }) : "Never"}</span>
               </div>
             );

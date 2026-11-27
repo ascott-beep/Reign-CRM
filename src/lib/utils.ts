@@ -13,9 +13,9 @@ export function formatMoney(
   amount: number | string | { toString(): string } | null | undefined,
   currency: string | null | undefined,
 ) {
-  if (amount === null || amount === undefined || amount === "") return "—";
+  if (amount === null || amount === undefined || amount === "") return "";
   const numeric = typeof amount === "number" ? amount : Number(amount.toString());
-  if (Number.isNaN(numeric)) return "—";
+  if (Number.isNaN(numeric)) return "";
   try {
     return new Intl.NumberFormat("en-GB", {
       style: "currency",
@@ -33,7 +33,7 @@ export function formatConvertedMoney(amount: number, approx: boolean, currency: 
 }
 
 export function humanizeEnum(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "";
   return value
     .toLowerCase()
     .split("_")

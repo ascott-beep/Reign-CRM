@@ -18,7 +18,7 @@ function client() {
 export async function sendEmail(input: { to: string; subject: string; html: string }) {
   const resend = client();
   if (!resend) {
-    console.warn(`[email] RESEND_API_KEY not set — would have sent "${input.subject}" to ${input.to}`);
+    console.warn(`[email] RESEND_API_KEY not set, would have sent "${input.subject}" to ${input.to}`);
     return { sent: false as const };
   }
   await resend.emails.send({ from: FROM, to: input.to, subject: input.subject, html: input.html });
@@ -35,7 +35,7 @@ export async function sendInviteEmail(input: { to: string; firstName: string; ur
     subject: "You've been invited to Atlas",
     html: `<div style="font-family:sans-serif;color:#0c2139;max-width:480px">
       <p>Hi ${input.firstName},</p>
-      <p>You've been invited to join Atlas. Set a password to get started — this link lasts 7 days.</p>
+      <p>You've been invited to join Atlas. Set a password to get started, this link lasts 7 days.</p>
       <p style="margin:24px 0">${linkButton(input.url, "Set your password")}</p>
       <p style="color:#5d6b7a;font-size:13px">If you weren't expecting this, you can ignore this email.</p>
     </div>`,
@@ -48,7 +48,7 @@ export async function sendPasswordResetEmail(input: { to: string; firstName: str
     subject: "Reset your Atlas password",
     html: `<div style="font-family:sans-serif;color:#0c2139;max-width:480px">
       <p>Hi ${input.firstName},</p>
-      <p>Use this link to set a new password — it lasts 1 hour.</p>
+      <p>Use this link to set a new password, it lasts 1 hour.</p>
       <p style="margin:24px 0">${linkButton(input.url, "Reset your password")}</p>
       <p style="color:#5d6b7a;font-size:13px">If you didn't request this, you can ignore this email.</p>
     </div>`,

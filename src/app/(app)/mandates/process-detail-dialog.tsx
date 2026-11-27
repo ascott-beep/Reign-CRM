@@ -140,17 +140,17 @@ export function ProcessDetailDialog({
               {detail.candidateRating ? <Badge tone="info">{label(detail.candidateRating)}</Badge> : null}
             </div>
             <p className="text-xs text-[var(--color-ink-subtle)]">
-              {detail.mandateReference} — {detail.mandateTitle} · {detail.organizationName}
+              {detail.mandateReference} · {detail.mandateTitle} · {detail.organizationName}
             </p>
 
             {detail.rejectionReason ? (
               <p className="rounded-md bg-[var(--color-status-danger-bg)] px-3 py-2 text-sm text-[var(--color-status-danger-ink)]">
-                Rejected: {label(detail.rejectionReason)} {detail.rejectionExplanation ? `— ${detail.rejectionExplanation}` : ""}
+                Rejected: {label(detail.rejectionReason)} {detail.rejectionExplanation ? `· ${detail.rejectionExplanation}` : ""}
               </p>
             ) : null}
             {detail.withdrawalReason ? (
               <p className="rounded-md bg-[var(--color-status-warning-bg)] px-3 py-2 text-sm text-[var(--color-status-warning-ink)]">
-                Withdrawn: {label(detail.withdrawalReason)} {detail.withdrawalExplanation ? `— ${detail.withdrawalExplanation}` : ""}
+                Withdrawn: {label(detail.withdrawalReason)} {detail.withdrawalExplanation ? `· ${detail.withdrawalExplanation}` : ""}
               </p>
             ) : null}
 
@@ -193,7 +193,7 @@ export function ProcessDetailDialog({
                 <ul className="flex flex-col gap-1.5">
                   {detail.interviews.map((i) => (
                     <li key={i.id} className="flex items-center justify-between text-sm">
-                      <span>Round {i.roundNumber} — {label(i.type)}</span>
+                      <span>Round {i.roundNumber} · {label(i.type)}</span>
                       <span className="text-xs text-[var(--color-ink-subtle)]">
                         {formatDateTime(new Date(i.scheduledStart))} · {label(i.outcome)}
                       </span>
@@ -218,7 +218,7 @@ export function ProcessDetailDialog({
                 <ul className="flex flex-col gap-1.5">
                   {detail.offers.map((o) => (
                     <li key={o.id} className="flex items-center justify-between text-sm">
-                      <span>{o.baseAmount ? `${o.baseCurrency} ${o.baseAmount}` : "—"}</span>
+                      <span>{o.baseAmount ? `${o.baseCurrency} ${o.baseAmount}` : ""}</span>
                       <Badge tone="info">{label(o.status)}</Badge>
                     </li>
                   ))}
@@ -228,7 +228,7 @@ export function ProcessDetailDialog({
 
             {detail.placement ? (
               <p className="rounded-md bg-[var(--color-status-success-bg)] px-3 py-2 text-sm text-[var(--color-status-success-ink)]">
-                Placed on {formatDate(new Date(detail.placement.placementDate))} — {label(detail.placement.status)}
+                Placed on {formatDate(new Date(detail.placement.placementDate))} · {label(detail.placement.status)}
               </p>
             ) : detail.stage !== "REJECTED" && detail.stage !== "WITHDRAWN" ? (
               <div>

@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
     if (DRY_RUN) {
       results[type] = { purged: 0, skipped: 0, wouldPurge: candidates };
-      console.log(`[purge-archived] DRY RUN — would purge ${candidates.length} ${type} record(s):`, candidates.map((c: { id: string }) => c.id));
+      console.log(`[purge-archived] DRY RUN, would purge ${candidates.length} ${type} record(s):`, candidates.map((c: { id: string }) => c.id));
       continue;
     }
 

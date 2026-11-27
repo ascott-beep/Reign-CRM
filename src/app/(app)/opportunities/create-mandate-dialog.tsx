@@ -75,7 +75,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
           <DialogTitle>Create the mandate for this search</DialogTitle>
           {current ? (
             <DialogDescription>
-              {current.role} · {current.orgName} — role, contacts, notes, files and activity history all carry over. Edit anything else on the mandate.
+              {current.role} · {current.orgName}, role, contacts, notes, files and activity history all carry over. Edit anything else on the mandate.
             </DialogDescription>
           ) : null}
         </DialogHeader>

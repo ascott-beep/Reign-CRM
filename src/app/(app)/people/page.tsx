@@ -223,7 +223,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
 
             const liveProcesses = p.candidateProcesses.filter((proc) => !isCandidateHidden(proc.stage) && proc.stage !== "PLACED");
             const latestProcess = p.candidateProcesses[0];
-            let liveProcessesText = "—";
+            let liveProcessesText = "";
             if (liveProcesses.length === 1) {
               liveProcessesText = `1 · ${candidatePlainStatus(liveProcesses[0]!.stage).label.toLowerCase()}`;
             } else if (liveProcesses.length > 1) {
@@ -247,15 +247,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                     <span className="block truncate">
                       {p.firstName} {p.lastName}
                     </span>
-                    <span className="block truncate text-xs text-[var(--color-muted)]">{title ?? "—"}</span>
+                    <span className="block truncate text-xs text-[var(--color-muted)]">{title ?? ""}</span>
                   </span>
                 </Link>
-                <span className="truncate text-[var(--color-ink2)]">{orgName ?? "—"}</span>
+                <span className="truncate text-[var(--color-ink2)]">{orgName ?? ""}</span>
                 <span>
                   <Badge tone="neutral">{isCandidate ? "Candidate" : "Client contact"}</Badge>
                 </span>
                 <span>{dup ? <PersonDuplicateTag personId={p.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={p.relationshipStatus} />}</span>
-                <span className="text-[var(--color-ink2)]">{fit ?? "—"}</span>
+                <span className="text-[var(--color-ink2)]">{fit ?? ""}</span>
                 <span className="truncate text-[var(--color-ink2)]">{liveProcessesText}</span>
                 <span className="truncate text-[var(--color-ink2)]">{p.relationshipOwner ? `${p.relationshipOwner.firstName} ${p.relationshipOwner.lastName}` : "Unowned"}</span>
               </div>

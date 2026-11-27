@@ -296,7 +296,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="text-xs text-[var(--color-muted)]">
-        Monetary totals are converted using manually maintained exchange rates (Settings &gt; Workspace) — there is no live FX feed. Portfolio coverage, time-to-fill and
+        Monetary totals are converted using manually maintained exchange rates (Settings &gt; Workspace), there is no live FX feed. Portfolio coverage, time-to-fill and
         source-to-placement will become separate report pages linked from here.
       </p>
     </div>

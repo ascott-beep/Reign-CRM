@@ -114,7 +114,7 @@ async function personImpact(id: string, workspaceId: string): Promise<DeleteImpa
   const placement = person.placements[0];
   const blocked: BlockedInfo | null = placement
     ? {
-        message: `${person.firstName} was placed on ${formatLongDate(placement.placementDate)}. Deleting a placed candidate would take that placement out of your reports — anonymise them instead.`,
+        message: `${person.firstName} was placed on ${formatLongDate(placement.placementDate)}. Deleting a placed candidate would take that placement out of your reports, anonymise them instead.`,
         alternativeLabel: "Go to person",
         alternativeHref: `/people/${id}`,
       }
