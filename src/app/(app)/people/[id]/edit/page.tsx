@@ -9,22 +9,22 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
   const user = await requireUser();
   const { id } = await params;
 
-  const [person, users, organizations] = await Promise.all([
-    prisma.person.findFirst({ where: { id, workspaceId: user.workspaceId } }),
+  const [person, users] = await Promise.all([
+    prisma.person.findFirst({ where: { id, workspaceId: user.workspaceId }, include: { currentOrganizationOverride: { select: { name: true } } } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
-    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   if (!person) notFound();
 
   const boundAction = updatePersonAction.bind(null, person.id);
 
   return (
-    <div className="max-w-3xl">
+    <div>
       <PageHeader title={`Edit ${person.firstName} ${person.lastName}`} />
       <PersonForm
         action={boundAction}
         users={users}
-        organizations={organizations}
+        presetOrganizationName={person.currentOrganizationOverride?.name}
+        cancelHref={`/people/${person.id}`}
         submitLabel="Save changes"
         defaultValues={{
           firstName: person.firstName,

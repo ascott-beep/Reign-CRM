@@ -12,11 +12,14 @@ export default async function EditMandatePage({ params }: { params: Promise<{ id
 
   if (!(await canViewMandate(user, id))) return <PermissionDeniedState description="This mandate is highly confidential and you are not assigned to it." />;
 
-  const [mandate, organizations, people, users] = await Promise.all([
-    prisma.mandate.findFirst({ where: { id, workspaceId: user.workspaceId } }),
-    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  const [mandate, people, users, allTags] = await Promise.all([
+    prisma.mandate.findFirst({
+      where: { id, workspaceId: user.workspaceId },
+      include: { hiringOrganization: { select: { name: true } }, tags: { select: { tagId: true } } },
+    }),
     prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.tag.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   if (!mandate) notFound();
 
@@ -24,14 +27,17 @@ export default async function EditMandatePage({ params }: { params: Promise<{ id
 
   return (
     <div className="max-w-3xl">
-      <PageHeader title={`Edit ${mandate.reference}`} />
+      <PageHeader title={`Edit ${mandate.reference}`} description="Changes are saved to the audit log." />
       <MandateForm
         action={boundAction}
-        organizations={organizations}
         people={people}
         users={users}
+        allTags={allTags}
         currentUserId={user.id}
         submitLabel="Save changes"
+        presetOrganizationId={mandate.hiringOrganizationId}
+        presetOrganizationName={mandate.hiringOrganization.name}
+        lockedClientReason={mandate.sourceOpportunityId ? "Set when the opportunity was won" : undefined}
         defaultValues={{
           title: mandate.title,
           hiringOrganizationId: mandate.hiringOrganizationId,
@@ -57,6 +63,7 @@ export default async function EditMandatePage({ params }: { params: Promise<{ id
           signedTerms: mandate.signedTerms,
           targetShortlistDate: mandate.targetShortlistDate?.toISOString().slice(0, 10) ?? "",
           targetCompletionDate: mandate.targetCompletionDate?.toISOString().slice(0, 10) ?? "",
+          tagIds: mandate.tags.map((t) => t.tagId),
         }}
       />
     </div>

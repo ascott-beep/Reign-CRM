@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
+import { CreatedToast } from "@/components/shell/created-toast";
 import { OrganizationForm } from "../organization-form";
 import { createOrganizationAction } from "../actions";
 
@@ -13,8 +14,9 @@ export default async function NewOrganizationPage() {
   ]);
 
   return (
-    <div className="max-w-3xl">
-      <PageHeader title="New organisation" description="Add a fund, portfolio company, or other organisation to the CRM." />
+    <div>
+      <CreatedToast />
+      <PageHeader title="New organisation" description="Type a name and press Research to fill the rest from the web." />
       <OrganizationForm action={createOrganizationAction} users={users} ownershipTypes={ownershipTypes} sectors={sectors} />
     </div>
   );

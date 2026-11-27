@@ -6,6 +6,7 @@ import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { RecordViewTracker } from "@/components/shell/record-view-tracker";
+import { CreatedToast } from "@/components/shell/created-toast";
 import { Button } from "@/components/ui/button";
 import { restoreRecordAction } from "@/lib/delete-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -84,6 +85,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   return (
     <div>
       <RecordViewTracker type="opportunity" id={opportunity.id} label={opportunity.name} meta={opportunity.hiringOrganization.name} href={`/opportunities/${opportunity.id}`} />
+      <CreatedToast />
       <PageHeader
         title={
           <div className="flex items-center gap-2">

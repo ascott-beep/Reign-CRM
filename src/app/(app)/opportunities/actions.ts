@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
-import { opportunityFormSchema, stageChangeSchema, createMandateFromOpportunitySchema, defaultProbabilityFor } from "@/lib/validation/opportunity";
+import { opportunityFormSchema, stageChangeSchema, createMandateFromOpportunitySchema, defaultProbabilityFor, CHANCE_OF_WINNING } from "@/lib/validation/opportunity";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { generateMandateReference } from "@/lib/mandate-reference";
 
@@ -30,36 +30,71 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
   const parsed = opportunityFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
+
+  // Round 4 screen 28 "New opportunity": "asks for a first next step, so nothing is
+  // created without one" -- schema-optional (edits don't need to resupply one), required here.
+  if (!data.firstNextStepTitle || !data.firstNextStepDueDate) {
+    return {
+      errors: { firstNextStepTitle: ["A first next step is required"] },
+      formValues: raw,
+    };
+  }
+
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
   const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle);
+  const stage = data.stage ?? "SIGNAL_IDENTIFIED";
+  const chance = data.chanceOfWinning ?? "MEDIUM";
 
-  const opportunity = await prisma.opportunity.create({
-    data: {
-      workspaceId: user.workspaceId,
-      name,
-      hiringOrganizationId: data.hiringOrganizationId,
-      type: data.type,
-      stage: "SIGNAL_IDENTIFIED",
-      stageProbabilityDefault: defaultProbabilityFor("SIGNAL_IDENTIFIED", overrides),
-      potentialRoleTitle: data.potentialRoleTitle ?? null,
-      employmentType: data.employmentType ?? null,
-      source: data.source,
-      leadContactPersonId: data.leadContactPersonId ?? null,
-      ownerId: data.ownerId,
-      estimatedFeeAmount: data.estimatedFeeAmount ?? null,
-      estimatedFeeCurrency: data.estimatedFeeCurrency ?? null,
-      expectedDecisionDate: data.expectedDecisionDate ?? null,
-      nextStepSummary: data.nextStepSummary ?? null,
-      notes: data.notes ?? null,
-      createdById: user.id,
-      stageHistory: { create: [{ toStage: "SIGNAL_IDENTIFIED", changedById: user.id, notes: "Opportunity created." }] },
-    },
+  const opportunity = await prisma.$transaction(async (tx) => {
+    const created = await tx.opportunity.create({
+      data: {
+        workspaceId: user.workspaceId,
+        name,
+        hiringOrganizationId: data.hiringOrganizationId,
+        type: data.type,
+        stage,
+        stageProbabilityDefault: defaultProbabilityFor(stage, overrides),
+        probabilityOverride: CHANCE_OF_WINNING[chance],
+        isProbabilityOverridden: true,
+        potentialRoleTitle: data.potentialRoleTitle ?? null,
+        employmentType: data.employmentType ?? null,
+        source: data.source,
+        leadContactPersonId: data.leadContactPersonId ?? null,
+        ownerId: data.ownerId,
+        estimatedFeeAmount: data.estimatedFeeAmount ?? null,
+        estimatedFeeCurrency: data.estimatedFeeCurrency ?? null,
+        expectedDecisionDate: data.expectedDecisionDate ?? null,
+        nextStepSummary: data.nextStepSummary ?? null,
+        notes: data.notes ?? null,
+        createdById: user.id,
+        stageHistory: { create: [{ toStage: stage as any, changedById: user.id, notes: "Opportunity created." }] },
+      },
+    });
+
+    const task = await tx.task.create({
+      data: {
+        workspaceId: user.workspaceId,
+        title: data.firstNextStepTitle!,
+        type: "FOLLOW_UP",
+        status: "TODO",
+        priority: "NORMAL",
+        assignedUserId: data.ownerId,
+        createdById: user.id,
+        dueDate: data.firstNextStepDueDate!,
+        relatedRecordType: "OPPORTUNITY",
+        relatedRecordId: created.id,
+        opportunities: { create: [{ opportunityId: created.id }] },
+      },
+    });
+    await tx.opportunity.update({ where: { id: created.id }, data: { primaryNextTaskId: task.id } });
+
+    return created;
   });
 
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Opportunity", entityId: opportunity.id, action: "CREATE" });
 
   revalidatePath("/opportunities");
-  redirect(`/opportunities/${opportunity.id}`);
+  redirect(`/opportunities/${opportunity.id}?created=${encodeURIComponent("Opportunity added")}`);
 }
 
 export async function updateOpportunityAction(opportunityId: string, _prev: OpportunityFormState, formData: FormData): Promise<OpportunityFormState> {

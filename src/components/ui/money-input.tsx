@@ -33,6 +33,7 @@ export function MoneyInput({
   placeholder,
   className,
   disabled,
+  onValueChange,
 }: {
   name: string;
   id?: string;
@@ -42,6 +43,8 @@ export function MoneyInput({
   placeholder?: string;
   className?: string;
   disabled?: boolean;
+  /** Fires with the raw numeric string (e.g. for a live total elsewhere on the same form). */
+  onValueChange?: (raw: string) => void;
 }) {
   const autoId = useId();
   const inputId = id ?? autoId;
@@ -59,7 +62,9 @@ export function MoneyInput({
         value={formatMoneyAsTyped(raw, currency ?? "GBP")}
         onChange={(e) => {
           const digits = e.target.value.replace(/[^\d]/g, "");
-          setRaw(digits ? String(Number(digits)) : "");
+          const next = digits ? String(Number(digits)) : "";
+          setRaw(next);
+          onValueChange?.(next);
         }}
         className={className}
       />

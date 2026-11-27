@@ -4,9 +4,8 @@ import { PermissionDeniedState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { EDITABLE_STAGES } from "@/lib/validation/opportunity";
 import { updateStageProbabilitiesAction } from "../actions";
-
-const EDITABLE_STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVERY_ARRANGED", "QUALIFIED", "PROPOSAL_OR_TERMS"];
 
 export default async function SettingsPipelineStagesPage() {
   const user = await requireUser();

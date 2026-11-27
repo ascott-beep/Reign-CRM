@@ -7,22 +7,22 @@ import { createOpportunityAction } from "../actions";
 export default async function NewOpportunityPage({ searchParams }: { searchParams: Promise<{ organizationId?: string }> }) {
   const user = await requireUser();
   const { organizationId } = await searchParams;
-  const [organizations, people, users] = await Promise.all([
-    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  const [presetOrganization, people, users] = await Promise.all([
+    organizationId ? prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } }) : null,
     prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title="New opportunity" description="Track possible work before it becomes a confirmed mandate." />
+      <PageHeader title="New opportunity" description="A possible search we could win." />
       <OpportunityForm
         action={createOpportunityAction}
-        organizations={organizations}
         people={people}
         users={users}
         currentUserId={user.id}
         presetOrganizationId={organizationId}
+        presetOrganizationName={presetOrganization?.name}
       />
     </div>
   );

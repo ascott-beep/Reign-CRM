@@ -9,6 +9,7 @@ import { normalizeName, normalizeWebsiteDomain } from "@/lib/normalize";
 import { findOrganizationDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { researchOrganization } from "@/lib/intelligence-sweep";
+import { researchNewOrganization, type OrganizationResearchResult } from "@/lib/organization-research";
 
 export type OrgFormState = {
   errors?: Record<string, string[]>;
@@ -19,6 +20,38 @@ export type OrgFormState = {
 function readForm(formData: FormData) {
   const raw = Object.fromEntries(formData.entries());
   return raw;
+}
+
+/** Round 4 screens 26/27: the Organisation combobox's "Add X as a new organisation" row -- creates a bare record (name only) so the picker always ends on a real id. */
+export async function quickCreateOrganizationAction(name: string): Promise<{ id: string; name: string }> {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name is required.");
+
+  const org = await prisma.organization.create({
+    data: {
+      workspaceId: user.workspaceId,
+      name: trimmed,
+      normalizedName: normalizeName(trimmed),
+      type: "OTHER_COMPANY",
+      status: "RESEARCH",
+      createdById: user.id,
+    },
+  });
+
+  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Organization", entityId: org.id, action: "CREATE", changedFields: { name: org.name } });
+  revalidatePath("/organisations");
+  return { id: org.id, name: org.name };
+}
+
+/** Round 4 screen 27 "New organisation, filled by AI" -- the Research button on the create form, before the record exists. */
+export async function researchNewOrganizationAction(name: string): Promise<OrganizationResearchResult> {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+  if (!name.trim()) throw new Error("Type a name first.");
+  return researchNewOrganization(name.trim());
 }
 
 export async function createOrganizationAction(_prev: OrgFormState, formData: FormData): Promise<OrgFormState> {
@@ -72,7 +105,12 @@ export async function createOrganizationAction(_prev: OrgFormState, formData: Fo
       businessModelSummary: data.businessModelSummary ?? null,
       investmentThesisSummary: data.investmentThesisSummary ?? null,
       createdById: user.id,
-      sectors: data.sectorId ? { create: [{ sectorId: data.sectorId, isPrimary: true }] } : undefined,
+      sectors:
+        data.sectorIds && data.sectorIds.length > 0
+          ? { create: data.sectorIds.map((sectorId, i) => ({ sectorId, isPrimary: i === 0 })) }
+          : data.sectorId
+            ? { create: [{ sectorId: data.sectorId, isPrimary: true }] }
+            : undefined,
     },
   });
 
@@ -86,7 +124,10 @@ export async function createOrganizationAction(_prev: OrgFormState, formData: Fo
   });
 
   revalidatePath("/organisations");
-  redirect(`/organisations/${org.id}`);
+  if (formData.get("intent") === "another") {
+    redirect(`/organisations/new?created=${encodeURIComponent("Organisation added")}`);
+  }
+  redirect(`/organisations/${org.id}?created=${encodeURIComponent("Organisation added")}`);
 }
 
 export async function updateOrganizationAction(
@@ -145,6 +186,15 @@ export async function updateOrganizationAction(
       investmentThesisSummary: data.investmentThesisSummary ?? null,
     },
   });
+
+  if (data.sectorIds) {
+    await prisma.organizationSector.deleteMany({ where: { organizationId: orgId } });
+    if (data.sectorIds.length > 0) {
+      await prisma.organizationSector.createMany({
+        data: data.sectorIds.map((sectorId, i) => ({ organizationId: orgId, sectorId, isPrimary: i === 0 })),
+      });
+    }
+  }
 
   await writeAuditLog({
     workspaceId: user.workspaceId,

@@ -33,6 +33,8 @@ export const mandateFormSchema = z.object({
   signedTerms: z.coerce.boolean().optional(),
   targetShortlistDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
   targetCompletionDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  /** Round 4 screen 29 "Edit mandate": existing workspace tags only, picked from Settings > Lists and tags. */
+  tagIds: z.array(z.string()).optional().default([]),
 });
 
 export const MANDATE_STATUS_ORDER = [

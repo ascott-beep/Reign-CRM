@@ -9,9 +9,8 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
   const user = await requireUser();
   const { id } = await params;
 
-  const [opportunity, organizations, people, users] = await Promise.all([
-    prisma.opportunity.findFirst({ where: { id, workspaceId: user.workspaceId } }),
-    prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  const [opportunity, people, users] = await Promise.all([
+    prisma.opportunity.findFirst({ where: { id, workspaceId: user.workspaceId }, include: { hiringOrganization: { select: { name: true } } } }),
     prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
@@ -24,14 +23,23 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
       <PageHeader title={`Edit ${opportunity.name}`} />
       <OpportunityForm
         action={boundAction}
-        organizations={organizations}
         people={people}
         users={users}
         currentUserId={user.id}
         submitLabel="Save changes"
+        presetOrganizationId={opportunity.hiringOrganizationId}
+        presetOrganizationName={opportunity.hiringOrganization.name}
         defaultValues={{
           name: opportunity.name,
           hiringOrganizationId: opportunity.hiringOrganizationId,
+          stage: opportunity.stage,
+          chanceOfWinning: opportunity.isProbabilityOverridden
+            ? opportunity.probabilityOverride === 25
+              ? "LOW"
+              : opportunity.probabilityOverride === 75
+                ? "HIGH"
+                : "MEDIUM"
+            : "MEDIUM",
           type: opportunity.type,
           potentialRoleTitle: opportunity.potentialRoleTitle ?? "",
           employmentType: opportunity.employmentType ?? "",

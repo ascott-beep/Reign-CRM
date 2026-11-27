@@ -1,8 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { MoneyInput } from "@/components/ui/money-input";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
+import { Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +12,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MoreDetails } from "@/components/ui/more-details";
+import { OrganisationCombobox } from "@/components/ui/organisation-combobox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
 import { CURRENCIES } from "@/lib/iso";
 import type { MandateFormState } from "./actions";
@@ -31,53 +36,125 @@ function SubmitButton({ text }: { text: string }) {
   );
 }
 
+/** Round 4 screen 29 "Edit mandate": locked Client field once there's a source opportunity, More details open by default, tags, and a footer that counts unsaved changes. */
 export function MandateForm({
   action,
-  organizations,
   people,
   users,
+  allTags = [],
   currentUserId,
   defaultValues,
   submitLabel = "Create mandate",
   presetOrganizationId,
+  presetOrganizationName,
+  lockedClientReason,
+  cancelHref = "/mandates",
 }: {
   action: (state: MandateFormState, formData: FormData) => Promise<MandateFormState>;
-  organizations: { id: string; name: string }[];
   people: { id: string; firstName: string; lastName: string }[];
   users: { id: string; firstName: string; lastName: string }[];
+  allTags?: { id: string; name: string }[];
   currentUserId: string;
   defaultValues?: Record<string, unknown>;
   submitLabel?: string;
   presetOrganizationId?: string;
+  presetOrganizationName?: string;
+  /** e.g. "Set when the opportunity was won" -- when present, the Client field shows locked instead of editable. */
+  lockedClientReason?: string;
+  cancelHref?: string;
 }) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const baselineRef = useRef<string | null>(null);
   const [state, formAction] = useActionState(action, {});
   const values = { ...defaultValues, ...(state.formValues ?? {}) } as Record<string, any>;
   const [baseCurrency, setBaseCurrency] = useState(values.baseCurrency ?? "GBP");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(Array.isArray(values.tagIds) ? values.tagIds : []);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [unsavedCount, setUnsavedCount] = useState(0);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const errors = state.errors ?? {};
+  const isEdit = Boolean(defaultValues);
 
   const hasAdvancedErrors = Boolean(errors.source);
 
+  function snapshot(): string {
+    if (!formRef.current) return "";
+    const fd = new FormData(formRef.current);
+    const entries = Array.from(fd.entries()).filter(([k]) => k !== "tagIds");
+    entries.push(...selectedTagIds.map((id) => ["tagIds", id] as [string, string]));
+    return JSON.stringify(entries.sort());
+  }
+
+  function recomputeUnsaved() {
+    if (baselineRef.current === null) return;
+    const before = JSON.parse(baselineRef.current) as [string, string][];
+    const after = JSON.parse(snapshot()) as [string, string][];
+    const beforeSet = new Set(before.map((e) => e.join("=")));
+    const afterSet = new Set(after.map((e) => e.join("=")));
+    let changed = 0;
+    for (const e of afterSet) if (!beforeSet.has(e)) changed++;
+    for (const e of beforeSet) if (!afterSet.has(e)) changed++;
+    setUnsavedCount(changed > 0 ? changed : 0);
+  }
+
+  useEffect(() => {
+    // A tick after mount, so every Select/Checkbox has finished writing its own
+    // hidden input before this becomes the "unsaved changes" baseline.
+    const handle = setTimeout(() => {
+      baselineRef.current = snapshot();
+    }, 0);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    recomputeUnsaved();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTagIds]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && unsavedCount > 0) {
+        e.preventDefault();
+        setConfirmDiscard(true);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [unsavedCount]);
+
+  const availableTags = allTags.filter((t) => !selectedTagIds.includes(t.id));
+
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <>
+    <form ref={formRef} action={formAction} onChange={recomputeUnsaved} className="flex flex-col gap-4 pb-20">
+      <div className="mx-auto w-full max-w-[760px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-card)] p-6">
+      <h2 className="mb-3.5 text-base font-medium">The search</h2>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="hiringOrganizationId">Client</Label>
-        <Select name="hiringOrganizationId" defaultValue={values.hiringOrganizationId ?? presetOrganizationId} required>
-          <SelectTrigger id="hiringOrganizationId">
-            <SelectValue placeholder="Select organisation" />
-          </SelectTrigger>
-          <SelectContent>
-            {organizations.map((o) => (
-              <SelectItem key={o.id} value={o.id}>
-                {o.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label htmlFor="hiringOrganizationId">
+          Client {!lockedClientReason ? <span className="font-normal text-[var(--color-ink-subtle)]">(required)</span> : null}
+        </Label>
+        {lockedClientReason ? (
+          <>
+            <div className="flex h-10 items-center justify-between rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-sunk)] px-3 text-sm text-[var(--color-ink-subtle)]">
+              {presetOrganizationName}
+              <Lock className="h-[14px] w-[14px] shrink-0" />
+            </div>
+            <input type="hidden" name="hiringOrganizationId" value={presetOrganizationId} />
+            <p className="text-xs text-[var(--color-ink-subtle)]">{lockedClientReason}</p>
+          </>
+        ) : (
+          <OrganisationCombobox name="hiringOrganizationId" defaultId={values.hiringOrganizationId ?? presetOrganizationId} defaultName={presetOrganizationName} />
+        )}
         {errors.hiringOrganizationId ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.hiringOrganizationId[0]}</p> : null}
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Role</Label>
+        <Label htmlFor="title">
+          Role <span className="font-normal text-[var(--color-ink-subtle)]">(required)</span>
+        </Label>
         <Input id="title" name="title" placeholder="e.g. Group Finance Director" defaultValue={values.title} required />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
       </div>
@@ -86,8 +163,10 @@ export function MandateForm({
         <Label htmlFor="feePercentage">Fee %</Label>
         <Input id="feePercentage" name="feePercentage" type="number" min={0} max={100} placeholder="e.g. 30" defaultValue={values.feePercentage} />
       </div>
+      </section>
 
-      <MoreDetails defaultOpen={hasAdvancedErrors}>
+      <div className="mt-5">
+      <MoreDetails defaultOpen={isEdit || hasAdvancedErrors} subtitle="Source, retainer split, tags, confidentiality">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="source">Source</Label>
           <Select name="source" defaultValue={values.source ?? ""}>
@@ -102,6 +181,51 @@ export function MandateForm({
           </Select>
           <p className="text-xs text-[var(--color-ink-subtle)]">Required for a mandate with no opportunity behind it.</p>
           {errors.source ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.source[0]}</p> : null}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label>Tags</Label>
+          <div className="relative flex flex-wrap items-center gap-1.5 rounded-[6px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2 py-1.5">
+            {selectedTagIds.map((id) => {
+              const tag = allTags.find((t) => t.id === id);
+              if (!tag) return null;
+              return (
+                <span key={id} className="flex h-7 items-center gap-1 rounded-full bg-[var(--color-chip)] px-2.5 text-[12.5px] text-[var(--color-ink)]">
+                  {tag.name}
+                  <button type="button" onClick={() => setSelectedTagIds((prev) => prev.filter((t) => t !== id))} aria-label={`Remove ${tag.name}`}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+            {selectedTagIds.map((id) => (
+              <input key={id} type="hidden" name="tagIds" value={id} />
+            ))}
+            <button
+              type="button"
+              onClick={() => setTagPickerOpen((v) => !v)}
+              className="flex h-7 items-center px-1 text-[13px] text-[var(--color-ink-subtle)]"
+            >
+              Add tag
+            </button>
+            {tagPickerOpen && availableTags.length > 0 ? (
+              <div className="absolute left-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] shadow-[var(--shadow-overlay)]">
+                {availableTags.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTagIds((prev) => [...prev, t.id]);
+                      setTagPickerOpen(false);
+                    }}
+                    className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-[var(--color-active)]"
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -327,10 +451,40 @@ export function MandateForm({
           </label>
         </div>
       </MoreDetails>
+      </div>
+      </div>
 
-      <div className="flex justify-end">
-        <SubmitButton text={submitLabel} />
+      <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-card)] px-6 py-3 shadow-[var(--shadow-overlay)] md:left-[228px]">
+        {isEdit ? (
+          <p className="flex items-center gap-1.5 text-[13px] text-[var(--color-ink-subtle)]">
+            {unsavedCount > 0 ? (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warn)]" /> {unsavedCount} unsaved change{unsavedCount === 1 ? "" : "s"}
+              </>
+            ) : (
+              "Changes are saved to the audit log."
+            )}
+          </p>
+        ) : (
+          <p className="text-[13px] text-[var(--color-ink-subtle)]">Role and client are required.</p>
+        )}
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="secondary" onClick={() => (unsavedCount > 0 ? setConfirmDiscard(true) : router.push(cancelHref))}>
+            Cancel
+          </Button>
+          <SubmitButton text={submitLabel} />
+        </div>
       </div>
     </form>
+
+    <ConfirmDialog
+      open={confirmDiscard}
+      title="Discard your changes?"
+      description="What you've entered on this form will be lost."
+      confirmLabel="Discard changes"
+      onCancel={() => setConfirmDiscard(false)}
+      onConfirm={() => router.push(cancelHref)}
+    />
+    </>
   );
 }
