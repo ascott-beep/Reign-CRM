@@ -299,6 +299,7 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
           workspaceId: user.workspaceId,
           type: "NOTE",
           subject: "Notes carried over from the opportunity",
+          summary: opportunity.notes,
           fullNotes: opportunity.notes,
           createdById: user.id,
           assignedOwnerId: created.ownerId,

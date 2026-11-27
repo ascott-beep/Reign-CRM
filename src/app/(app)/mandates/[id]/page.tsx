@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, Phone, Mail, FileText, PencilLine } from "lucide-react";
+import { Pencil, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewMandate, canViewAuditLog } from "@/lib/permissions";
 import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StageProgressBar } from "@/components/ui/stage-progress-bar";
 import { NextActionCard } from "@/components/ui/next-action-card";
+import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
@@ -23,7 +24,7 @@ import { CandidatesTable, type CandidateRow } from "../candidates-table";
 import { MandateStatusSelect } from "../status-select";
 import { MandateBanner } from "../mandate-banner";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
-import { LogActivityDialog } from "../../activities/log-activity-dialog";
+import { Composer } from "../../activities/composer";
 import {
   mandateConsistencyCheck,
   mandateFlowTab,
@@ -75,7 +76,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   });
   if (!mandate) notFound();
 
-  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, users, statusHistory] = await Promise.all([
+  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory] = await Promise.all([
     getMandateTimeline(mandate.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
@@ -91,7 +92,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       select: { id: true, firstName: true, lastName: true, headlineOverride: true, employmentHistories: { where: { isCurrent: true }, take: 1 } },
       orderBy: { lastName: "asc" },
     }),
-    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
     prisma.mandateStatusHistory.findMany({ where: { mandateId: mandate.id }, orderBy: { changedAt: "asc" } }),
   ]);
 
@@ -155,6 +155,12 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   const wonFromFund = mandate.sourceOpportunity?.relatedFunds[0]?.organization.name;
   const stageBarStep = mandateStageBarStep(mandate.status);
   const stageDays = daysPerStage(statusHistory.map((h) => ({ stage: h.toStatus, at: h.changedAt })));
+
+  // Section 4 composer "With" picker — the record's contacts, and on mandates its candidates.
+  const composerPeople = [
+    ...mandate.stakeholders.map((s) => ({ id: s.personId, name: `${s.person.firstName} ${s.person.lastName}` })),
+    ...mandate.candidateProcesses.map((p) => ({ id: p.candidatePersonId, name: `${p.candidatePerson.firstName} ${p.candidatePerson.lastName}` })),
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -295,15 +301,12 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="activity-view">
           <div className="flex flex-col gap-4">
-            <Card>
-              <CardContent className="flex items-center justify-between gap-3 pt-4">
-                <span className="flex items-center gap-2 text-sm text-[var(--color-ink2)]">
-                  <PencilLine className="h-4 w-4 text-[var(--color-muted)]" />
-                  Log a call, note, email or file against this search.
-                </span>
-                <LogActivityDialog users={users} currentUserId={user.id} linkContext={{ mandateId: mandate.id, label: `${mandate.reference} — ${mandate.title}` }} />
-              </CardContent>
-            </Card>
+            <Composer
+              linkContext={{ mandateId: mandate.id, organizationId: mandate.hiringOrganizationId }}
+              currentUserId={user.id}
+              people={composerPeople}
+              documentLinkField="mandateId"
+            />
 
             <NextActionCard
               task={
@@ -323,23 +326,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
             <Card>
               <CardContent className="pt-4">
                 <h3 className="mb-3.5 text-sm font-semibold">History</h3>
-                {timeline.length === 0 ? (
-                  <EmptyState title="Nothing logged yet" />
-                ) : (
-                  <ul className="flex flex-col gap-3">
-                    {timeline.map((t) => (
-                      <li key={`${t.kind}-${t.id}`} className="flex gap-3 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-4 py-3">
-                        {t.kind === "activity" ? <Phone className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" /> : <Mail className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-muted)]" />}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm">
-                            {t.kind === "activity" ? (t.summary ?? label(t.activityType)) : t.kind === "task" ? t.title : `${label(t.fromLabel)} → ${label(t.toLabel)}`}
-                          </p>
-                          <p className="mt-0.5 text-xs text-[var(--color-muted)]">{format(t.date, "d MMM yyyy")}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet — use the composer above to log a call, note, email or file." />
               </CardContent>
             </Card>
           </div>

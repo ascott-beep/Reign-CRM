@@ -29,11 +29,19 @@ export type TimelineItem =
       fromLabel: string | null;
       toLabel: string;
       actorName: string;
+    }
+  | {
+      kind: "file";
+      id: string;
+      date: Date;
+      displayName: string;
+      category: string;
+      documentId: string;
     };
 
 /** Opportunity-specific for now — extend with mandate/person/org variants as those pages adopt the same timeline. */
 export async function getOpportunityTimeline(opportunityId: string): Promise<TimelineItem[]> {
-  const [activityLinks, taskLinks, stageHistory] = await Promise.all([
+  const [activityLinks, taskLinks, stageHistory, documentLinks] = await Promise.all([
     prisma.activityOpportunity.findMany({
       where: { opportunityId },
       include: { activity: { include: { createdBy: true } } },
@@ -45,6 +53,10 @@ export async function getOpportunityTimeline(opportunityId: string): Promise<Tim
     prisma.opportunityStageHistory.findMany({
       where: { opportunityId },
       include: { changedBy: true },
+    }),
+    prisma.documentOpportunity.findMany({
+      where: { opportunityId },
+      include: { document: true },
     }),
   ]);
 
@@ -76,6 +88,14 @@ export async function getOpportunityTimeline(opportunityId: string): Promise<Tim
       fromLabel: h.fromStage,
       toLabel: h.toStage,
       actorName: `${h.changedBy.firstName} ${h.changedBy.lastName}`,
+    })),
+    ...documentLinks.map((l): TimelineItem => ({
+      kind: "file",
+      id: l.document.id,
+      date: l.document.uploadedAt,
+      displayName: l.document.displayName,
+      category: l.document.category,
+      documentId: l.document.id,
     })),
   ];
 
@@ -161,7 +181,7 @@ export async function getOrganizationTimeline(organizationId: string): Promise<T
 }
 
 export async function getMandateTimeline(mandateId: string): Promise<TimelineItem[]> {
-  const [activityLinks, taskLinks, statusHistory] = await Promise.all([
+  const [activityLinks, taskLinks, statusHistory, documentLinks] = await Promise.all([
     prisma.activityMandate.findMany({
       where: { mandateId },
       include: { activity: { include: { createdBy: true } } },
@@ -173,6 +193,10 @@ export async function getMandateTimeline(mandateId: string): Promise<TimelineIte
     prisma.mandateStatusHistory.findMany({
       where: { mandateId },
       include: { changedBy: true },
+    }),
+    prisma.documentMandate.findMany({
+      where: { mandateId },
+      include: { document: true },
     }),
   ]);
 
@@ -204,6 +228,14 @@ export async function getMandateTimeline(mandateId: string): Promise<TimelineIte
       fromLabel: h.fromStatus,
       toLabel: h.toStatus,
       actorName: `${h.changedBy.firstName} ${h.changedBy.lastName}`,
+    })),
+    ...documentLinks.map((l): TimelineItem => ({
+      kind: "file",
+      id: l.document.id,
+      date: l.document.uploadedAt,
+      displayName: l.document.displayName,
+      category: l.document.category,
+      documentId: l.document.id,
     })),
   ];
 

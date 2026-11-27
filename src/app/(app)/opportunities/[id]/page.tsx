@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, ArchiveRestore, PencilLine } from "lucide-react";
+import { Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
@@ -14,7 +14,7 @@ import { MoreDetails } from "@/components/ui/more-details";
 import { StageProgressBar } from "@/components/ui/stage-progress-bar";
 import { PersonHoverCard, OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { NextActionCard } from "@/components/ui/next-action-card";
-import { Timeline } from "@/components/ui/timeline";
+import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
@@ -23,7 +23,7 @@ import { getOpportunityTimeline } from "@/lib/timeline";
 import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityStageBarStep, daysPerStage } from "@/lib/rules";
 import { format } from "date-fns";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
-import { LogActivityDialog } from "../../activities/log-activity-dialog";
+import { Composer } from "../../activities/composer";
 import { StageSelect } from "../stage-select";
 import { ConvertToMandateButton } from "../convert-to-mandate-button";
 
@@ -47,19 +47,26 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   });
   if (!opportunity) notFound();
 
-  const [timeline, documents, auditLogs, users, stageHistory] = await Promise.all([
+  const [timeline, documents, auditLogs, stageHistory] = await Promise.all([
     getOpportunityTimeline(opportunity.id),
     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Opportunity", entityId: opportunity.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
-    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
     prisma.opportunityStageHistory.findMany({ where: { opportunityId: opportunity.id }, orderBy: { changedAt: "asc" } }),
   ]);
 
   const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
   const barStep = opportunityStageBarStep(opportunity.stage, stageHistory);
   const days = daysPerStage(stageHistory.map((h) => ({ stage: h.toStage, at: h.changedAt })));
+
+  // Section 4 composer "With" picker — the record's contacts.
+  const composerPeople = [
+    ...(opportunity.leadContactPerson ? [{ id: opportunity.leadContactPerson.id, name: `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` }] : []),
+    ...opportunity.stakeholders
+      .filter((s) => s.personId !== opportunity.leadContactPerson?.id)
+      .map((s) => ({ id: s.personId, name: `${s.person.firstName} ${s.person.lastName}` })),
+  ];
 
   return (
     <div>
@@ -236,17 +243,14 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               </CardContent>
             </Card>
 
-            {/* Main column — composer, then Focus, then History (section 3/4). */}
+            {/* Main column — composer, then Focus, then History (section 4). */}
             <div className="flex flex-col gap-4">
-              <Card>
-                <CardContent className="flex items-center justify-between gap-3 pt-4">
-                  <span className="flex items-center gap-2 text-sm text-[var(--color-ink2)]">
-                    <PencilLine className="h-4 w-4 text-[var(--color-muted)]" />
-                    Log a call, note, email or file against this opportunity.
-                  </span>
-                  <LogActivityDialog users={users} currentUserId={user.id} linkContext={{ opportunityId: opportunity.id, label: opportunity.name }} />
-                </CardContent>
-              </Card>
+              <Composer
+                linkContext={{ opportunityId: opportunity.id, organizationId: opportunity.hiringOrganizationId }}
+                currentUserId={user.id}
+                people={composerPeople}
+                documentLinkField="opportunityId"
+              />
 
               <NextActionCard
                 task={
@@ -266,7 +270,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               <Card>
                 <CardContent className="pt-4">
                   <h3 className="mb-3.5 text-sm font-semibold">History</h3>
-                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+                  <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet — use the composer above to log a call, note, email or file." />
                 </CardContent>
               </Card>
             </div>
