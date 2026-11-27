@@ -31,7 +31,6 @@ import {
   candidatePlainStatus,
   fitLabel,
   candidateNextStepFallback,
-  candidateNextStepFallbackUrgent,
   isCandidateHidden,
   MANDATE_STAGE_BAR_STEPS,
   MANDATE_STAGE_BAR_LABELS,
@@ -120,7 +119,9 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       step: step?.step ?? 1,
       fit: p.candidatePerson.candidateProfile ? fitLabel(p.candidatePerson.candidateProfile.rating) : null,
       nextStepText,
-      nextStepUrgent: dotStatus === "overdue" || (!p.primaryNextTask && candidateNextStepFallbackUrgent(p.stage)),
+      nextStepDueDate: p.primaryNextTask?.dueDate ?? null,
+      // Round 3 item 10: only an actual overdue date turns red now, not the stage-based fallback heuristic.
+      nextStepUrgent: dotStatus === "overdue",
       hidden: isCandidateHidden(p.stage),
     };
   });
@@ -261,10 +262,10 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 <dd>{mandate.startDate ? format(mandate.startDate, "d MMM yyyy") : "—"}</dd>
               </div>
               {mandate.sourceOpportunity ? (
-                <div className="flex justify-between gap-2">
+                <div className="flex flex-col gap-1">
                   <dt className="text-[var(--color-ink-subtle)]">Won from</dt>
-                  <dd className="truncate text-right">
-                    <Link href={`/opportunities/${mandate.sourceOpportunity.id}`} className="text-[var(--color-accent)]">
+                  <dd>
+                    <Link href={`/opportunities/${mandate.sourceOpportunity.id}`} className="block w-full truncate text-[var(--color-accent)]">
                       {mandate.sourceOpportunity.name}
                     </Link>
                   </dd>

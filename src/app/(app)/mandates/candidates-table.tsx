@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { CANDIDATE_STEP_COUNT } from "@/lib/rules";
 import { cn } from "@/lib/utils";
@@ -19,12 +20,14 @@ export type CandidateRow = {
   step: number; // 1-6
   fit: string | null;
   nextStepText: string | null;
+  /** The actual due date behind nextStepText, when there's a real task — only this gets coloured red when overdue. */
+  nextStepDueDate: Date | null;
   nextStepUrgent: boolean;
   /** Rejected / withdrawn / on hold — hidden behind "Show" by default. */
   hidden: boolean;
 };
 
-const GRID = "grid grid-cols-[minmax(0,1.6fr)_170px_120px_64px_minmax(0,1.5fr)] items-center gap-5";
+const GRID = "grid grid-cols-[minmax(0,1.6fr)_170px_90px_64px_minmax(260px,1.5fr)] items-start gap-5";
 
 function Row({ r, onOpenDetail, onExit }: { r: CandidateRow; onOpenDetail: (id: string) => void; onExit: ((r: CandidateRow) => void) | null }) {
   return (
@@ -47,9 +50,15 @@ function Row({ r, onOpenDetail, onExit }: { r: CandidateRow; onOpenDetail: (id: 
         </span>
       </span>
       <span className="text-[13.5px] text-[var(--color-ink2)]">{r.fit ?? "—"}</span>
-      <span className="flex items-center justify-between gap-2">
-        <span className={cn("truncate text-[13.5px]", r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink2)]")}>
+      <span className="flex items-start justify-between gap-2">
+        <span className="line-clamp-2 text-[13.5px] text-[var(--color-ink)]">
           {r.nextStepText ?? "—"}
+          {r.nextStepDueDate ? (
+            <>
+              {" · "}
+              <span className={r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink-subtle)]"}>{format(r.nextStepDueDate, "d MMM")}</span>
+            </>
+          ) : null}
         </span>
         {onExit ? (
           <button
