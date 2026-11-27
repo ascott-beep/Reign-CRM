@@ -12,26 +12,27 @@ export default async function SettingsCustomFieldsPage() {
 
   return (
     <div>
-      <div className="mb-3 flex justify-end">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-sm text-[var(--color-ink-subtle)]">Extra fields that show under More details.</p>
         <CreateCustomFieldDialog />
       </div>
       {customFields.length === 0 ? (
-        <EmptyState title="No custom fields defined" />
+        <EmptyState title="No custom fields yet" description="Add one to collect extra detail on people, organisations, opportunities or mandates." />
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Label</TableHead>
-              <TableHead>Entity</TableHead>
+              <TableHead>Field</TableHead>
               <TableHead>Type</TableHead>
+              <TableHead>Shows on</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {customFields.map((f) => (
               <TableRow key={f.id}>
-                <TableCell>{f.label}</TableCell>
-                <TableCell>{label(f.entityType)}</TableCell>
+                <TableCell className="font-medium text-[var(--color-ink)]">{f.label}</TableCell>
                 <TableCell>{label(f.fieldType)}</TableCell>
+                <TableCell>{label(f.entityType)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

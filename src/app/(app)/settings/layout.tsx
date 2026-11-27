@@ -17,7 +17,7 @@ export default async function SettingsLayout({ children }: { children: React.Rea
 
   return (
     <div>
-      <PageHeader title="Settings" description="Workspace-wide configuration." />
+      <PageHeader title="Settings" />
       <div className="flex gap-8">
         <SettingsNav isAdmin={user.role === "ADMIN"} />
         <div className="min-w-0 flex-1">{children}</div>

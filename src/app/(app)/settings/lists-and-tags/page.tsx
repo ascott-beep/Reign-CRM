@@ -1,21 +1,30 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
-import { PermissionDeniedState } from "@/components/shell/states";
-import { Badge } from "@/components/ui/badge";
+import { PermissionDeniedState, EmptyState } from "@/components/shell/states";
 import { Card, CardContent } from "@/components/ui/card";
-import { toggleLookupItemAction, updatePracticeAreaColorAction } from "../actions";
+import { toggleLookupItemAction, updatePracticeAreaColorAction, listTagsWithCounts } from "../actions";
 import { CreateLookupItemDialog, CreateTagDialog } from "../settings-dialogs";
+import { TagRow } from "../tag-row";
+
+const SAVED_LIST_ENTITY_HREF: Record<string, string> = { PERSON: "/people", ORGANIZATION: "/organisations" };
+const SAVED_LIST_ENTITY_NOUN: Record<string, string> = { PERSON: "people", ORGANIZATION: "organisations" };
 
 export default async function SettingsListsAndTagsPage() {
   const user = await requireUser();
   if (user.role !== "ADMIN") return <PermissionDeniedState description="This page is administrator-only." />;
-  const [sectors, practiceAreas, specialisms, investorStrategies, ownershipTypes, tags] = await Promise.all([
+  const [sectors, practiceAreas, specialisms, investorStrategies, ownershipTypes, tags, savedLists] = await Promise.all([
     prisma.sector.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
     prisma.practiceArea.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
     prisma.functionalSpecialism.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
     prisma.investorStrategy.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
     prisma.ownershipType.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { displayOrder: "asc" } }),
-    prisma.tag.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { name: "asc" } }),
+    listTagsWithCounts(user.workspaceId),
+    prisma.savedView.findMany({
+      where: { workspaceId: user.workspaceId, entityType: { in: ["PERSON", "ORGANIZATION"] } },
+      include: { owner: { select: { firstName: true, lastName: true } } },
+      orderBy: { updatedAt: "desc" },
+    }),
   ]);
 
   return (
@@ -86,17 +95,49 @@ export default async function SettingsListsAndTagsPage() {
 
       <Card>
         <CardContent className="pt-4">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Tags</h3>
+          <div className="mb-1 flex items-start justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">Tags</h3>
+              <p className="text-xs text-[var(--color-ink-subtle)]">Used on people, organisations, opportunities and mandates.</p>
+            </div>
             <CreateTagDialog />
           </div>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((t) => (
-              <Badge key={t.id} tone="neutral">
-                {t.name}
-              </Badge>
-            ))}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {tags.length === 0 ? (
+              <p className="text-sm text-[var(--color-ink-subtle)]">No tags yet.</p>
+            ) : (
+              tags.map((t) => <TagRow key={t.id} tag={t} otherTags={tags.filter((other) => other.id !== t.id)} />)
+            )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-4">
+          <h3 className="text-sm font-semibold">Saved lists</h3>
+          {savedLists.length === 0 ? (
+            <EmptyState
+              title="No saved lists yet"
+              description="Saved lists are made from a filtered People or Organisations view with Save as list."
+            />
+          ) : (
+            <div className="mt-2 flex flex-col">
+              {savedLists.map((list, i) => (
+                <div key={list.id} className={i > 0 ? "flex items-center justify-between border-t border-[var(--color-line)] py-3" : "flex items-center justify-between pb-3"}>
+                  <div>
+                    <p className="text-sm text-[var(--color-ink)]">{list.name}</p>
+                    <p className="text-xs text-[var(--color-ink-subtle)]">
+                      {SAVED_LIST_ENTITY_NOUN[list.entityType] ?? list.entityType.toLowerCase()} ·{" "}
+                      {list.shared ? "Shared" : list.owner ? `${list.owner.firstName} ${list.owner.lastName}` : "Shared"}
+                    </p>
+                  </div>
+                  <Link href={`${SAVED_LIST_ENTITY_HREF[list.entityType] ?? "/"}?view=${list.id}`} className="text-sm text-[var(--color-accent)]">
+                    Open
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
