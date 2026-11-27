@@ -8,6 +8,7 @@ import { organizationFormSchema, organizationRelationshipSchema } from "@/lib/va
 import { normalizeName, normalizeWebsiteDomain } from "@/lib/normalize";
 import { findOrganizationDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
+import { researchOrganization } from "@/lib/intelligence-sweep";
 
 export type OrgFormState = {
   errors?: Record<string, string[]>;
@@ -330,4 +331,15 @@ export async function mergeOrganizationAction(
   revalidatePath(`/organisations/${survivorId}`);
   revalidatePath("/organisations");
   redirect(`/organisations/${survivorId}`);
+}
+
+/** Round 2 section 5 "Research now" — runs the agent for this one company immediately. */
+export async function researchOrganizationNowAction(organizationId: string) {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+
+  const result = await researchOrganization(user.workspaceId, organizationId, user.id);
+  revalidatePath(`/organisations/${organizationId}`);
+  revalidatePath("/intelligence");
+  return result;
 }

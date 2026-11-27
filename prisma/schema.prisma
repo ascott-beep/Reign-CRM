@@ -601,6 +601,11 @@ model Workspace {
   exchangeRatesToGbp            Json?
   updateRatesAutomatically      Boolean  @default(false)
   exchangeRatesUpdatedAt        DateTime?
+  /// Round 2 section 5/6 — Intelligence AI research agent settings, surfaced in Settings > Connections.
+  intelligenceSweepEnabled      Boolean  @default(false)
+  intelligenceSweepHourUtc      Int      @default(6)
+  /// Empty = every IntelligenceType is in scope.
+  intelligenceSignalTypes       IntelligenceType[] @default([])
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
@@ -612,6 +617,7 @@ model Workspace {
   mandates                  Mandate[]
   candidateProcesses        CandidateProcess[]
   intelligenceItems         IntelligenceItem[]
+  intelligenceRuns          IntelligenceRun[]
   activities                Activity[]
   tasks                     Task[]
   documents                 Document[]
@@ -882,6 +888,7 @@ model Organization {
   mandatesAsRelatedFund        MandateFund[]
   intelligenceItems            IntelligenceItem[]              @relation("IntelligenceOrganization")
   intelligenceAsRelatedFund    IntelligenceItemFund[]
+  intelligenceRuns             IntelligenceRun[]
   activities                   ActivityOrganization[]
   tasks                        TaskOrganization[]
   documents                    DocumentOrganization[]
@@ -1717,13 +1724,75 @@ model IntelligenceItem {
   updatedAt              DateTime                    @updatedAt
   archivedAt             DateTime?
 
+  /// Round 2 section 5 — agent-found signals start PENDING_REVIEW in the
+  /// review queue; hand-logged signals (the pre-existing "Log signal" flow)
+  /// default straight to ACCEPTED so nothing already in the CRM changes.
+  reviewState   IntelligenceReviewState    @default(ACCEPTED)
+  dismissReason IntelligenceDismissReason?
+  dismissedAt   DateTime?
+  runId         String?
+  run           IntelligenceRun?           @relation(fields: [runId], references: [id])
+
   relatedFunds IntelligenceItemFund[]
   activities   ActivityIntelligenceItem[]
   tasks        TaskIntelligenceItem[]
   documents    DocumentIntelligenceItem[]
   tags         TagOnIntelligenceItem[]
+  sources      IntelligenceSource[]
 
   @@index([workspaceId, type])
+  @@index([organizationId])
+  @@index([workspaceId, reviewState])
+}
+
+enum IntelligenceReviewState {
+  PENDING_REVIEW
+  ACCEPTED
+  DISMISSED
+}
+
+enum IntelligenceDismissReason {
+  NOT_RELEVANT
+  WRONG_COMPANY
+  ALREADY_KNEW
+}
+
+/// Round 2 section 5 — "merge duplicates... into one signal with several sources."
+model IntelligenceSource {
+  id                 String           @id @default(cuid())
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+  url                String
+  title              String?
+  createdAt          DateTime         @default(now())
+
+  @@index([intelligenceItemId])
+}
+
+enum IntelligenceRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Round 2 section 5 — "Log every run, its sources and its cost."
+model IntelligenceRun {
+  id             String                @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id])
+  organizationId String?
+  organization   Organization?         @relation(fields: [organizationId], references: [id])
+  provider       String
+  status         IntelligenceRunStatus @default(RUNNING)
+  signalsFound   Int                   @default(0)
+  costUsd        Decimal?              @db.Decimal(10, 4)
+  errorMessage   String?
+  startedAt      DateTime              @default(now())
+  finishedAt     DateTime?
+
+  signals IntelligenceItem[]
+
+  @@index([workspaceId, startedAt])
   @@index([organizationId])
 }
 

@@ -24,6 +24,7 @@ import { LIVE_MANDATE_STATUSES, OPEN_OPPORTUNITY_STAGES, mandateStagePosition, h
 import { AddRelationshipDialog } from "../add-relationship-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
+import { ResearchNowButton } from "../research-now-button";
 
 const HOLD_STAGE_LABEL: Record<string, string> = {
   NEWLY_ACQUIRED: "Newly acquired",
@@ -72,7 +73,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
     getOrganizationTimeline(org.id),
     prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
-    prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null }, orderBy: { dateReceived: "desc" } }),
+    prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null, reviewState: "ACCEPTED" }, orderBy: { dateReceived: "desc" } }),
     prisma.documentOrganization.findMany({ where: { organizationId: org.id }, include: { document: true } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Organization", entityId: org.id }, include: { actor: true }, orderBy: { timestamp: "desc" }, take: 50 })
@@ -200,6 +201,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
+          <ResearchNowButton organizationId={org.id} />
           {user.role === "ADMIN" ? <MoreMenu type="ORGANIZATION" id={org.id} listHref="/organisations" /> : null}
         </div>
       </header>

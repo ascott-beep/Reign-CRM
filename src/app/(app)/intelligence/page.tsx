@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
-import { SourcesCard } from "./sources-card";
+import { format, subDays } from "date-fns";
 import { ReviewQueue } from "./review-queue";
 import { TypeFilter } from "./type-filter";
 import type { Prisma, IntelligenceType } from "@prisma/client";
@@ -30,27 +29,49 @@ const ALL_TYPES: IntelligenceType[] = [
   "REFINANCING",
 ];
 
-const REVIEW_QUEUE_EXAMPLE_COUNT = 4;
-
 export default async function IntelligencePage({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
   const user = await requireUser();
   const sp = await searchParams;
   const typeFilter = typeof sp.type === "string" && ALL_TYPES.includes(sp.type as IntelligenceType) ? (sp.type as IntelligenceType) : undefined;
 
-  const where: Prisma.IntelligenceItemWhereInput = { workspaceId: user.workspaceId, archivedAt: null };
+  const where: Prisma.IntelligenceItemWhereInput = { workspaceId: user.workspaceId, archivedAt: null, reviewState: "ACCEPTED" };
   if (typeFilter) where.type = typeFilter;
 
-  const items = await prisma.intelligenceItem.findMany({
-    where,
-    orderBy: { dateReceived: "desc" },
-    include: { organization: true, owner: true, convertedOpportunity: { select: { name: true, potentialRoleTitle: true } } },
-  });
+  const queueSelect = {
+    id: true,
+    title: true,
+    type: true,
+    confidence: true,
+    dateReceived: true,
+    dismissReason: true,
+    dismissedAt: true,
+    organization: { select: { id: true, name: true } },
+    sources: { select: { id: true, url: true, title: true } },
+  } satisfies Prisma.IntelligenceItemSelect;
+
+  const [items, pendingReview, dismissedRecently] = await Promise.all([
+    prisma.intelligenceItem.findMany({
+      where,
+      orderBy: { dateReceived: "desc" },
+      include: { organization: true, owner: true, convertedOpportunity: { select: { name: true, potentialRoleTitle: true } } },
+    }),
+    prisma.intelligenceItem.findMany({
+      where: { workspaceId: user.workspaceId, archivedAt: null, reviewState: "PENDING_REVIEW" },
+      orderBy: { dateReceived: "desc" },
+      select: queueSelect,
+    }),
+    prisma.intelligenceItem.findMany({
+      where: { workspaceId: user.workspaceId, archivedAt: null, reviewState: "DISMISSED", dismissedAt: { gte: subDays(new Date(), 30) } },
+      orderBy: { dismissedAt: "desc" },
+      select: queueSelect,
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Intelligence"
-        description={`Market signals across your organisations · ${items.length} logged · ${REVIEW_QUEUE_EXAMPLE_COUNT} waiting for review`}
+        description={`Market signals across your organisations · ${items.length} logged · ${pendingReview.length} waiting for review`}
         actions={
           <>
             <TypeFilter types={ALL_TYPES} current={typeFilter ?? "ALL"} />
@@ -64,10 +85,7 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
         user={user}
       />
 
-      <div className="flex flex-wrap items-stretch gap-4">
-        <SourcesCard />
-        <ReviewQueue />
-      </div>
+      <ReviewQueue pending={pendingReview} dismissed={dismissedRecently} />
 
       <section className="overflow-hidden rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
         {items.length === 0 ? (

@@ -174,12 +174,12 @@ export default async function DashboardPage() {
       select: { stage: true, estimatedFeeAmount: true, estimatedFeeCurrency: true, probabilityOverride: true, isProbabilityOverridden: true },
     }),
     prisma.intelligenceItem.findMany({
-      where: { workspaceId: wid, archivedAt: null },
+      where: { workspaceId: wid, archivedAt: null, reviewState: "ACCEPTED" },
       orderBy: { dateReceived: "desc" },
       take: 3,
       select: { id: true, title: true, type: true, confidence: true, commercialRelevance: true, dateReceived: true },
     }),
-    prisma.intelligenceItem.count({ where: { workspaceId: wid, archivedAt: null, dateReceived: { gte: oneWeekAgo } } }),
+    prisma.intelligenceItem.count({ where: { workspaceId: wid, archivedAt: null, reviewState: "ACCEPTED", dateReceived: { gte: oneWeekAgo } } }),
   ]);
 
   // --- Today ---------------------------------------------------------------
