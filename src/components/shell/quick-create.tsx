@@ -22,7 +22,7 @@ const QUICK_CREATE_LINKS = [
   { label: "Mandate", href: "/mandates/new", icon: Briefcase, key: "m" },
 ];
 
-export function QuickCreate() {
+export function QuickCreate({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -44,12 +44,18 @@ export function QuickCreate() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button>
-          <Plus className="h-[14px] w-[14px]" />
-          Quick create
-        </Button>
+        {collapsed ? (
+          <Button size="icon" aria-label="New" title="New">
+            <Plus className="h-[14px] w-[14px]" />
+          </Button>
+        ) : (
+          <Button className="w-full justify-start">
+            <Plus className="h-[14px] w-[14px]" />
+            New
+          </Button>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start">
         {QUICK_CREATE_LINKS.map((link) => (
           <DropdownMenuItem key={link.href} asChild>
             <Link href={link.href} className="flex items-center gap-2.5">

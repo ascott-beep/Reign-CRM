@@ -158,7 +158,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             </Button>
           </>
         }
-        user={user}
       />
 
       <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">

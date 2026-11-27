@@ -29,7 +29,7 @@ const ACTIONS = [
   { id: "log-activity", title: "Log activity", href: "/activities/new" },
 ];
 
-export function GlobalSearch() {
+export function GlobalSearch({ collapsed = false }: { collapsed?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [groups, setGroups] = React.useState<SearchGroup[]>([]);
@@ -96,14 +96,27 @@ export function GlobalSearch() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        aria-label="Search (Cmd+K)"
-        title="Search (Cmd+K)"
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
-      >
-        <Search className="h-4 w-4" />
-      </button>
+      {collapsed ? (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Search or ask (Cmd+K)"
+          title="Search or ask (Cmd+K)"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      ) : (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Search or ask (Cmd+K)"
+          title="Search or ask (Cmd+K)"
+          className="flex h-9 w-full items-center gap-2 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-2.5 text-[13px] text-[var(--color-ink-subtle)] transition-colors hover:bg-[var(--color-active)]"
+        >
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-left">Search or ask…</span>
+          <span className="shrink-0 rounded-[4px] border border-[var(--color-line)] px-1.5 py-0.5 text-[10px]">⌘K</span>
+        </button>
+      )}
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-24" onClick={() => setOpen(false)}>

@@ -8,6 +8,8 @@ import { NAV_GROUPS, SETTINGS_NAV_ITEM, type NavItem } from "@/lib/nav";
 import { ReignMark } from "@/components/shell/reign-logo";
 import { AtlasLogo } from "@/components/brand/atlas-logo";
 import { UserMenu } from "@/components/shell/user-menu";
+import { GlobalSearch } from "@/components/shell/global-search";
+import { QuickCreate } from "@/components/shell/quick-create";
 import { setSidebarCollapsedAction } from "@/lib/sidebar-actions";
 import { initials, cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
@@ -74,10 +76,13 @@ export function Sidebar({
   user,
   counts,
   defaultCollapsed,
+  notificationBell,
 }: {
   user: { firstName: string; lastName: string; role: string };
   counts: NavCounts;
   defaultCollapsed: boolean;
+  /** Server-rendered (needs DB access for the overdue/due-today count) — see (app)/layout.tsx. */
+  notificationBell: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -134,6 +139,18 @@ export function Sidebar({
         </div>
       )}
 
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-3">
+          <GlobalSearch collapsed />
+          <QuickCreate collapsed />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <GlobalSearch />
+          <QuickCreate />
+        </div>
+      )}
+
       <nav className="flex flex-1 flex-col gap-[18px]">
         {NAV_GROUPS.map((group) => (
           <div key={group.label} className="flex flex-col gap-px">
@@ -187,6 +204,7 @@ export function Sidebar({
               </button>
             }
           />
+          {!collapsed ? notificationBell : null}
           {!collapsed ? (
             <Link
               href={SETTINGS_NAV_ITEM.href}

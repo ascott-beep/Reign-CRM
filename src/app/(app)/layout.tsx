@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { Sidebar, type NavCounts } from "@/components/shell/sidebar";
+import { TaskIndicator } from "@/components/shell/task-indicator";
 import { WhatsNextProvider } from "@/components/shell/whats-next-provider";
 import { AskAtlasProvider } from "@/components/shell/ask-atlas/ask-atlas-provider";
 import { requireUser } from "@/lib/permissions";
@@ -30,22 +31,26 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const counts = await getNavCounts(user.workspaceId, user.id);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
-      <Sidebar
-        user={{ firstName: user.firstName, lastName: user.lastName, role: user.role }}
-        counts={counts}
-        defaultCollapsed={defaultCollapsed}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Round 2 section 1: no separate top header bar — each page carries
-            the desk picker/search/notifications/Quick create cluster in its
-            own header row instead (see PageHeader's `user` prop). */}
-        <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">
-          <WhatsNextProvider>
-            <AskAtlasProvider>{children}</AskAtlasProvider>
-          </WhatsNextProvider>
-        </main>
+    <AskAtlasProvider>
+      <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+        <Sidebar
+          user={{ firstName: user.firstName, lastName: user.lastName, role: user.role }}
+          counts={counts}
+          defaultCollapsed={defaultCollapsed}
+          notificationBell={<TaskIndicator user={user} />}
+        />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Round 3 item 7: no separate top header bar — search/ask, + New and
+              notifications live in the sidebar now (its "Search or ask…" bar
+              needs AskAtlasProvider too, so that now wraps the whole layout,
+              not just the page content). A page's own PageHeader only ever
+              carries that page's own actions, plus the desk picker on the
+              five pages it filters (see GlobalHeaderControls). */}
+          <main className="flex flex-1 flex-col gap-6 overflow-y-auto px-10 pb-10 pt-8">
+            <WhatsNextProvider>{children}</WhatsNextProvider>
+          </main>
+        </div>
       </div>
-    </div>
+    </AskAtlasProvider>
   );
 }

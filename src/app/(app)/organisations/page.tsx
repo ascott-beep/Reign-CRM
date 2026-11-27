@@ -190,7 +190,6 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
             </Button>
           </>
         }
-        user={user}
       />
 
       <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">

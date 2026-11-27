@@ -1,27 +1,19 @@
 import { cookies } from "next/headers";
-import { GlobalSearch } from "@/components/shell/global-search";
-import { QuickCreate } from "@/components/shell/quick-create";
-import { TaskIndicator } from "@/components/shell/task-indicator";
 import { DeskPicker } from "@/components/shell/desk-picker";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { prisma } from "@/lib/prisma";
 import type { SessionUser } from "@/lib/permissions";
 
 /**
- * Round 2 section 1: the desk picker, search, notifications and Quick
- * create used to live in a separate top bar (components/shell/header.tsx).
- * That bar is gone — every page now carries this same cluster inline in
- * its own header row instead, vertically centred with the page title, as
- * in 01-overview.
+ * Round 3 item 7: search, notifications and + New moved to the sidebar —
+ * this is the desk picker only now, kept next to a page's own actions on
+ * the five pages it actually filters (Overview, Opportunities, Mandates,
+ * Tasks, Reports). Pass `user` on PageHeader to show it; omit it on every
+ * other page.
  */
-export async function GlobalHeaderControls({
-  user,
-  showDeskPicker = true,
-}: {
-  user: SessionUser;
-  /** Reports already has its own desk picker wired to its own filtering — skip the duplicate there. */
-  showDeskPicker?: boolean;
-}) {
+export async function GlobalHeaderControls({ user, showDeskPicker = true }: { user: SessionUser; showDeskPicker?: boolean }) {
+  if (!showDeskPicker) return null;
+
   const [cookieStore, consultants] = await Promise.all([
     cookies(),
     prisma.user.findMany({
@@ -32,12 +24,5 @@ export async function GlobalHeaderControls({
   ]);
   const deskOptions = consultants.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }));
 
-  return (
-    <div className="flex items-center gap-2">
-      {showDeskPicker ? <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} /> : null}
-      <GlobalSearch />
-      <TaskIndicator user={user} />
-      <QuickCreate />
-    </div>
-  );
+  return <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />;
 }

@@ -82,7 +82,6 @@ export default async function IntelligencePage({ searchParams }: { searchParams:
             </Button>
           </>
         }
-        user={user}
       />
 
       <ReviewQueue pending={pendingReview} dismissed={dismissedRecently} />
