@@ -10,6 +10,7 @@ import { CURRENCY_CODES } from "@/lib/currency";
 import { createPasswordToken } from "@/lib/password-tokens";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { baseUrl } from "@/lib/base-url";
+import { ROLE_SHORT_LABEL } from "@/lib/labels";
 
 export type SettingsFormState = { errors?: Record<string, string[]>; success?: boolean };
 
@@ -29,11 +30,20 @@ export async function inviteUserAction(_prev: SettingsFormState, formData: FormD
   const created = await prisma.user.create({
     data: { workspaceId: user.workspaceId, firstName: data.firstName, lastName: data.lastName, email: data.email, role: data.role },
   });
-
-  const token = await createPasswordToken(created.id, "INVITE");
-  await sendInviteEmail({ to: created.email, firstName: created.firstName, url: `${baseUrl()}/set-password?token=${token}&purpose=invite` });
-
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "User", entityId: created.id, action: "CREATE" });
+
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { name: true } });
+  const token = await createPasswordToken(created.id, "INVITE");
+  await sendInviteEmail({
+    to: created.email,
+    firstName: created.firstName,
+    url: `${baseUrl()}/set-password?token=${token}&purpose=invite`,
+    inviterName: `${user.firstName} ${user.lastName}`,
+    workspaceName: workspace.name,
+    roleLabel: ROLE_SHORT_LABEL[data.role] ?? data.role,
+    replyTo: user.email,
+  });
+
   revalidatePath("/settings/users");
   return { success: true };
 }
@@ -45,8 +55,17 @@ export async function resendInviteAction(userId: string) {
   const target = await prisma.user.findFirstOrThrow({ where: { id: userId, workspaceId: user.workspaceId } });
   if (target.passwordHash) throw new Error("This user has already set a password.");
 
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { name: true } });
   const token = await createPasswordToken(target.id, "INVITE");
-  await sendInviteEmail({ to: target.email, firstName: target.firstName, url: `${baseUrl()}/set-password?token=${token}&purpose=invite` });
+  await sendInviteEmail({
+    to: target.email,
+    firstName: target.firstName,
+    url: `${baseUrl()}/set-password?token=${token}&purpose=invite`,
+    inviterName: `${user.firstName} ${user.lastName}`,
+    workspaceName: workspace.name,
+    roleLabel: ROLE_SHORT_LABEL[target.role] ?? target.role,
+    replyTo: user.email,
+  });
   revalidatePath("/settings/users");
 }
 

@@ -24,6 +24,23 @@ export async function findValidPasswordToken(raw: string, purpose: "INVITE" | "R
   return token;
 }
 
+/**
+ * Round 4 screen 47 (R4AuthExpired) — looks up a token regardless of whether
+ * it's expired or already used, so the expired-link page can still say who
+ * it was for and offer the right follow-up action. Returns null only if the
+ * raw value doesn't match any token this app ever issued.
+ */
+export async function findPasswordTokenRecord(raw: string) {
+  return prisma.passwordToken.findUnique({ where: { tokenHash: hashToken(raw) }, include: { user: true } });
+}
+
 export async function consumePasswordToken(tokenId: string) {
   await prisma.passwordToken.update({ where: { id: tokenId }, data: { usedAt: new Date() } });
+}
+
+/** Round 4 screen 44 (R4AuthSent) "Resend is limited to once a minute" — no new column needed, the most recent token's own createdAt is the record of when one was last sent. */
+export async function secondsSinceLastRequest(userId: string, purpose: "INVITE" | "RESET"): Promise<number | null> {
+  const latest = await prisma.passwordToken.findFirst({ where: { userId, purpose }, orderBy: { createdAt: "desc" } });
+  if (!latest) return null;
+  return (Date.now() - latest.createdAt.getTime()) / 1000;
 }
