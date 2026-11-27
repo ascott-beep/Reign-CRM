@@ -4,6 +4,8 @@ import { ExternalLink, Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { EmptyState } from "@/components/shell/states";
+import { RecordViewTracker } from "@/components/shell/record-view-tracker";
+import { CreatedToast } from "@/components/shell/created-toast";
 import { MoreMenu } from "@/components/shell/more-menu";
 import { restoreRecordAction } from "@/lib/delete-actions";
 import { Button } from "@/components/ui/button";
@@ -18,7 +20,7 @@ import { countryName } from "@/lib/iso";
 import { formatMoney, formatConvertedMoney, initials } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { getOrganizationTimeline } from "@/lib/timeline";
-import { format } from "date-fns";
+import { formatDate, formatShortDate, formatMonthYear, formatDateTime } from "@/lib/datetime";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
 import { LIVE_MANDATE_STATUSES, OPEN_OPPORTUNITY_STAGES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
@@ -148,13 +150,15 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
     },
     {
       label: "Last contact",
-      value: lastActivity ? format(lastActivity.date, "d MMM") : "—",
+      value: lastActivity ? formatShortDate(lastActivity.date) : "",
       detail: lastActivity ? null : "Nothing logged",
     },
   ].filter(Boolean) as { label: string; value: string; detail: string | null }[];
 
   return (
     <div className="flex flex-col gap-6">
+      <RecordViewTracker type="organization" id={org.id} label={org.name} meta={label(org.type)} href={`/organisations/${org.id}`} />
+      <CreatedToast />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-[18px]">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[6px] bg-[var(--color-navy)] text-[15px] font-semibold text-[var(--color-navy-ink)]">
@@ -174,11 +178,11 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <span>
                 {label(org.type)}
                 {org.sectors.length > 0 ? ` · ${org.sectors.map((s) => s.sector.name).join(", ")}` : ""}
-                {org.employeeCountMin || org.employeeCountMax ? ` · ${org.employeeCountMin ?? "?"}–${org.employeeCountMax ?? "?"} employees` : ""}
+                {org.employeeCountMin || org.employeeCountMax ? ` · ${org.employeeCountMin ?? "?"} to ${org.employeeCountMax ?? "?"} employees` : ""}
               </span>
               <StatusBadge value={org.status} />
               {org.accountPriority === "PRIORITY" ? <Badge tone="info">Priority</Badge> : null}
-              <Badge tone={stale ? "warning" : "neutral"}>{org.lastVerifiedAt ? `Verified ${format(org.lastVerifiedAt, "d MMM")} · re-verify` : "Never verified"}</Badge>
+              <Badge tone={stale ? "warning" : "neutral"}>{org.lastVerifiedAt ? `Verified ${formatShortDate(org.lastVerifiedAt)} · re-verify` : "Never verified"}</Badge>
             </div>
           </div>
         </div>
@@ -202,7 +206,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
-          <ResearchNowButton organizationId={org.id} />
+          <ResearchNowButton organizationId={org.id} organizationName={org.name} />
           <AskAtlasButton recordType="organization" recordName={org.name} />
           {user.role === "ADMIN" ? <MoreMenu type="ORGANIZATION" id={org.id} listHref="/organisations" /> : null}
         </div>
@@ -285,13 +289,13 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     >
                       <span>{r.sourceOrganization.name}</span>
                       <span className="whitespace-nowrap text-[13px] text-[var(--color-muted)]">
-                        {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : inverseRelationshipLabel(r.type)}
+                        {r.exitDate ? `exited ${formatMonthYear(r.exitDate)}` : r.investmentDate ? `since ${formatMonthYear(r.investmentDate)}` : inverseRelationshipLabel(r.type)}
                       </span>
                     </Link>
                   ))
                 )}
                 <div className="mt-3.5 text-xs text-[var(--color-muted)]">Investment thesis</div>
-                <p className="mt-1 text-[13px] leading-relaxed">{org.investmentThesisSummary || "—"}</p>
+                <p className="mt-1 text-[13px] leading-relaxed">{org.investmentThesisSummary || ""}</p>
               </div>
               <div>
                 <h2 className="m-0 text-base font-medium">Other companies these investors own</h2>
@@ -307,7 +311,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
                         <span className="block text-xs text-[var(--color-muted)]">
-                          via {r.sourceOrganization.name} · {r.exitDate ? `exited ${format(r.exitDate, "MMM yyyy")}` : r.investmentDate ? `since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                          via {r.sourceOrganization.name} · {r.exitDate ? `exited ${formatMonthYear(r.exitDate)}` : r.investmentDate ? `since ${formatMonthYear(r.investmentDate)}` : ""}
                         </span>
                       </span>
                       <Badge tone={siblingHasLiveMandate.has(r.targetOrganizationId) ? "info" : "neutral"}>
@@ -325,7 +329,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                 <dl className="mt-2.5 flex flex-col gap-2 text-[13px]">
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">Current fund / vintage</dt>
-                    <dd>{org.fundVintageOrCurrentFundName || "—"}</dd>
+                    <dd>{org.fundVintageOrCurrentFundName || ""}</dd>
                   </div>
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">AUM</dt>
@@ -333,7 +337,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                   </div>
                   <div className="flex justify-between border-t border-[var(--color-line)] py-2">
                     <dt className="text-[var(--color-muted)]">Strategies</dt>
-                    <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || "—"}</dd>
+                    <dd>{org.investorStrategies.map((s) => s.strategy.name).join(", ") || ""}</dd>
                   </div>
                 </dl>
               </div>
@@ -351,7 +355,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       <span className="min-w-0 flex-1">
                         <span className="block text-[13.5px]">{r.targetOrganization.name}</span>
                         <span className="block text-xs text-[var(--color-muted)]">
-                          {forwardRelationshipLabel(r.type)} {r.investmentDate ? `· since ${format(r.investmentDate, "MMM yyyy")}` : ""}
+                          {forwardRelationshipLabel(r.type)} {r.investmentDate ? `· since ${formatMonthYear(r.investmentDate)}` : ""}
                         </span>
                       </span>
                       <Badge tone={r.exitDate ? "neutral" : "info"}>{r.exitDate ? "Exited" : "Live"}</Badge>
@@ -387,7 +391,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     <span className="min-w-0 flex-1">
                       <span className="block text-[13px]">{a.person.firstName} {a.person.lastName}</span>
                       <span className="block truncate text-xs text-[var(--color-muted)]">
-                        {a.isPrimaryContact ? "Primary" : a.stakeholderRoles[0] ? label(a.stakeholderRoles[0]) : "—"}
+                        {a.isPrimaryContact ? "Primary" : a.stakeholderRoles[0] ? label(a.stakeholderRoles[0]) : ""}
                       </span>
                     </span>
                   </Link>
@@ -416,15 +420,15 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
               <h3 className="m-0 mb-2 text-sm font-medium">Details</h3>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Owner</span>
-                <span>{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+                <span>{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Ownership</span>
-                <span>{org.ownershipType?.name || "—"}</span>
+                <span>{org.ownershipType?.name || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Headquarters</span>
-                <span>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || "—"}</span>
+                <span>{[org.hqCity, org.hqCountryCode ? countryName(org.hqCountryCode) : null].filter(Boolean).join(", ") || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Source</span>
@@ -463,7 +467,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
 
       <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px]">
         <h2 className="m-0 mb-3.5 text-base font-medium">Activity</h2>
-        <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+        <Timeline items={timeline} emptyLabel="Nothing logged yet, use “Log activity” above to record a call, email, or note." />
       </section>
 
       <Tabs defaultValue="relationships">
@@ -500,10 +504,10 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       </Link>
                     </TableCell>
                     <TableCell>{forwardRelationshipLabel(r.type)}</TableCell>
-                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? format(r.investmentDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? format(r.exitDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
+                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : ""}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : ""}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : ""}</TableCell>
+                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : ""}</TableCell>
                   </TableRow>
                 ))}
                 {org.relationshipsAsTarget.map((r) => (
@@ -514,10 +518,10 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       </Link>
                     </TableCell>
                     <TableCell>{inverseRelationshipLabel(r.type)}</TableCell>
-                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : "—"}</TableCell>
-                    <TableCell>{r.investmentDate ? format(r.investmentDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.exitDate ? format(r.exitDate, "d MMM yyyy") : "—"}</TableCell>
-                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : "—"}</TableCell>
+                    <TableCell>{r.investmentStatus ? label(r.investmentStatus) : ""}</TableCell>
+                    <TableCell>{r.investmentDate ? formatDate(r.investmentDate) : ""}</TableCell>
+                    <TableCell>{r.exitDate ? formatDate(r.exitDate) : ""}</TableCell>
+                    <TableCell>{r.ownershipPercentage ? `${r.ownershipPercentage}%` : ""}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -554,7 +558,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                       ) : null}
                     </TableCell>
                     <TableCell>{label(d.document.category)}</TableCell>
-                    <TableCell>{format(d.document.uploadedAt, "d MMM yyyy")}</TableCell>
+                    <TableCell>{formatDate(d.document.uploadedAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -580,7 +584,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

@@ -88,6 +88,13 @@
     --color-status-neutral-bg: var(--color-chip);
     --color-status-neutral-ink: var(--color-ink2);
 
+    /* Round 4 ground rule 3: the three AI-specific tokens, for anything
+       touching Ask AI (the sidebar bar, the Ask AI panel, "Filled by AI"
+       labels, research results). */
+    --color-ai-bg: #eef7ff;
+    --color-ai-line: #cfe5f8;
+    --color-ai-icon: #1d5f99;
+
     /* Cards and form fields are flat (border only, no shadow) per spec —
        true overlays (dialog/select/popover/dropdown/tooltip) opt back into
        --shadow-overlay explicitly instead of the generic Tailwind scale. */
@@ -160,6 +167,10 @@
     --color-status-info-ink: var(--color-chip-strong-ink);
     --color-status-neutral-bg: var(--color-chip);
     --color-status-neutral-ink: var(--color-ink2);
+
+    --color-ai-bg: #eef7ff;
+    --color-ai-line: #cfe5f8;
+    --color-ai-icon: #1d5f99;
   }
 
   /* Explicit choice (persisted in the "theme" cookie, read server-side in
@@ -191,6 +202,10 @@
     --color-active: #132235;
     --color-sunk: #0b1724;
     --color-alert: #ff6a3d;
+
+    --color-ai-bg: #0f2540;
+    --color-ai-line: #1f4469;
+    --color-ai-icon: #bae1ff;
 
     --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
   }
@@ -228,6 +243,10 @@
       --color-active: #132235;
       --color-sunk: #0b1724;
       --color-alert: #ff6a3d;
+
+      --color-ai-bg: #0f2540;
+      --color-ai-line: #1f4469;
+      --color-ai-icon: #bae1ff;
 
       --shadow-overlay: 0 24px 60px rgba(7, 17, 29, 0.28);
     }

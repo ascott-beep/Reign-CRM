@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import { AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
-import { deleteRecordAction } from "@/lib/delete-actions";
+import { formatLongDate } from "@/lib/datetime";
+import { deleteRecordAction, restoreRecordAction } from "@/lib/delete-actions";
+import { useToast } from "@/components/shell/toast-provider";
 import type { DeletableType, DeleteImpact } from "@/lib/delete";
 
 const REASONS = [
@@ -20,12 +21,13 @@ const REASONS = [
 /** d11/d12 — fetches impact on open, then shows the delete confirmation or the blocked variant. */
 export function DeleteDialog({ type, id, listHref, onClose }: { type: DeletableType; id: string; listHref: string; onClose: () => void }) {
   const router = useRouter();
+  const { showToast } = useToast();
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const [impact, setImpact] = useState<DeleteImpact | null>(null);
   const [reason, setReason] = useState<(typeof REASONS)[number]["value"] | "">("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [restoreDeadline] = useState(() => format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), "d MMMM yyyy"));
+  const [restoreDeadline] = useState(() => formatLongDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)));
 
   useEffect(() => {
     fetch(`/api/delete-impact?type=${type}&id=${id}`)
@@ -44,8 +46,18 @@ export function DeleteDialog({ type, id, listHref, onClose }: { type: DeletableT
     setError(null);
     try {
       await deleteRecordAction(type, id, reason || undefined);
-      router.push(`${listHref}?deleted=${id}`);
+      router.push(listHref);
       onClose();
+      const noun = typeNoun(type) ?? "record";
+      showToast({
+        kind: "undo",
+        title: `${noun.charAt(0).toUpperCase()}${noun.slice(1)} deleted`,
+        actionLabel: "Undo",
+        onAction: () => {
+          restoreRecordAction(type, id);
+          router.refresh();
+        },
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to delete this record.");
       setPending(false);

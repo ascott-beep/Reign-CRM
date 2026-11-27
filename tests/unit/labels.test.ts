@@ -3,7 +3,7 @@ import { label, statusTone, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 
 describe("label", () => {
   it("shows full descriptive labels instead of raw enum names", () => {
-    expect(label("A_STRONG")).toBe("A — Strong");
+    expect(label("A_STRONG")).toBe("A · Strong");
     expect(label("NOT_RATED")).toBe("Not Rated");
     expect(label("PE_FUND")).toBe("PE Fund");
   });
@@ -12,9 +12,9 @@ describe("label", () => {
     expect(label("FUND_OF_FUNDS_LIKE_VALUE")).toBe("Fund Of Funds Like Value");
   });
 
-  it("returns an em dash for missing values", () => {
-    expect(label(null)).toBe("—");
-    expect(label(undefined)).toBe("—");
+  it("returns blank for missing values", () => {
+    expect(label(null)).toBe("");
+    expect(label(undefined)).toBe("");
   });
 });
 

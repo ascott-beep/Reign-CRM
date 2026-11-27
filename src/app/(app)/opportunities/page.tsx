@@ -3,7 +3,6 @@ import { requireUser } from "@/lib/permissions";
 import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
-import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
 import { formatConvertedMoney } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
@@ -16,6 +15,11 @@ import type { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Opportunities" };
+
+/** Round 4 "Portfolio company" addition: pipeline cards/rows show "Client · Portfolio company" when the two differ. */
+function clientLabel(o: { hiringOrganization: { name: string }; portfolioCompany: { name: string } | null }) {
+  return o.portfolioCompany ? `${o.hiringOrganization.name} · ${o.portfolioCompany.name}` : o.hiringOrganization.name;
+}
 
 export default async function OpportunitiesPage({
   searchParams,
@@ -46,14 +50,17 @@ export default async function OpportunitiesPage({
     orderBy: { updatedAt: "desc" },
     include: {
       hiringOrganization: { select: { name: true } },
+      portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },
       primaryNextTask: { select: { title: true, dueDate: true } },
       wonMandate: { select: { id: true, status: true } },
     },
   });
 
-  const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage));
-  const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage));
+  // An opportunity already linked to a mandate is resolved — it belongs in the Closed tray with a
+  // link to the live search, never back in the open pipeline, whatever its stage field reads.
+  const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage) && !o.wonMandateId);
+  const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage) || o.wonMandateId);
 
   const stageWeighted = new Map<string, number>();
   let totalApprox = false;
@@ -69,21 +76,18 @@ export default async function OpportunitiesPage({
     id: o.id,
     name: o.name,
     stage: o.stage,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     potentialRoleTitle: o.potentialRoleTitle,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
     weightedValue: weightedOpportunityValue(o),
-    // The one known anomaly (section 5 rule 3): a mandate already exists although the
-    // opportunity is still showing in an open stage — offer a one-click reconciliation.
-    hasLiveMandate: Boolean(o.wonMandateId),
     nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
   }));
 
   const closedOpportunities: ClosedOpportunity[] = closedOpportunitiesRaw.map((o) => ({
     id: o.id,
     name: o.name,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     stage: o.stage,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
@@ -94,7 +98,7 @@ export default async function OpportunitiesPage({
   const listRows: OpportunityListRow[] = opportunities.map((o) => ({
     id: o.id,
     name: o.name,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     stage: o.stage,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
@@ -126,7 +130,6 @@ export default async function OpportunitiesPage({
         displayCurrency={displayCurrency}
         ratesToGbp={ratesToGbp}
       />
-      <UndoDeleteToast type="OPPORTUNITY" />
     </div>
   );
 }

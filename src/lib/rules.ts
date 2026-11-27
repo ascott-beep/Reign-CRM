@@ -144,7 +144,7 @@ export function candidateNextStepFallback(stage: CandidateProcessStage, candidat
     case "LONGLISTED":
       return "Decide whether to approach";
     case "CONTACT_REQUIRED":
-      return `Call ${candidateFirstName} — first contact`;
+      return `Call ${candidateFirstName} · first contact`;
     case "CONTACTED":
       return "Follow up on interest";
     case "INTERESTED":
@@ -462,3 +462,40 @@ export const INTELLIGENCE_TYPE_SHORT_LABEL: Record<IntelligenceType, string> = {
   CANDIDATE_MOVEMENT: "Candidate move",
   OTHER: "Other",
 };
+
+export type IntelligenceSuggestionKind = "create_opportunity" | "update_record" | "add_reminder";
+
+const CREATE_OPPORTUNITY_TYPES: IntelligenceType[] = [
+  "POTENTIAL_VACANCY",
+  "ACTIVE_VACANCY",
+  "ACQUISITION",
+  "CARVE_OUT",
+  "INTEGRATION",
+  "FAILED_SEARCH",
+  "AGENCY_DISSATISFACTION",
+  "FINANCE_TEAM_WEAKNESS",
+];
+const UPDATE_RECORD_TYPES: IntelligenceType[] = ["LEADERSHIP_CHANGE", "CANDIDATE_MOVEMENT"];
+
+/**
+ * Round 4 screen 30 (R4Intel) -- each signal card's main button does the
+ * suggestion itself (create opportunity / update record / add reminder).
+ * Derived purely from the signal's type, so no new schema field is needed.
+ */
+export function suggestedActionFor(item: { type: IntelligenceType; organizationName: string; sourcePersonName?: string | null }): {
+  kind: IntelligenceSuggestionKind;
+  sentence: string;
+  buttonLabel: string;
+} {
+  if (CREATE_OPPORTUNITY_TYPES.includes(item.type)) {
+    return { kind: "create_opportunity", sentence: `Create an opportunity for a search at ${item.organizationName}.`, buttonLabel: "Accept and create opportunity" };
+  }
+  if (UPDATE_RECORD_TYPES.includes(item.type)) {
+    return {
+      kind: "update_record",
+      sentence: item.sourcePersonName ? `Update ${item.sourcePersonName}'s job and organisation.` : `Update ${item.organizationName}'s record.`,
+      buttonLabel: "Accept and update record",
+    };
+  }
+  return { kind: "add_reminder", sentence: `Add ${item.organizationName} to your watch list and set a reminder.`, buttonLabel: "Accept and add reminder" };
+}

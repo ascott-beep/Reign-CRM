@@ -33,7 +33,7 @@ export const COUNTRIES: { code: string; name: string }[] = [
 ];
 
 export function countryName(code: string | null | undefined) {
-  if (!code) return "—";
+  if (!code) return "";
   return COUNTRIES.find((c) => c.code === code)?.name ?? code;
 }
 

@@ -16,7 +16,7 @@ export async function buildPersonDataExport(personId: string, workspaceId: strin
         orderBy: { createdAt: "desc" },
       },
       activities: {
-        include: { activity: { select: { type: true, subject: true, occurredAt: true, summary: true, fullNotes: true } } },
+        include: { activity: { select: { type: true, subject: true, occurredAt: true, summary: true, fullNotes: true, private: true } } },
         orderBy: { activity: { occurredAt: "desc" } },
       },
       employmentHistories: { include: { organization: { select: { name: true } } }, orderBy: { startDate: "desc" } },
@@ -94,7 +94,9 @@ export async function buildPersonDataExport(personId: string, workspaceId: strin
       occurredAt: a.activity.occurredAt,
       summary: a.activity.summary,
       notes: a.activity.fullNotes,
+      private: a.activity.private,
     })),
+    hasPrivateEmails: person.activities.some((a) => a.activity.type === "EMAIL" && a.activity.private),
     documents: person.documents.map((d) => ({
       name: d.document.displayName,
       category: d.document.category,

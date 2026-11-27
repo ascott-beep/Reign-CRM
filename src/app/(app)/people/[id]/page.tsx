@@ -18,7 +18,7 @@ import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
 import { formatMoney, initials } from "@/lib/utils";
 import { getPersonTimeline } from "@/lib/timeline";
-import { format } from "date-fns";
+import { formatDate, formatMonthYear, formatDateTime } from "@/lib/datetime";
 import {
   candidatePlainStatus,
   candidateNextStepFallback,
@@ -34,6 +34,8 @@ import { PracticeAreaPicker } from "../practice-area-picker";
 import { AddToMandateDialog, type MandateOption } from "../add-to-mandate-dialog";
 import { AnonymiseButton } from "../anonymise-button";
 import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
+import { RecordViewTracker } from "@/components/shell/record-view-tracker";
+import { CreatedToast } from "@/components/shell/created-toast";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
 
@@ -55,7 +57,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
       organizationAssociations: { include: { organization: true } },
       employmentHistories: { include: { organization: true }, orderBy: { startDate: "desc" } },
       practiceAreas: { include: { practiceArea: true } },
-      placements: { select: { id: true } },
+      placements: { select: { id: true, mandate: { select: { title: true } } } },
     },
   });
   if (!person) notFound();
@@ -113,6 +115,8 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex flex-col gap-6">
+      <RecordViewTracker type="person" id={person.id} label={`${person.firstName} ${person.lastName}`} meta={currentTitle(person) ?? ""} href={`/people/${person.id}`} />
+      <CreatedToast />
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-[18px]">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--color-navy)] text-[15px] font-semibold text-[var(--color-navy-ink)]">
@@ -170,9 +174,16 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
               <Pencil className="h-[14px] w-[14px]" /> Edit
             </Link>
           </Button>
-          {user.role === "ADMIN" && isPlacedCandidate ? <AnonymiseButton personId={person.id} firstName={person.firstName} /> : null}
+          {user.role === "ADMIN" && isPlacedCandidate ? (
+            <AnonymiseButton personId={person.id} firstName={person.firstName} mandateTitle={person.placements[0]?.mandate.title ?? null} />
+          ) : null}
           {user.role === "ADMIN" ? (
-            <MoreMenu type="PERSON" id={person.id} listHref="/people" downloadDataHref={`/api/people/${person.id}/gdpr-export`} />
+            <MoreMenu
+              type="PERSON"
+              id={person.id}
+              listHref="/people"
+              downloadDataFor={user.role === "ADMIN" ? { personId: person.id, personName: `${person.firstName} ${person.lastName}` } : undefined}
+            />
           ) : null}
         </div>
       </header>
@@ -203,7 +214,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                     <span>
                       <Badge tone={r.status.tone}>{r.status.label}</Badge>
                     </span>
-                    <span className={`text-[13.5px] ${r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink2)]"}`}>{r.nextStepText ?? "—"}</span>
+                    <span className={`text-[13.5px] ${r.nextStepUrgent ? "text-[var(--color-warn)]" : "text-[var(--color-ink2)]"}`}>{r.nextStepText ?? ""}</span>
                   </Link>
                 ))
               )}
@@ -214,11 +225,11 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
             <section className="grid grid-cols-1 gap-[18px_28px] rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px] sm:grid-cols-2">
               <div>
                 <div className="text-xs text-[var(--color-muted)]">Career summary</div>
-                <p className="mt-1.5 text-[13.5px] leading-relaxed">{person.candidateProfile?.careerSummary || "—"}</p>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed">{person.candidateProfile?.careerSummary || ""}</p>
               </div>
               <div>
                 <div className="text-xs text-[var(--color-muted)]">Motivation</div>
-                <p className="mt-1.5 text-[13.5px] leading-relaxed">{person.candidateProfile?.motivation || "—"}</p>
+                <p className="mt-1.5 text-[13.5px] leading-relaxed">{person.candidateProfile?.motivation || ""}</p>
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div>
@@ -236,7 +247,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                 <div>
                   <div className="text-xs text-[var(--color-muted)]">Notice</div>
                   <div className="mt-1 text-[20px] font-light">
-                    {person.candidateProfile?.noticePeriodValue ? `${person.candidateProfile.noticePeriodValue} ${label(person.candidateProfile.noticePeriodUnit ?? "")}` : "—"}
+                    {person.candidateProfile?.noticePeriodValue ? `${person.candidateProfile.noticePeriodValue} ${label(person.candidateProfile.noticePeriodUnit ?? "")}` : ""}
                   </div>
                 </div>
               </div>
@@ -248,7 +259,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                   </div>
                 ) : (
                   <p className="mt-1.5 text-[13.5px] text-[var(--color-ink2)]">
-                    {person.employmentHistories[0]?.jobTitle} · {person.employmentHistories[0]?.organization?.name ?? person.employmentHistories[0]?.employerNameFallback ?? "—"}
+                    {person.employmentHistories[0]?.jobTitle} · {person.employmentHistories[0]?.organization?.name ?? person.employmentHistories[0]?.employerNameFallback ?? ""}
                   </p>
                 )}
               </div>
@@ -269,7 +280,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
 
           <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] py-[18px]">
             <h2 className="m-0 mb-3.5 text-base font-medium">Activity log</h2>
-            <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
+            <Timeline items={timeline} emptyLabel="Nothing logged yet, use “Log activity” above to record a call, email, or note." />
           </section>
 
           {duplicates.length > 0 ? (
@@ -279,7 +290,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                 {duplicates.map((d) => (
                   <li key={d.id} className="flex items-center justify-between text-sm">
                     <Link href={`/people/${d.id}`} className="text-[var(--color-accent)]">
-                      {d.firstName} {d.lastName} — {d.reason}
+                      {d.firstName} {d.lastName} · {d.reason}
                     </Link>
                     <MergeButton survivorId={person.id} duplicateId={d.id} duplicateName={`${d.firstName} ${d.lastName}`} />
                   </li>
@@ -300,24 +311,24 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                     {person.primaryEmail}
                   </a>
                 ) : (
-                  <span className="text-[var(--color-muted)]">—</span>
+                  <span className="text-[var(--color-muted)]"></span>
                 )}
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Phone</span>
-                <span>{person.primaryPhone || "—"}</span>
+                <span>{person.primaryPhone || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Location</span>
-                <span>{[person.city, person.countryCode ? countryName(person.countryCode) : null].filter(Boolean).join(", ") || "—"}</span>
+                <span>{[person.city, person.countryCode ? countryName(person.countryCode) : null].filter(Boolean).join(", ") || ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Owner</span>
-                <span>{person.relationshipOwner ? `${person.relationshipOwner.firstName} ${person.relationshipOwner.lastName}` : "—"}</span>
+                <span>{person.relationshipOwner ? `${person.relationshipOwner.firstName} ${person.relationshipOwner.lastName}` : ""}</span>
               </div>
               <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
                 <span className="text-[var(--color-muted)]">Source</span>
-                <span>{person.source ? label(person.source) : "—"}</span>
+                <span>{person.source ? label(person.source) : ""}</span>
               </div>
               {person.linkedinUrl ? (
                 <div className="flex justify-between border-t border-[var(--color-line)] py-2 text-[13px]">
@@ -340,7 +351,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                   selectedIds={person.practiceAreas.map((pa) => pa.practiceAreaId)}
                   readOnly={!canMutate(user.role)}
                 />
-                {person.practiceAreas.length === 0 && !canMutate(user.role) ? <span className="text-[13px] text-[var(--color-muted)]">—</span> : null}
+                {person.practiceAreas.length === 0 && !canMutate(user.role) ? <span className="text-[13px] text-[var(--color-muted)]"></span> : null}
               </div>
             </CardContent>
           </Card>
@@ -449,7 +460,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-[var(--color-muted)]">Last qualified</dt>
-                        <dd>{person.candidateProfile.lastQualifiedAt ? format(person.candidateProfile.lastQualifiedAt, "d MMM yyyy") : "—"}</dd>
+                        <dd>{person.candidateProfile.lastQualifiedAt ? formatDate(person.candidateProfile.lastQualifiedAt) : ""}</dd>
                       </div>
                     </dl>
                   </CardContent>
@@ -468,7 +479,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                       </div>
                       <div className="flex justify-between">
                         <dt className="text-[var(--color-muted)]">Notice period</dt>
-                        <dd>{person.candidateProfile.noticePeriodValue ? `${person.candidateProfile.noticePeriodValue} ${person.candidateProfile.noticePeriodUnit ?? ""}` : "—"}</dd>
+                        <dd>{person.candidateProfile.noticePeriodValue ? `${person.candidateProfile.noticePeriodValue} ${person.candidateProfile.noticePeriodUnit ?? ""}` : ""}</dd>
                       </div>
                     </dl>
                   </CardContent>
@@ -497,7 +508,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                       {e.isCurrent ? <Badge tone="success">Current</Badge> : null}
                     </div>
                     <p className="mt-1 text-xs text-[var(--color-muted)]">
-                      {e.startDate ? format(e.startDate, "MMM yyyy") : "?"} – {e.isCurrent ? "Present" : e.endDate ? format(e.endDate, "MMM yyyy") : "?"}
+                      {e.startDate ? formatMonthYear(e.startDate) : "?"} to {e.isCurrent ? "Present" : e.endDate ? formatMonthYear(e.endDate) : "?"}
                       {e.seniority ? ` · ${label(e.seniority)}` : ""}
                       {e.workArrangement ? ` · ${label(e.workArrangement)}` : ""}
                     </p>
@@ -561,7 +572,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
                     <TableRow key={a.id}>
                       <TableCell>{label(a.action)}</TableCell>
                       <TableCell>{a.actor ? `${a.actor.firstName} ${a.actor.lastName}` : "System"}</TableCell>
-                      <TableCell>{format(a.timestamp, "d MMM yyyy HH:mm")}</TableCell>
+                      <TableCell>{formatDateTime(a.timestamp)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

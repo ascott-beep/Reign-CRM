@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { startOfTodayInLondon, endOfTodayInLondon, startOfWeekInLondon } from "./datetime";
 
 /**
  * Saved views store a small, explicitly-validated filter JSON shape (never
@@ -86,18 +87,15 @@ export function mandateViewWhere(filter: Record<string, unknown>, currentUserId:
 
 export function taskViewWhere(filter: Record<string, unknown>, currentUserId: string): Prisma.TaskWhereInput {
   const where: Prisma.TaskWhereInput = {};
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+  const startOfToday = startOfTodayInLondon();
+  const endOfToday = endOfTodayInLondon();
   if (filter.due === "today") where.dueDate = { gte: startOfToday, lt: endOfToday };
   if (filter.due === "overdue") where.dueDate = { lt: startOfToday };
   if (filter.due === "next7days") where.dueDate = { gte: startOfToday, lt: new Date(startOfToday.getTime() + 7 * 24 * 60 * 60 * 1000) };
   if (typeof filter.status === "string") where.status = filter.status as any;
   if (filter.completedThisWeek === true) {
-    const dayOfWeek = now.getDay();
-    const startOfWeek = new Date(startOfToday.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
     where.status = "COMPLETED";
-    where.completedAt = { gte: startOfWeek };
+    where.completedAt = { gte: startOfWeekInLondon() };
   }
   void currentUserId;
   return where;

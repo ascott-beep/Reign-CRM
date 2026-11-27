@@ -15,13 +15,21 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       where: { id, workspaceId: user.workspaceId },
       include: {
         hiringOrganization: { select: { name: true } },
-        leadContactPerson: { select: { firstName: true, lastName: true } },
-        relatedFunds: { include: { organization: { select: { name: true } } } },
+        stakeholders: { include: { person: { select: { firstName: true, lastName: true } } } },
+        activities: { select: { activity: { select: { type: true } } } },
+        documents: { select: { documentId: true } },
       },
     }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
   if (!opportunity) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  const activityCount = opportunity.activities.filter((a) => a.activity.type !== "NOTE").length;
+  const noteCount = opportunity.activities.filter((a) => a.activity.type === "NOTE").length;
+  const documentCount = opportunity.documents.length;
+  const firstStakeholder = opportunity.stakeholders[0];
+  const clientContactName = opportunity.stakeholders.length === 1 && firstStakeholder ? `${firstStakeholder.person.firstName} ${firstStakeholder.person.lastName}` : null;
+  const clientContactCount = opportunity.stakeholders.length;
 
   return NextResponse.json({
     opportunityName: opportunity.name,
@@ -30,9 +38,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     ownerId: opportunity.ownerId,
     estimatedFeeAmount: opportunity.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: opportunity.estimatedFeeCurrency ?? "GBP",
-    hiringManagerName: opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : null,
-    fundName: opportunity.relatedFunds[0]?.organization.name ?? null,
-    alreadyConverted: Boolean(opportunity.wonMandateId),
     users: users.map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName}` })),
+    clientContactName,
+    clientContactCount,
+    activityCount,
+    noteCount,
+    documentCount,
   });
 }

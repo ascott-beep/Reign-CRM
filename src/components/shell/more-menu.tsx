@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MoreHorizontal, Trash2, Download } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DeleteDialog } from "./delete-dialog";
+import { DownloadDataDialog } from "@/app/(app)/people/download-data-dialog";
 import type { DeletableType } from "@/lib/delete";
 
 /** The "⋯" More button at the end of a record header's actions — section 9.3, admins only. */
@@ -11,15 +12,16 @@ export function MoreMenu({
   type,
   id,
   listHref,
-  downloadDataHref,
+  downloadDataFor,
 }: {
   type: DeletableType;
   id: string;
   listHref: string;
-  /** Section 10.1 "Download data" — set only on the Person record page. */
-  downloadDataHref?: string;
+  /** Round 4 screen 24 (DlgR4Gdpr) "Download data" — set only on the Person record page. */
+  downloadDataFor?: { personId: string; personName: string };
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [downloadOpen, setDownloadOpen] = useState(false);
 
   return (
     <>
@@ -35,11 +37,9 @@ export function MoreMenu({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {downloadDataHref ? (
-            <DropdownMenuItem asChild>
-              <a href={downloadDataHref} download>
-                <Download className="h-3.5 w-3.5" /> Download data
-              </a>
+          {downloadDataFor ? (
+            <DropdownMenuItem onSelect={() => setDownloadOpen(true)}>
+              <Download className="h-3.5 w-3.5" /> Download data
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-[var(--color-warn)]">
@@ -48,6 +48,9 @@ export function MoreMenu({
         </DropdownMenuContent>
       </DropdownMenu>
       {deleteOpen ? <DeleteDialog type={type} id={id} listHref={listHref} onClose={() => setDeleteOpen(false)} /> : null}
+      {downloadDataFor ? (
+        <DownloadDataDialog open={downloadOpen} onClose={() => setDownloadOpen(false)} personId={downloadDataFor.personId} personName={downloadDataFor.personName} />
+      ) : null}
     </>
   );
 }

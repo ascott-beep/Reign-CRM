@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Check } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,29 +14,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import {
   setUserActiveAction,
-  setUserRoleAction,
   resendInviteAction,
   cancelInviteAction,
   sendPasswordResetToUserAction,
   reassignOpenWorkAction,
 } from "./actions";
-import { ROLE_SHORT_LABEL } from "@/lib/labels";
-
-const ROLES = ["ADMIN", "STANDARD", "READ_ONLY"] as const;
 
 type OtherUser = { id: string; firstName: string; lastName: string };
 
-/** Section 9.5 / screen 12 — the "⋯" row menu; role and active state are display-only outside it. */
+/** Round 4 screen 35 (R4SetUsers) — role moved to its own inline select (see UserRoleSelect); this "⋯" menu now only holds the less frequent actions. */
 export function UserRowMenu({
   userId,
-  role,
   active,
   isSelf,
   hasPassword,
   otherActiveUsers,
 }: {
   userId: string;
-  role: string;
   active: boolean;
   isSelf: boolean;
   hasPassword: boolean;
@@ -60,17 +51,6 @@ export function UserRowMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Change role</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {ROLES.map((r) => (
-              <DropdownMenuItem key={r} onSelect={() => startTransition(() => setUserRoleAction(userId, r))}>
-                <span className="flex w-3.5 items-center justify-center">{r === role ? <Check className="h-3.5 w-3.5" /> : null}</span>
-                {ROLE_SHORT_LABEL[r]}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
         {!hasPassword ? (
           <>
             <DropdownMenuItem onSelect={() => startTransition(() => resendInviteAction(userId))}>Resend invite</DropdownMenuItem>
@@ -134,7 +114,7 @@ function ReassignWorkDialog({
     setPending(true);
     const counts = await reassignOpenWorkAction(userId, targetId);
     const total = counts.opportunities + counts.mandates + counts.tasks + counts.candidateProcesses;
-    setResult(total === 0 ? "Nothing open to reassign — this person has no open work." : `Reassigned ${total} open item${total === 1 ? "" : "s"}.`);
+    setResult(total === 0 ? "Nothing open to reassign, this person has no open work." : `Reassigned ${total} open item${total === 1 ? "" : "s"}.`);
     setPending(false);
   }
 

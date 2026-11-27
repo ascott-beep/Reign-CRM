@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/datetime";
 import { convertIntelligenceToOpportunityAction, verifyIntelligenceAction } from "../actions";
 
 export default async function IntelligenceDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -71,7 +71,7 @@ export default async function IntelligenceDetailPage({ params }: { params: Promi
         <Card className="lg:col-span-2">
           <CardContent className="pt-4">
             <h3 className="mb-2 text-sm font-semibold">Details</h3>
-            <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{item.details || "—"}</p>
+            <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{item.details || ""}</p>
           </CardContent>
         </Card>
         <Card>
@@ -80,9 +80,9 @@ export default async function IntelligenceDetailPage({ params }: { params: Promi
             <dl className="grid grid-cols-1 gap-2 text-sm">
               <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Confidence</dt><dd>{label(item.confidence)}</dd></div>
               <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Confidentiality</dt><dd>{label(item.confidentiality)}</dd></div>
-              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Date received</dt><dd>{format(item.dateReceived, "d MMM yyyy")}</dd></div>
-              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source person</dt><dd>{item.sourcePerson ? `${item.sourcePerson.firstName} ${item.sourcePerson.lastName}` : "—"}</dd></div>
-              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Verified by</dt><dd>{item.verifiedBy ? `${item.verifiedBy.firstName} ${item.verifiedBy.lastName}` : "—"}</dd></div>
+              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Date received</dt><dd>{formatDate(item.dateReceived)}</dd></div>
+              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source person</dt><dd>{item.sourcePerson ? `${item.sourcePerson.firstName} ${item.sourcePerson.lastName}` : ""}</dd></div>
+              <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Verified by</dt><dd>{item.verifiedBy ? `${item.verifiedBy.firstName} ${item.verifiedBy.lastName}` : ""}</dd></div>
               <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{item.createdBy.firstName} {item.createdBy.lastName}</dd></div>
             </dl>
           </CardContent>

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { ClaudeIntelligenceProvider } from "@/lib/intelligence-claude-provider";
 import type { IntelligenceProvider, ResearchSignal } from "@/lib/intelligence-provider";
+import type { IntelligenceType } from "@prisma/client";
 
 function getProvider(): IntelligenceProvider {
   return new ClaudeIntelligenceProvider();
@@ -29,6 +30,41 @@ export async function computeWatchlist(workspaceId: string) {
     },
     select: { id: true, name: true, website: true },
   });
+}
+
+/**
+ * Round 4 screen 30 (R4Intel) "Watching" list -- the same on-the-fly
+ * watchlist the nightly sweep already covers (computeWatchlist above), each
+ * row showing how many of its signals are still waiting for review and when
+ * it was last checked (its most recent IntelligenceRun).
+ */
+export async function getWatchlistSummary(workspaceId: string, limit = 6) {
+  const watchlist = await computeWatchlist(workspaceId);
+  if (watchlist.length === 0) return [];
+
+  const [pendingCounts, lastRuns] = await Promise.all([
+    prisma.intelligenceItem.groupBy({
+      by: ["organizationId"],
+      where: { workspaceId, archivedAt: null, reviewState: "PENDING_REVIEW", organizationId: { in: watchlist.map((w) => w.id) } },
+      _count: { _all: true },
+    }),
+    prisma.intelligenceRun.findMany({
+      where: { workspaceId, organizationId: { in: watchlist.map((w) => w.id) }, status: "SUCCEEDED" },
+      orderBy: { finishedAt: "desc" },
+      select: { organizationId: true, finishedAt: true },
+    }),
+  ]);
+
+  const pendingByOrg = new Map(pendingCounts.map((p) => [p.organizationId, p._count._all]));
+  const lastRunByOrg = new Map<string, Date>();
+  for (const run of lastRuns) {
+    if (run.organizationId && run.finishedAt && !lastRunByOrg.has(run.organizationId)) lastRunByOrg.set(run.organizationId, run.finishedAt);
+  }
+
+  return watchlist
+    .map((org) => ({ id: org.id, name: org.name, newCount: pendingByOrg.get(org.id) ?? 0, lastCheckedAt: lastRunByOrg.get(org.id) ?? null }))
+    .sort((a, b) => b.newCount - a.newCount)
+    .slice(0, limit);
 }
 
 /** Dismiss reasons from past reviews, fed back into the agent's instructions so it learns what to skip. */
@@ -77,6 +113,7 @@ export async function researchOrganization(workspaceId: string, organizationId: 
     });
 
     let created = 0;
+    const createdItems: { id: string; title: string; type: IntelligenceType; confidence: string; sources: { url: string; title: string | null }[] }[] = [];
     for (const signal of signals as ResearchSignal[]) {
       // Merge onto an existing signal reporting the same story instead of duplicating it.
       const dup = existingOpen.find((e) => e.title.trim().toLowerCase() === signal.summary.trim().toLowerCase());
@@ -106,8 +143,10 @@ export async function researchOrganization(workspaceId: string, organizationId: 
           details: signal.likelyRole ? `Likely role: ${signal.likelyRole}` : null,
           sources: signal.sources.length ? { create: signal.sources.map((s) => ({ url: s.url, title: s.title })) } : undefined,
         },
+        include: { sources: { select: { url: true, title: true } } },
       });
       existingOpen.push({ id: item.id, title: item.title });
+      createdItems.push(item);
       created += 1;
     }
 
@@ -116,7 +155,7 @@ export async function researchOrganization(workspaceId: string, organizationId: 
       data: { status: "SUCCEEDED", signalsFound: created, costUsd, finishedAt: new Date() },
     });
 
-    return { signalsFound: created, costUsd };
+    return { signalsFound: created, costUsd, items: createdItems, organization: { id: org.id, name: org.name } };
   } catch (error) {
     await prisma.intelligenceRun.update({
       where: { id: run.id },

@@ -3,7 +3,6 @@ import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { mandateViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
-import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { nextActionStatus } from "@/lib/next-action-status";
 import {
   LIVE_MANDATE_STATUSES,
@@ -21,6 +20,11 @@ import type { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mandates" };
+
+/** Round 4 "Portfolio company" addition: pipeline cards/rows show "Client · Portfolio company" when the two differ. */
+function clientLabel(m: { hiringOrganization: { name: string }; portfolioCompany: { name: string } | null }) {
+  return m.portfolioCompany ? `${m.hiringOrganization.name} · ${m.portfolioCompany.name}` : m.hiringOrganization.name;
+}
 
 export default async function MandatesPage({
   searchParams,
@@ -45,6 +49,7 @@ export default async function MandatesPage({
     orderBy: { updatedAt: "desc" },
     include: {
       hiringOrganization: { select: { name: true } },
+      portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },
       candidateProcesses: { select: { stage: true } },
       primaryNextTask: { select: { title: true, dueDate: true } },
@@ -60,7 +65,7 @@ export default async function MandatesPage({
     reference: m.reference,
     title: m.title,
     status: m.status,
-    organizationName: m.hiringOrganization.name,
+    organizationName: clientLabel(m),
     candidateCount: m.candidateProcesses.filter((p) => !isCandidateHidden(p.stage)).length,
     nextActionStatus: nextActionStatus(m.primaryNextTask?.dueDate),
   }));
@@ -68,7 +73,7 @@ export default async function MandatesPage({
   const closedMandates: ClosedMandate[] = closedMandatesRaw.map((m) => ({
     id: m.id,
     title: m.title,
-    organizationName: m.hiringOrganization.name,
+    organizationName: clientLabel(m),
     status: m.status,
   }));
 
@@ -81,7 +86,7 @@ export default async function MandatesPage({
     return {
       id: m.id,
       title: m.title,
-      organizationName: m.hiringOrganization.name,
+      organizationName: clientLabel(m),
       isCritical: m.priority === "CRITICAL",
       stageLabel: label(m.status),
       stepLabel: `Step ${step} of 7`,
@@ -99,7 +104,6 @@ export default async function MandatesPage({
       <PageHeader title="Mandates" description="Executive searches you are running for clients" user={user} />
       {fix === "no-hiring-manager" ? <FixBanner label="Mandates without a hiring manager" clearHref="/mandates" /> : null}
       <MandatesView display={fix ? "list" : display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
-      <UndoDeleteToast type="MANDATE" />
     </div>
   );
 }

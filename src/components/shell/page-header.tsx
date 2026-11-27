@@ -3,11 +3,10 @@ import { GlobalHeaderControls } from "@/components/shell/global-header-controls"
 import type { SessionUser } from "@/lib/permissions";
 
 /**
- * Round 2 section 1: no separate top header bar anywhere. Pass `user` on a
- * page's own PageHeader to carry the desk picker/search/notifications/Quick
- * create cluster in that page's header row instead, vertically centred with
- * the title — as in 01-overview. Omit it on secondary pages (create/edit
- * forms, settings, single-record views) where that cluster doesn't apply.
+ * Round 3 item 7: pass `user` only on the five pages the desk picker
+ * actually filters (Overview, Opportunities, Mandates, Tasks, Reports) to
+ * show it next to that page's own actions. Search, notifications and
+ * + New live in the sidebar now, not here. Omit `user` everywhere else.
  */
 export async function PageHeader({
   title,
@@ -32,7 +31,7 @@ export async function PageHeader({
         {description ? <div className="mt-2 text-sm text-[var(--color-ink-subtle)]">{description}</div> : null}
       </div>
       {actions || user ? (
-        <div data-toolbar className="flex shrink-0 flex-wrap items-center gap-2">
+        <div data-toolbar className="flex shrink-0 flex-wrap items-center gap-3">
           {actions}
           {user ? <GlobalHeaderControls user={user} showDeskPicker={!hideDeskPicker} /> : null}
         </div>

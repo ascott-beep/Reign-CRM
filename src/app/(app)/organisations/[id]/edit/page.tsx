@@ -46,7 +46,7 @@ export default async function EditOrganizationPage({ params }: { params: Promise
           source: org.source ?? "",
           sourceUrl: org.sourceUrl ?? "",
           ownershipTypeId: org.ownershipTypeId ?? "",
-          sectorId: org.sectors[0]?.sectorId ?? "",
+          sectorIds: org.sectors.map((s) => s.sectorId),
           fundVintageOrCurrentFundName: org.fundVintageOrCurrentFundName ?? "",
           aumAmount: org.aumAmount ?? "",
           aumCurrency: org.aumCurrency ?? "GBP",

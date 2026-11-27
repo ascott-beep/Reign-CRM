@@ -16,7 +16,7 @@ import {
   Lock,
   type LucideIcon,
 } from "lucide-react";
-import { format, isToday, isYesterday } from "date-fns";
+import { formatTime, formatDateTimeComma, isTodayInLondon, isYesterdayInLondon } from "@/lib/datetime";
 import { cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
 import { ActivityPrivacyToggle } from "@/components/ui/activity-privacy-toggle";
@@ -36,9 +36,9 @@ const ACTIVITY_ICONS: Record<string, LucideIcon> = {
 };
 
 function friendlyDate(date: Date) {
-  if (isToday(date)) return `Today, ${format(date, "HH:mm")}`;
-  if (isYesterday(date)) return `Yesterday, ${format(date, "HH:mm")}`;
-  return format(date, "d MMM yyyy, HH:mm");
+  if (isTodayInLondon(date)) return `Today, ${formatTime(date)}`;
+  if (isYesterdayInLondon(date)) return `Yesterday, ${formatTime(date)}`;
+  return formatDateTimeComma(date);
 }
 
 function IconBubble({ icon: Icon, tone }: { icon: LucideIcon; tone: "highlight" | "success" | "neutral" }) {
@@ -91,7 +91,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
             <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
           </div>
           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
-            {item.completed ? "Completed" : "Due"} · {item.assigneeName}
+            {item.completed ? "Completed" : "Cancelled"} · {item.assigneeName}
           </p>
         </div>
       </div>

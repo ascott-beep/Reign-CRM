@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { intelligenceFormSchema } from "@/lib/validation/intelligence";
 import { writeAuditLog } from "@/lib/audit";
+import { startOfTodayInLondon } from "@/lib/datetime";
 import type { IntelligenceDismissReason } from "@prisma/client";
 
 export type IntelligenceFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
@@ -126,6 +127,44 @@ export async function acceptIntelligenceItemAction(itemId: string) {
   const item = await prisma.intelligenceItem.update({
     where: { id: itemId },
     data: { reviewState: "ACCEPTED", dismissReason: null, dismissedAt: null },
+  });
+
+  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "IntelligenceItem", entityId: itemId, action: "UPDATE", changedFields: { reviewState: "ACCEPTED" } });
+
+  revalidatePath("/intelligence");
+  revalidatePath("/");
+  revalidatePath(`/organisations/${item.organizationId}`);
+}
+
+/**
+ * Round 4 screen 30 -- the "Accept and add reminder" suggestion for a signal
+ * with no direct record to act on (e.g. a new-fund announcement): files the
+ * signal and creates a 30-day follow-up task, same shape as the opportunity
+ * "Check back in" task.
+ */
+export async function acceptAndRemindIntelligenceItemAction(itemId: string) {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+
+  const item = await prisma.intelligenceItem.findUniqueOrThrow({ where: { id: itemId }, include: { organization: { select: { name: true } } } });
+
+  await prisma.$transaction(async (tx) => {
+    const task = await tx.task.create({
+      data: {
+        workspaceId: user.workspaceId,
+        title: `Follow up · ${item.organization.name}`,
+        type: "FOLLOW_UP",
+        status: "TODO",
+        priority: "NORMAL",
+        assignedUserId: item.ownerId,
+        createdById: user.id,
+        dueDate: new Date(startOfTodayInLondon().getTime() + 30 * 24 * 60 * 60 * 1000),
+        relatedRecordType: "INTELLIGENCE_ITEM",
+        relatedRecordId: item.id,
+        intelligenceItems: { create: [{ intelligenceItemId: item.id }] },
+      },
+    });
+    await tx.intelligenceItem.update({ where: { id: item.id }, data: { reviewState: "ACCEPTED", primaryNextTaskId: task.id, dismissReason: null, dismissedAt: null } });
   });
 
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "IntelligenceItem", entityId: itemId, action: "UPDATE", changedFields: { reviewState: "ACCEPTED" } });

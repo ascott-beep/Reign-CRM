@@ -22,6 +22,7 @@ export const organizationFormSchema = z.object({
   sourceUrl: z.preprocess(emptyToUndefined, z.string().trim().url("Enter a valid URL").optional()),
   ownershipTypeId: z.preprocess(emptyToUndefined, z.string().optional()),
   sectorId: z.preprocess(emptyToUndefined, z.string().optional()),
+  sectorIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
 
   // Fund-only
   fundVintageOrCurrentFundName: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),

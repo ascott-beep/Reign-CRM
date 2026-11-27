@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { CURRENCIES } from "@/lib/iso";
 import { normalizeExchangeRates } from "@/lib/currency";
 import { updateCurrencySettingsAction, updateExchangeRatesAction } from "../actions";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/datetime";
 
 export default async function SettingsCurrenciesPage() {
   const user = await requireUser();
@@ -33,7 +33,7 @@ export default async function SettingsCurrenciesPage() {
             >
               {CURRENCIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.code} — {c.name}
+                  {c.code} · {c.name}
                 </option>
               ))}
             </select>
@@ -42,7 +42,7 @@ export default async function SettingsCurrenciesPage() {
               <span className="text-sm">Update exchange rates every morning</span>
             </label>
             {workspace.exchangeRatesUpdatedAt ? (
-              <p className="text-xs text-[var(--color-ink-subtle)]">Last updated {format(workspace.exchangeRatesUpdatedAt, "d MMM yyyy HH:mm")}</p>
+              <p className="text-xs text-[var(--color-ink-subtle)]">Last updated {formatDateTime(workspace.exchangeRatesUpdatedAt)}</p>
             ) : null}
             <div>
               <Button type="submit">Save</Button>

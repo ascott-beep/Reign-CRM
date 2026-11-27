@@ -91,7 +91,7 @@ export class ClaudeIntelligenceProvider implements IntelligenceProvider {
 
   async research({ companyName, website, context, allowedTypes }: ResearchInput): Promise<ResearchResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set — the research agent is not configured yet.");
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set, the research agent is not configured yet.");
 
     const types = allowedTypes && allowedTypes.length > 0 ? allowedTypes : SIGNAL_TYPES;
     const systemPrompt = SYSTEM_PROMPT.replace(SIGNAL_TYPES.join(" | "), types.join(" | "));
@@ -99,7 +99,7 @@ export class ClaudeIntelligenceProvider implements IntelligenceProvider {
     const client = new Anthropic({ apiKey });
     const userPrompt = [
       `Research "${companyName}"${website ? ` (${website})` : ""} and report any signals from the last 90 days.`,
-      context ? `Notes from past reviews — use these to judge what's relevant:\n${context}` : null,
+      context ? `Notes from past reviews, use these to judge what's relevant:\n${context}` : null,
     ]
       .filter(Boolean)
       .join("\n\n");

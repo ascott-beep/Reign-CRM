@@ -888,7 +888,7 @@ async function main() {
 
   const wonOpportunity = await createOpportunity({
     workspaceId: wid,
-    name: "Vantage Logistics Group — CFO Search",
+    name: "Vantage Logistics Group · CFO Search",
     hiringOrganizationId: portfolioCos["Vantage Logistics Group"].id,
     type: "RETAINED_SEARCH",
     stage: "WON",
@@ -902,7 +902,7 @@ async function main() {
     estimatedFeeAmount: 55500,
     estimatedFeeCurrency: "GBP",
     expectedDecisionDate: daysAgo(10),
-    nextStepSummary: "Converted to mandate — see linked mandate for live pipeline.",
+    nextStepSummary: "Converted to mandate, see linked mandate for live pipeline.",
     closedAt: daysAgo(35),
     createdById: adam.id,
     relatedFunds: { create: [{ organizationId: funds["Ashcombe Capital Partners"].id }] },
@@ -951,7 +951,7 @@ async function main() {
   for (const o of opportunityStageDefs) {
     await createOpportunity({
       workspaceId: wid,
-      name: `${o.company} — ${o.role}`,
+      name: `${o.company} · ${o.role}`,
       hiringOrganizationId: portfolioCos[o.company].id,
       type: "CONTINGENT",
       stage: o.stage,
@@ -1022,7 +1022,7 @@ async function main() {
     maxBaseAmount: 195000,
     baseCurrency: "GBP",
     bonusInformation: "Up to 40% bonus plus meaningful equity participation.",
-    equityInformation: "1.5–2.5% equity pool allocation subject to board approval.",
+    equityInformation: "1.5% to 2.5% equity pool allocation subject to board approval.",
     engagementModel: "RETAINED",
     feeType: "PERCENTAGE_OF_TOTAL_CASH",
     feePercentage: 30,
@@ -1224,7 +1224,7 @@ async function main() {
         compensationFitScore: 4,
         locationFitScore: 5,
         assessmentSummary: "Strong technical fit with relevant PE-backed experience; well regarded by the client on paper.",
-        candidateInterest: "High — actively engaged and responsive.",
+        candidateInterest: "High, actively engaged and responsive.",
         ...extra,
       } as any,
     });
@@ -1389,7 +1389,7 @@ async function main() {
 
   // Mandate 4 (Oakfield Group FD, highly confidential) — near-offer
   const proc4 = await createProcess(mandate4.id, candidates["Nisha Patel"].id, "OFFER", {
-    submissionSummary: "Confidential process — candidate briefed on discretion requirements.",
+    submissionSummary: "Confidential process, candidate briefed on discretion requirements.",
     candidatePermissionToSubmit: true,
     candidatePermissionCapturedAt: daysAgo(20),
     submittedAt: daysAgo(20),
@@ -1463,7 +1463,7 @@ async function main() {
       organizationId: portfolioCos["Vantage Logistics Group"].id,
       type: "ACTIVE_CLIENT",
       severity: "WARNING",
-      reason: "Active retained client — sourcing employees from this organisation requires a heads-up to the relationship owner.",
+      reason: "Active retained client, sourcing employees from this organisation requires a heads-up to the relationship owner.",
       startDate: monthsAgo(30),
       createdById: adam.id,
     },
@@ -1476,7 +1476,7 @@ async function main() {
       mandateId: mandate5.id,
       type: "PLACEMENT_GUARANTEE",
       severity: "BLOCK",
-      reason: "David Krause was placed at Kestrel Consumer Brands within the last 6 months — off-limits for the duration of the placement guarantee.",
+      reason: "David Krause was placed at Kestrel Consumer Brands within the last 6 months, off-limits for the duration of the placement guarantee.",
       startDate: daysAgo(30),
       endDate: daysFromNow(166),
       createdById: adam.id,
@@ -1723,7 +1723,7 @@ async function main() {
     data: {
       workspaceId: wid,
       originalFilename: "laura-bennett-cv-2026.pdf",
-      displayName: "Laura Bennett — CV (current)",
+      displayName: "Laura Bennett · CV (current)",
       mimeType: "application/pdf",
       size: 182_340,
       storageKey: "seed/documents/laura-bennett-cv-2026.pdf",
@@ -1741,7 +1741,7 @@ async function main() {
     data: {
       workspaceId: wid,
       originalFilename: "vantage-cfo-job-description.docx",
-      displayName: "Vantage Logistics — CFO Job Description",
+      displayName: "Vantage Logistics · CFO Job Description",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       size: 54_112,
       storageKey: "seed/documents/vantage-cfo-job-description.docx",
@@ -1755,7 +1755,7 @@ async function main() {
     data: {
       workspaceId: wid,
       originalFilename: "vantage-terms-of-business-signed.pdf",
-      displayName: "Vantage Logistics — Signed Terms of Business",
+      displayName: "Vantage Logistics · Signed Terms of Business",
       mimeType: "application/pdf",
       size: 98_765,
       storageKey: "seed/documents/vantage-terms-of-business-signed.pdf",

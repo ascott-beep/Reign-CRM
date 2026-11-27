@@ -14,7 +14,7 @@ export async function getValidAccessToken(connection: MailboxConnection): Promis
   if (!connection.refreshTokenEncrypted) {
     await prisma.mailboxConnection.update({
       where: { id: connection.id },
-      data: { status: "ERROR", lastErrorMessage: "Access token expired and there is no refresh token — reconnect in Settings → Connections." },
+      data: { status: "ERROR", lastErrorMessage: "Access token expired and there is no refresh token, reconnect in Settings → Connections." },
     });
     throw new Error("Mailbox connection needs to be reconnected.");
   }

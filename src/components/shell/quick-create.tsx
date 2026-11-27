@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, SquareCheck, PencilLine, User, Building2, TrendingUp, Briefcase } from "lucide-react";
+import { Plus, SquareCheck, PencilLine, User, Building2, TrendingUp, Briefcase, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -22,7 +23,7 @@ const QUICK_CREATE_LINKS = [
   { label: "Mandate", href: "/mandates/new", icon: Briefcase, key: "m" },
 ];
 
-export function QuickCreate() {
+export function QuickCreate({ collapsed = false }: { collapsed?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -44,14 +45,20 @@ export function QuickCreate() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button>
-          <Plus className="h-[14px] w-[14px]" />
-          Quick create
-        </Button>
+        {collapsed ? (
+          <Button size="icon" aria-label="New" title="New">
+            <Plus className="h-[14px] w-[14px]" />
+          </Button>
+        ) : (
+          <Button className="flex-1 justify-start">
+            <Plus className="h-[14px] w-[14px]" />
+            New
+          </Button>
+        )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start" className="w-[240px]">
         {QUICK_CREATE_LINKS.map((link) => (
-          <DropdownMenuItem key={link.href} asChild>
+          <DropdownMenuItem key={link.href} asChild className="h-[38px] px-2.5">
             <Link href={link.href} className="flex items-center gap-2.5">
               <link.icon className="h-[15px] w-[15px] text-[var(--color-ink2)]" />
               <span className="flex-1">{link.label}</span>
@@ -59,6 +66,13 @@ export function QuickCreate() {
             </Link>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="h-[38px] px-2.5">
+          <Link href="/settings/imports" className="flex items-center gap-2.5">
+            <Upload className="h-[15px] w-[15px] text-[var(--color-ink2)]" />
+            <span className="flex-1">Import from a spreadsheet</span>
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

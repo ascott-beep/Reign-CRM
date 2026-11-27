@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ skipped: "ANTHROPIC_API_KEY not set — the research agent is not configured yet." });
+    return NextResponse.json({ skipped: "ANTHROPIC_API_KEY not set, the research agent is not configured yet." });
   }
 
   const currentHourUtc = new Date().getUTCHours();

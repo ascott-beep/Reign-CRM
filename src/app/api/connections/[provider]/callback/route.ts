@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
   const expectedState = req.cookies.get(`mailbox_oauth_state_${provider}`)?.value;
   const state = searchParams.get("state");
   const code = searchParams.get("code");
-  if (!code || !state || !expectedState || state !== expectedState) return redirectTo("error", "The sign-in link expired — try connecting again.");
+  if (!code || !state || !expectedState || state !== expectedState) return redirectTo("error", "The sign-in link expired, try connecting again.");
 
   try {
     const tokens = await exchangeCodeForTokens(provider, code);

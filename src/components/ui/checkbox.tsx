@@ -12,7 +12,10 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer h-4 w-4 shrink-0 rounded-sm border border-[var(--color-border-strong)] bg-[var(--color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--color-accent)] data-[state=checked]:text-[var(--color-accent-ink)] data-[state=checked]:border-[var(--color-accent)]",
+      // Round 4 Part A: --color-border-strong sits too close to the card background in
+      // dark mode to read as a visible box when unchecked -- --color-muted has enough
+      // contrast against both themes' backgrounds.
+      "peer h-4 w-4 shrink-0 rounded-sm border border-[var(--color-muted)] bg-[var(--color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-[var(--color-accent)] data-[state=checked]:text-[var(--color-accent-ink)] data-[state=checked]:border-[var(--color-accent)]",
       className,
     )}
     {...props}

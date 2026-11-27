@@ -187,7 +187,7 @@ export function AddCandidateDialog({
                         <span className={`block text-sm ${disabled ? "text-[var(--color-muted)]" : "text-[var(--color-ink)]"}`}>
                           {c.firstName} {c.lastName}
                         </span>
-                        <span className="mt-0.5 block text-xs text-[var(--color-muted)]">{c.title ?? "—"}</span>
+                        <span className="mt-0.5 block text-xs text-[var(--color-muted)]">{c.title ?? ""}</span>
                       </span>
                       {isActive ? <Badge tone="neutral">Already on this search</Badge> : null}
                       {isRejected ? <Badge tone="neutral">Rejected from this search</Badge> : null}

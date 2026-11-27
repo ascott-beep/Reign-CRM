@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { ChevronRight } from "lucide-react";
-import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { formatWeekday, formatShortDate, formatWeekdayDate, startOfTodayInLondon, startOfYearInLondon, currentHourInLondon } from "@/lib/datetime";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { DeskPicker } from "@/components/shell/desk-picker";
-import { GlobalSearch } from "@/components/shell/global-search";
-import { TaskIndicator } from "@/components/shell/task-indicator";
-import { QuickCreate } from "@/components/shell/quick-create";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { formatConvertedMoney, cn } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
@@ -41,18 +38,17 @@ export default async function DashboardPage() {
   const user = await requireUser();
   const wid = user.workspaceId;
   const now = new Date();
-  const hour = now.getHours();
+  const hour = currentHourInLondon();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
+  const startOfToday = startOfTodayInLondon();
   const in7Days = new Date(now);
   in7Days.setDate(in7Days.getDate() + 7);
   const threeDaysAgo = new Date(now);
   threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
   const oneWeekAgo = new Date(now);
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const startOfYear = startOfYearInLondon(now);
 
   const mandateWhere = mandateVisibilityWhere(user);
   const [workspace, cookieStore, consultants] = await Promise.all([
@@ -170,7 +166,9 @@ export default async function DashboardPage() {
       },
     }),
     prisma.opportunity.findMany({
-      where: { workspaceId: wid, archivedAt: null, stage: { in: OPEN_OPPORTUNITY_STAGES } },
+      // Never one already linked to a mandate — it's resolved, not open pipeline, however its
+      // stage field reads (see opportunities/actions.ts changeOpportunityStageAction's guard).
+      where: { workspaceId: wid, archivedAt: null, stage: { in: OPEN_OPPORTUNITY_STAGES }, wonMandateId: null },
       select: { stage: true, estimatedFeeAmount: true, estimatedFeeCurrency: true, probabilityOverride: true, isProbabilityOverridden: true },
     }),
     prisma.intelligenceItem.findMany({
@@ -210,7 +208,7 @@ export default async function DashboardPage() {
     const first = upcomingInterviews[0];
     if (first) {
       const name = `${first.candidateProcess.candidatePerson.firstName} ${first.candidateProcess.candidatePerson.lastName}`;
-      return `${name} · ${format(first.scheduledStart, "EEEE")}`;
+      return `${name} · ${formatWeekday(first.scheduledStart)}`;
     }
     if (stalledInterview) {
       return `${orgShortName(stalledInterview.mandate.hiringOrganization.name)} ${stalledInterview.mandate.title} · ${roundWord(stalledInterview.stage)} round still to schedule`;
@@ -219,7 +217,7 @@ export default async function DashboardPage() {
   })();
 
   const oldestOverdueDetail = oldestOverdueTask
-    ? `Oldest: ${oldestOverdueTask.title}, due ${format(oldestOverdueTask.dueDate, "d MMM")}`
+    ? `Oldest: ${oldestOverdueTask.title}, due ${formatShortDate(oldestOverdueTask.dueDate)}`
     : "You're clear";
 
   const todayRows = [
@@ -337,13 +335,10 @@ export default async function DashboardPage() {
           <h1 className="m-0 text-[22px] font-light leading-tight tracking-[-0.01em] text-[var(--color-ink)]">
             {greeting}, {user.firstName}
           </h1>
-          <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Desk overview · {format(now, "EEEE d MMMM")}</div>
+          <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Desk overview · {formatWeekdayDate(now)}</div>
         </div>
-        <div data-toolbar className="flex flex-wrap items-center gap-2">
+        <div data-toolbar className="flex flex-wrap items-center gap-3">
           <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />
-          <GlobalSearch />
-          <TaskIndicator user={user} />
-          <QuickCreate />
         </div>
       </header>
 
@@ -504,7 +499,7 @@ export default async function DashboardPage() {
                   <span className="min-w-0 flex-1">
                     <span className="block text-[13.5px]">{s.title}</span>
                     <span className="mt-0.5 block text-xs text-[var(--color-muted)]">
-                      {confidenceLabel[s.confidence]} · {label(s.commercialRelevance)} · {format(s.dateReceived, "d MMM")}
+                      {confidenceLabel[s.confidence]} · {label(s.commercialRelevance)} · {formatShortDate(s.dateReceived)}
                     </span>
                   </span>
                 </Link>

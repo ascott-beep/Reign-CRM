@@ -13,7 +13,7 @@ export function ActivityPrivacyToggle({ activityId, isPrivate }: { activityId: s
   return (
     <button
       type="button"
-      title={isPrivate ? "Private — only you can see the content. Click to make visible to others." : "Make this email private"}
+      title={isPrivate ? "Private, only you can see the content. Click to make visible to others." : "Make this email private"}
       disabled={pending}
       onClick={() =>
         startTransition(async () => {

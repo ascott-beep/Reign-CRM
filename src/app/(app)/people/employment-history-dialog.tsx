@@ -43,7 +43,7 @@ export function EmploymentHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
+        <Button variant="secondary">
           <Plus className="h-4 w-4" /> Add employment
         </Button>
       </DialogTrigger>

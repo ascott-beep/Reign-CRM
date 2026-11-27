@@ -57,7 +57,7 @@ export function CandidateProfileDialog({ personId, profile }: { personId: string
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="secondary">
+        <Button variant="secondary">
           <Pencil className="h-4 w-4" /> {profile ? "Edit candidate profile" : "Create candidate profile"}
         </Button>
       </DialogTrigger>

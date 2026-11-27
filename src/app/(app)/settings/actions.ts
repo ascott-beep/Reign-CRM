@@ -10,6 +10,7 @@ import { CURRENCY_CODES } from "@/lib/currency";
 import { createPasswordToken } from "@/lib/password-tokens";
 import { sendInviteEmail, sendPasswordResetEmail } from "@/lib/email";
 import { baseUrl } from "@/lib/base-url";
+import { ROLE_SHORT_LABEL } from "@/lib/labels";
 
 export type SettingsFormState = { errors?: Record<string, string[]>; success?: boolean };
 
@@ -29,11 +30,20 @@ export async function inviteUserAction(_prev: SettingsFormState, formData: FormD
   const created = await prisma.user.create({
     data: { workspaceId: user.workspaceId, firstName: data.firstName, lastName: data.lastName, email: data.email, role: data.role },
   });
-
-  const token = await createPasswordToken(created.id, "INVITE");
-  await sendInviteEmail({ to: created.email, firstName: created.firstName, url: `${baseUrl()}/set-password?token=${token}&purpose=invite` });
-
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "User", entityId: created.id, action: "CREATE" });
+
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { name: true } });
+  const token = await createPasswordToken(created.id, "INVITE");
+  await sendInviteEmail({
+    to: created.email,
+    firstName: created.firstName,
+    url: `${baseUrl()}/set-password?token=${token}&purpose=invite`,
+    inviterName: `${user.firstName} ${user.lastName}`,
+    workspaceName: workspace.name,
+    roleLabel: ROLE_SHORT_LABEL[data.role] ?? data.role,
+    replyTo: user.email,
+  });
+
   revalidatePath("/settings/users");
   return { success: true };
 }
@@ -45,8 +55,17 @@ export async function resendInviteAction(userId: string) {
   const target = await prisma.user.findFirstOrThrow({ where: { id: userId, workspaceId: user.workspaceId } });
   if (target.passwordHash) throw new Error("This user has already set a password.");
 
+  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { name: true } });
   const token = await createPasswordToken(target.id, "INVITE");
-  await sendInviteEmail({ to: target.email, firstName: target.firstName, url: `${baseUrl()}/set-password?token=${token}&purpose=invite` });
+  await sendInviteEmail({
+    to: target.email,
+    firstName: target.firstName,
+    url: `${baseUrl()}/set-password?token=${token}&purpose=invite`,
+    inviterName: `${user.firstName} ${user.lastName}`,
+    workspaceName: workspace.name,
+    roleLabel: ROLE_SHORT_LABEL[target.role] ?? target.role,
+    replyTo: user.email,
+  });
   revalidatePath("/settings/users");
 }
 
@@ -84,6 +103,12 @@ export async function setUserActiveAction(userId: string, active: boolean) {
 export async function setUserRoleAction(userId: string, role: string) {
   const user = await requireUser();
   requireAdmin(user.role);
+
+  if (userId === user.id && role !== "ADMIN") {
+    const otherAdmins = await prisma.user.count({ where: { workspaceId: user.workspaceId, role: "ADMIN", active: true, id: { not: user.id } } });
+    if (otherAdmins === 0) throw new Error("You're the last admin, promote someone else first.");
+  }
+
   await prisma.user.update({ where: { id: userId }, data: { role: role as any } });
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "User", entityId: userId, action: "UPDATE", changedFields: { role } });
   revalidatePath("/settings/users");
@@ -176,6 +201,7 @@ export async function updateCurrencySettingsAction(formData: FormData) {
   });
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Workspace", entityId: user.workspaceId, action: "UPDATE", changedFields: parsed.data });
   revalidatePath("/settings/currencies");
+  revalidatePath("/settings/workspace");
   revalidatePath("/");
 }
 
@@ -300,6 +326,91 @@ export async function createTagAction(formData: FormData) {
   revalidatePath("/settings/lists-and-tags");
 }
 
+async function tagUsageCounts(tagIds: string[]): Promise<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  if (tagIds.length === 0) return counts;
+  const [orgs, people, opps, mandates, intel] = await Promise.all([
+    prisma.tagOnOrganization.groupBy({ by: ["tagId"], where: { tagId: { in: tagIds } }, _count: true }),
+    prisma.tagOnPerson.groupBy({ by: ["tagId"], where: { tagId: { in: tagIds } }, _count: true }),
+    prisma.tagOnOpportunity.groupBy({ by: ["tagId"], where: { tagId: { in: tagIds } }, _count: true }),
+    prisma.tagOnMandate.groupBy({ by: ["tagId"], where: { tagId: { in: tagIds } }, _count: true }),
+    prisma.tagOnIntelligenceItem.groupBy({ by: ["tagId"], where: { tagId: { in: tagIds } }, _count: true }),
+  ]);
+  for (const group of [orgs, people, opps, mandates, intel]) {
+    for (const row of group) {
+      counts[row.tagId] = (counts[row.tagId] ?? 0) + row._count;
+    }
+  }
+  return counts;
+}
+
+/** Settings > Lists and tags (screen 39) — the usage count shown next to each tag. */
+export async function listTagsWithCounts(workspaceId: string) {
+  const tags = await prisma.tag.findMany({ where: { workspaceId, active: true }, orderBy: { name: "asc" } });
+  const counts = await tagUsageCounts(tags.map((t) => t.id));
+  return tags.map((t) => ({ ...t, count: counts[t.id] ?? 0 }));
+}
+
+export async function renameTagAction(tagId: string, name: string) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Tag name is required.");
+  await prisma.tag.update({ where: { id: tagId }, data: { name: trimmed } });
+  revalidatePath("/settings/lists-and-tags");
+}
+
+/** Moves every use of `fromTagId` onto `intoTagId`, then deactivates `fromTagId`. */
+export async function mergeTagAction(fromTagId: string, intoTagId: string) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+  if (fromTagId === intoTagId) throw new Error("Choose a different tag to merge into.");
+
+  async function mergeJoinTable<K extends string>(
+    tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+    modelName: "tagOnOrganization" | "tagOnPerson" | "tagOnOpportunity" | "tagOnMandate" | "tagOnIntelligenceItem",
+    key: K,
+  ) {
+    const model = (tx as any)[modelName];
+    const rows: { id: string; [k: string]: unknown }[] = await model.findMany({ where: { tagId: fromTagId } });
+    const alreadyTagged = new Set(
+      (await model.findMany({ where: { tagId: intoTagId }, select: { [key]: true } })).map((r: Record<string, unknown>) => r[key]),
+    );
+    for (const row of rows) {
+      if (alreadyTagged.has(row[key])) {
+        await model.delete({ where: { id: row.id } });
+      } else {
+        await model.update({ where: { id: row.id }, data: { tagId: intoTagId } });
+      }
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await mergeJoinTable(tx, "tagOnOrganization", "organizationId");
+    await mergeJoinTable(tx, "tagOnPerson", "personId");
+    await mergeJoinTable(tx, "tagOnOpportunity", "opportunityId");
+    await mergeJoinTable(tx, "tagOnMandate", "mandateId");
+    await mergeJoinTable(tx, "tagOnIntelligenceItem", "intelligenceItemId");
+    await tx.tag.update({ where: { id: fromTagId }, data: { active: false } });
+  });
+
+  revalidatePath("/settings/lists-and-tags");
+}
+
+export async function deleteTagAction(tagId: string) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+  await prisma.$transaction([
+    prisma.tagOnOrganization.deleteMany({ where: { tagId } }),
+    prisma.tagOnPerson.deleteMany({ where: { tagId } }),
+    prisma.tagOnOpportunity.deleteMany({ where: { tagId } }),
+    prisma.tagOnMandate.deleteMany({ where: { tagId } }),
+    prisma.tagOnIntelligenceItem.deleteMany({ where: { tagId } }),
+    prisma.tag.update({ where: { id: tagId }, data: { active: false } }),
+  ]);
+  revalidatePath("/settings/lists-and-tags");
+}
+
 export async function createCustomFieldAction(formData: FormData) {
   const user = await requireUser();
   requireAdmin(user.role);
@@ -321,16 +432,29 @@ export async function updateProfileAction(formData: FormData) {
   revalidatePath("/settings/profile");
 }
 
-export async function changePasswordAction(formData: FormData) {
+export type ChangePasswordState = { error?: string; success?: boolean };
+
+/** Round 4 screen 32 (R4SetProfile) — small dialog: current password, new password, confirm. */
+export async function changePasswordAction(_prev: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
   const user = await requireUser();
   const currentPassword = String(formData.get("currentPassword") ?? "");
   const newPassword = String(formData.get("newPassword") ?? "");
-  if (newPassword.length < 8) throw new Error("New password must be at least 8 characters.");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  if (newPassword.length < 8) return { error: "Use at least 8 characters." };
+  if (newPassword !== confirmPassword) return { error: "Passwords don't match." };
 
   const record = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   const valid = record.passwordHash ? await bcrypt.compare(currentPassword, record.passwordHash) : false;
-  if (!valid) throw new Error("Current password is incorrect.");
+  if (!valid) return { error: "Current password is incorrect." };
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+  return { success: true };
+}
+
+/** Round 4 screen 32 — saves straight to the user's notificationPreferences JSON column, no migration needed. */
+export async function updateNotificationPreferencesAction(preferences: Record<string, { inApp: boolean; email: boolean }>) {
+  const user = await requireUser();
+  await prisma.user.update({ where: { id: user.id }, data: { notificationPreferences: preferences } });
+  revalidatePath("/settings/notifications");
 }

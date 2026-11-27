@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
 import { EmptyState } from "@/components/shell/states";
 import { FilterPopover } from "@/components/shell/filter-popover";
-import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +157,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             </Button>
           </>
         }
-        user={user}
       />
 
       <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
@@ -213,13 +211,18 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           {rows.map((p) => {
             const isCandidate = p.personTypes.includes("CANDIDATE");
             const dup = duplicates.get(p.id);
-            const orgName = p.currentOrganizationOverride?.name ?? p.organizationAssociations[0]?.organization.name ?? p.employmentHistories[0]?.organization?.name ?? null;
+            const orgName =
+              p.currentOrganizationOverride?.name ??
+              p.organizationAssociations[0]?.organization.name ??
+              p.employmentHistories[0]?.organization?.name ??
+              p.employmentHistories[0]?.employerNameFallback ??
+              null;
             const title = p.headlineOverride?.split(",")[0] ?? p.employmentHistories[0]?.jobTitle ?? null;
             const fit = p.candidateProfile ? fitLabel(p.candidateProfile.rating) : null;
 
             const liveProcesses = p.candidateProcesses.filter((proc) => !isCandidateHidden(proc.stage) && proc.stage !== "PLACED");
             const latestProcess = p.candidateProcesses[0];
-            let liveProcessesText = "—";
+            let liveProcessesText = "";
             if (liveProcesses.length === 1) {
               liveProcessesText = `1 · ${candidatePlainStatus(liveProcesses[0]!.stage).label.toLowerCase()}`;
             } else if (liveProcesses.length > 1) {
@@ -243,15 +246,15 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
                     <span className="block truncate">
                       {p.firstName} {p.lastName}
                     </span>
-                    <span className="block truncate text-xs text-[var(--color-muted)]">{title ?? "—"}</span>
+                    <span className="block truncate text-xs text-[var(--color-muted)]">{title ?? ""}</span>
                   </span>
                 </Link>
-                <span className="truncate text-[var(--color-ink2)]">{orgName ?? "—"}</span>
+                <span className="truncate text-[var(--color-ink2)]">{orgName ?? ""}</span>
                 <span>
                   <Badge tone="neutral">{isCandidate ? "Candidate" : "Client contact"}</Badge>
                 </span>
                 <span>{dup ? <PersonDuplicateTag personId={p.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={p.relationshipStatus} />}</span>
-                <span className="text-[var(--color-ink2)]">{fit ?? "—"}</span>
+                <span className="text-[var(--color-ink2)]">{fit ?? ""}</span>
                 <span className="truncate text-[var(--color-ink2)]">{liveProcessesText}</span>
                 <span className="truncate text-[var(--color-ink2)]">{p.relationshipOwner ? `${p.relationshipOwner.firstName} ${p.relationshipOwner.lastName}` : "Unowned"}</span>
               </div>
@@ -269,8 +272,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
             Load more
           </Link>
         ) : null}
-      </div>
-      <UndoDeleteToast type="PERSON" />
-    </div>
+      </div>    </div>
   );
 }

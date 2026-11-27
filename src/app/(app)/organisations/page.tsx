@@ -6,7 +6,6 @@ import { findAllOrganizationDuplicatePairs } from "@/lib/duplicates";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { FilterPopover } from "@/components/shell/filter-popover";
-import { UndoDeleteToast } from "@/components/shell/undo-delete-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -190,7 +189,6 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
             </Button>
           </>
         }
-        user={user}
       />
 
       <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
@@ -262,11 +260,11 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
                 </Link>
                 <span>{dup ? <OrganizationDuplicateTag organizationId={org.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={org.status} />}</span>
                 <span className="truncate text-[var(--color-ink2)]">
-                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? "—"}
+                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? ""}
                 </span>
-                <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : "—"}</span>
-                <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : "—"}</span>
-                <span className="truncate text-[var(--color-ink2)]">{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : "—"}</span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : ""}</span>
+                <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : ""}</span>
+                <span className="truncate text-[var(--color-ink2)]">{org.relationshipOwner ? `${org.relationshipOwner.firstName} ${org.relationshipOwner.lastName}` : ""}</span>
                 <span className={verified === "stale" ? "text-[var(--color-warn)]" : "text-[var(--color-muted)]"}>{org.lastVerifiedAt ? formatDistanceToNow(org.lastVerifiedAt, { addSuffix: true }) : "Never"}</span>
               </div>
             );
@@ -283,8 +281,6 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
             Load more
           </Link>
         ) : null}
-      </div>
-      <UndoDeleteToast type="ORGANIZATION" />
-    </div>
+      </div>    </div>
   );
 }

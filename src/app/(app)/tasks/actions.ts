@@ -91,8 +91,8 @@ export async function createTaskAction(_prev: TaskFormState, formData: FormData)
 }
 
 const TASK_LINK_INCLUDE = {
-  opportunities: true,
-  mandates: true,
+  opportunities: { include: { opportunity: { select: { potentialRoleTitle: true, name: true, hiringOrganization: { select: { name: true } } } } } },
+  mandates: { include: { mandate: { select: { title: true, hiringOrganization: { select: { name: true } } } } } },
   candidateProcesses: true,
   intelligenceItems: true,
   people: { include: { person: true } },
@@ -110,6 +110,8 @@ export type CompletedTaskSummary = {
   candidateProcessId: string | null;
   intelligenceItemId: string | null;
   assignedUserId: string;
+  /** "Org · Role" from the linked opportunity/mandate, for the next-step dialog's subtitle (screen 21). */
+  recordLabel: string | null;
 };
 
 function completedTaskSummary(task: {
@@ -117,12 +119,20 @@ function completedTaskSummary(task: {
   title: string;
   type: string;
   assignedUserId: string;
-  opportunities: { opportunityId: string }[];
-  mandates: { mandateId: string }[];
+  opportunities: { opportunityId: string; opportunity: { potentialRoleTitle: string | null; name: string; hiringOrganization: { name: string } } }[];
+  mandates: { mandateId: string; mandate: { title: string; hiringOrganization: { name: string } } }[];
   candidateProcesses: { candidateProcessId: string }[];
   intelligenceItems: { intelligenceItemId: string }[];
   people: { personId: string; person: { firstName: string; lastName: string } }[];
 }): CompletedTaskSummary {
+  const opp = task.opportunities[0]?.opportunity;
+  const mandate = task.mandates[0]?.mandate;
+  const recordLabel = mandate
+    ? `${mandate.hiringOrganization.name} · ${mandate.title}`
+    : opp
+      ? `${opp.hiringOrganization.name} · ${opp.potentialRoleTitle ?? opp.name}`
+      : null;
+
   return {
     id: task.id,
     title: task.title,
@@ -134,6 +144,7 @@ function completedTaskSummary(task: {
     candidateProcessId: task.candidateProcesses[0]?.candidateProcessId ?? null,
     intelligenceItemId: task.intelligenceItems[0]?.intelligenceItemId ?? null,
     assignedUserId: task.assignedUserId,
+    recordLabel,
   };
 }
 

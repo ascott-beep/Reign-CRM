@@ -968,8 +968,10 @@ model Organization {
   employmentHistoryInvestorFor EmploymentHistoryInvestor[]
   opportunitiesAsHiringOrg     Opportunity[]                   @relation("OpportunityHiringOrganization")
   opportunitiesAsRelatedFund   OpportunityFund[]
+  opportunitiesAsPortfolioCo   Opportunity[]                   @relation("OpportunityPortfolioCompany")
   mandatesAsHiringOrg          Mandate[]                       @relation("MandateHiringOrganization")
   mandatesAsRelatedFund        MandateFund[]
+  mandatesAsPortfolioCo        Mandate[]                       @relation("MandatePortfolioCompany")
   intelligenceItems            IntelligenceItem[]              @relation("IntelligenceOrganization")
   intelligenceAsRelatedFund    IntelligenceItemFund[]
   intelligenceRuns             IntelligenceRun[]
@@ -1310,6 +1312,10 @@ model Opportunity {
   name                    String
   hiringOrganizationId    String
   hiringOrganization      Organization           @relation("OpportunityHiringOrganization", fields: [hiringOrganizationId], references: [id])
+  // Separate from the hiring organisation (the fund/client commissioning the search):
+  // the portfolio company the role actually sits at, when that's a distinct organisation.
+  portfolioCompanyId      String?
+  portfolioCompany        Organization?          @relation("OpportunityPortfolioCompany", fields: [portfolioCompanyId], references: [id])
   type                    OpportunityType        @default(UNKNOWN)
   stage                   OpportunityStage       @default(SIGNAL_IDENTIFIED)
   stageEnteredAt          DateTime               @default(now())
@@ -1368,6 +1374,7 @@ model Opportunity {
 
   @@index([workspaceId, stage])
   @@index([hiringOrganizationId])
+  @@index([portfolioCompanyId])
   @@index([ownerId])
 }
 
@@ -1428,6 +1435,10 @@ model Mandate {
   title                   String
   hiringOrganizationId    String
   hiringOrganization      Organization           @relation("MandateHiringOrganization", fields: [hiringOrganizationId], references: [id])
+  // Separate from the hiring organisation (the fund/client commissioning the search):
+  // the portfolio company the role actually sits at, when that's a distinct organisation.
+  portfolioCompanyId      String?
+  portfolioCompany        Organization?          @relation("MandatePortfolioCompany", fields: [portfolioCompanyId], references: [id])
   sourceOpportunityId     String?                @unique
   sourceOpportunity       Opportunity?           @relation("MandateSourceOpportunity", fields: [sourceOpportunityId], references: [id])
   // Required (enforced in the form) when there is no sourceOpportunity.
@@ -1518,6 +1529,7 @@ model Mandate {
   @@unique([workspaceId, reference])
   @@index([workspaceId, status])
   @@index([hiringOrganizationId])
+  @@index([portfolioCompanyId])
   @@index([ownerId])
 }
 

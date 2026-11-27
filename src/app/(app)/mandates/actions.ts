@@ -14,7 +14,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
 
-  const raw = Object.fromEntries(formData.entries());
+  const raw = { ...Object.fromEntries(formData.entries()), tagIds: formData.getAll("tagIds") };
   const parsed = mandateFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
@@ -29,6 +29,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
       reference,
       title: data.title,
       hiringOrganizationId: data.hiringOrganizationId,
+      portfolioCompanyId: data.portfolioCompanyId ?? null,
       source: data.source,
       status: "BRIEF_RECEIVED",
       priority: data.priority,
@@ -56,6 +57,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
       targetCompletionDate: data.targetCompletionDate ?? null,
       createdById: user.id,
       statusHistory: { create: [{ toStatus: "BRIEF_RECEIVED", changedById: user.id, notes: "Mandate opened." }] },
+      tags: data.tagIds.length > 0 ? { create: data.tagIds.map((tagId) => ({ tagId })) } : undefined,
     },
   });
 
@@ -70,42 +72,51 @@ export async function updateMandateAction(mandateId: string, _prev: MandateFormS
   if (!canMutate(user.role)) throw new PermissionError();
   if (!(await canViewMandate(user, mandateId))) throw new PermissionError("You do not have access to this mandate.");
 
-  const raw = Object.fromEntries(formData.entries());
+  const raw = { ...Object.fromEntries(formData.entries()), tagIds: formData.getAll("tagIds") };
   const parsed = mandateFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
 
   const before = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } });
-  const updated = await prisma.mandate.update({
-    where: { id: mandateId },
-    data: {
-      title: data.title,
-      hiringOrganizationId: data.hiringOrganizationId,
-      source: data.source,
-      priority: data.priority,
-      confidentiality: data.confidentiality,
-      ownerId: data.ownerId,
-      hiringManagerPersonId: data.hiringManagerPersonId ?? null,
-      internalTalentPersonId: data.internalTalentPersonId ?? null,
-      seniority: data.seniority ?? null,
-      employmentType: data.employmentType,
-      numberOfHires: data.numberOfHires,
-      city: data.city ?? null,
-      countryCode: data.countryCode ?? null,
-      workArrangement: data.workArrangement ?? null,
-      roleSummary: data.roleSummary ?? null,
-      businessContext: data.businessContext ?? null,
-      requiredExperience: data.requiredExperience ?? null,
-      minBaseAmount: data.minBaseAmount ?? null,
-      maxBaseAmount: data.maxBaseAmount ?? null,
-      baseCurrency: data.baseCurrency ?? null,
-      engagementModel: data.engagementModel,
-      feeType: data.feeType,
-      feePercentage: data.feePercentage ?? null,
-      signedTerms: data.signedTerms ?? false,
-      targetShortlistDate: data.targetShortlistDate ?? null,
-      targetCompletionDate: data.targetCompletionDate ?? null,
-    },
+  const updated = await prisma.$transaction(async (tx) => {
+    const result = await tx.mandate.update({
+      where: { id: mandateId },
+      data: {
+        title: data.title,
+        hiringOrganizationId: data.hiringOrganizationId,
+        portfolioCompanyId: data.portfolioCompanyId ?? null,
+        source: data.source,
+        priority: data.priority,
+        confidentiality: data.confidentiality,
+        ownerId: data.ownerId,
+        hiringManagerPersonId: data.hiringManagerPersonId ?? null,
+        internalTalentPersonId: data.internalTalentPersonId ?? null,
+        seniority: data.seniority ?? null,
+        employmentType: data.employmentType,
+        numberOfHires: data.numberOfHires,
+        city: data.city ?? null,
+        countryCode: data.countryCode ?? null,
+        workArrangement: data.workArrangement ?? null,
+        roleSummary: data.roleSummary ?? null,
+        businessContext: data.businessContext ?? null,
+        requiredExperience: data.requiredExperience ?? null,
+        minBaseAmount: data.minBaseAmount ?? null,
+        maxBaseAmount: data.maxBaseAmount ?? null,
+        baseCurrency: data.baseCurrency ?? null,
+        engagementModel: data.engagementModel,
+        feeType: data.feeType,
+        feePercentage: data.feePercentage ?? null,
+        signedTerms: data.signedTerms ?? false,
+        targetShortlistDate: data.targetShortlistDate ?? null,
+        targetCompletionDate: data.targetCompletionDate ?? null,
+      },
+    });
+    // Round 4 screen 29 "Edit mandate": tags picked from existing workspace tags only (Settings > Lists and tags makes new ones) -- replace the set each save.
+    await tx.tagOnMandate.deleteMany({ where: { mandateId } });
+    if (data.tagIds.length > 0) {
+      await tx.tagOnMandate.createMany({ data: data.tagIds.map((tagId) => ({ mandateId, tagId })) });
+    }
+    return result;
   });
 
   await writeAuditLog({

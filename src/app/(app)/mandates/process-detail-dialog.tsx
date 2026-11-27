@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { label } from "@/lib/labels";
-import { format } from "date-fns";
+import { formatDate, formatDateTime } from "@/lib/datetime";
 import { InterviewDialog } from "./interview-dialog";
 import { OfferDialog } from "./offer-dialog";
 import { PlaceCandidateDialog } from "./place-candidate-dialog";
@@ -140,17 +140,17 @@ export function ProcessDetailDialog({
               {detail.candidateRating ? <Badge tone="info">{label(detail.candidateRating)}</Badge> : null}
             </div>
             <p className="text-xs text-[var(--color-ink-subtle)]">
-              {detail.mandateReference} — {detail.mandateTitle} · {detail.organizationName}
+              {detail.mandateReference} · {detail.mandateTitle} · {detail.organizationName}
             </p>
 
             {detail.rejectionReason ? (
               <p className="rounded-md bg-[var(--color-status-danger-bg)] px-3 py-2 text-sm text-[var(--color-status-danger-ink)]">
-                Rejected: {label(detail.rejectionReason)} {detail.rejectionExplanation ? `— ${detail.rejectionExplanation}` : ""}
+                Rejected: {label(detail.rejectionReason)} {detail.rejectionExplanation ? `· ${detail.rejectionExplanation}` : ""}
               </p>
             ) : null}
             {detail.withdrawalReason ? (
               <p className="rounded-md bg-[var(--color-status-warning-bg)] px-3 py-2 text-sm text-[var(--color-status-warning-ink)]">
-                Withdrawn: {label(detail.withdrawalReason)} {detail.withdrawalExplanation ? `— ${detail.withdrawalExplanation}` : ""}
+                Withdrawn: {label(detail.withdrawalReason)} {detail.withdrawalExplanation ? `· ${detail.withdrawalExplanation}` : ""}
               </p>
             ) : null}
 
@@ -175,7 +175,7 @@ export function ProcessDetailDialog({
                   <Textarea name="clientFeedback" rows={2} defaultValue={detail.clientFeedback ?? ""} />
                 </div>
                 <div>
-                  <Button type="submit" size="sm" variant="secondary">
+                  <Button type="submit" variant="secondary">
                     Save assessment
                   </Button>
                 </div>
@@ -193,9 +193,9 @@ export function ProcessDetailDialog({
                 <ul className="flex flex-col gap-1.5">
                   {detail.interviews.map((i) => (
                     <li key={i.id} className="flex items-center justify-between text-sm">
-                      <span>Round {i.roundNumber} — {label(i.type)}</span>
+                      <span>Round {i.roundNumber} · {label(i.type)}</span>
                       <span className="text-xs text-[var(--color-ink-subtle)]">
-                        {format(new Date(i.scheduledStart), "d MMM yyyy HH:mm")} · {label(i.outcome)}
+                        {formatDateTime(new Date(i.scheduledStart))} · {label(i.outcome)}
                       </span>
                     </li>
                   ))}
@@ -207,7 +207,7 @@ export function ProcessDetailDialog({
               <div className="mb-2 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Offer</h3>
                 {detail.stage !== "PLACED" ? (
-                  <Button size="sm" variant="secondary" onClick={() => setOfferDialogOpen(true)}>
+                  <Button variant="secondary" onClick={() => setOfferDialogOpen(true)}>
                     Create offer
                   </Button>
                 ) : null}
@@ -218,7 +218,7 @@ export function ProcessDetailDialog({
                 <ul className="flex flex-col gap-1.5">
                   {detail.offers.map((o) => (
                     <li key={o.id} className="flex items-center justify-between text-sm">
-                      <span>{o.baseAmount ? `${o.baseCurrency} ${o.baseAmount}` : "—"}</span>
+                      <span>{o.baseAmount ? `${o.baseCurrency} ${o.baseAmount}` : ""}</span>
                       <Badge tone="info">{label(o.status)}</Badge>
                     </li>
                   ))}
@@ -228,11 +228,11 @@ export function ProcessDetailDialog({
 
             {detail.placement ? (
               <p className="rounded-md bg-[var(--color-status-success-bg)] px-3 py-2 text-sm text-[var(--color-status-success-ink)]">
-                Placed on {format(new Date(detail.placement.placementDate), "d MMM yyyy")} — {label(detail.placement.status)}
+                Placed on {formatDate(new Date(detail.placement.placementDate))} · {label(detail.placement.status)}
               </p>
             ) : detail.stage !== "REJECTED" && detail.stage !== "WITHDRAWN" ? (
               <div>
-                <Button size="sm" onClick={() => setPlaceDialogOpen(true)}>
+                <Button onClick={() => setPlaceDialogOpen(true)}>
                   Mark as Placed
                 </Button>
               </div>
@@ -248,7 +248,7 @@ export function ProcessDetailDialog({
                       {label(h.toStage)}
                     </span>
                     <span>
-                      {format(new Date(h.changedAt), "d MMM yyyy HH:mm")} · {h.changedBy}
+                      {formatDateTime(new Date(h.changedAt))} · {h.changedBy}
                     </span>
                   </li>
                 ))}

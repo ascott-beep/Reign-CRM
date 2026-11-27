@@ -8,6 +8,8 @@ import { NAV_GROUPS, SETTINGS_NAV_ITEM, type NavItem } from "@/lib/nav";
 import { ReignMark } from "@/components/shell/reign-logo";
 import { AtlasLogo } from "@/components/brand/atlas-logo";
 import { UserMenu } from "@/components/shell/user-menu";
+import { GlobalSearch } from "@/components/shell/global-search";
+import { QuickCreate } from "@/components/shell/quick-create";
 import { setSidebarCollapsedAction } from "@/lib/sidebar-actions";
 import { initials, cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
@@ -74,10 +76,13 @@ export function Sidebar({
   user,
   counts,
   defaultCollapsed,
+  notificationBell,
 }: {
   user: { firstName: string; lastName: string; role: string };
   counts: NavCounts;
   defaultCollapsed: boolean;
+  /** NotificationBell, seeded with a server-computed initial unread count — see (app)/layout.tsx. Sits next to "+ New" (screen 05), not in the footer. */
+  notificationBell: React.ReactNode;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -131,6 +136,21 @@ export function Sidebar({
           >
             <PanelLeftClose className="h-[17px] w-[17px]" strokeWidth={1.6} />
           </button>
+        </div>
+      )}
+
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-3">
+          <GlobalSearch collapsed />
+          <QuickCreate collapsed />
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <GlobalSearch />
+          <div className="flex items-center gap-2">
+            <QuickCreate />
+            {notificationBell}
+          </div>
         </div>
       )}
 

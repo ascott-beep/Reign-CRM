@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MoneyInput } from "@/components/ui/money-input";
 import { CURRENCIES } from "@/lib/iso";
 import { createOfferAction } from "./candidate-process-actions";
 
@@ -23,6 +24,7 @@ export function OfferDialog({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [baseCurrency, setBaseCurrency] = useState("GBP");
 
   if (!candidateProcessId) return null;
 
@@ -50,11 +52,11 @@ export function OfferDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="baseAmount">Base amount</Label>
-              <Input id="baseAmount" name="baseAmount" type="number" min={0} />
+              <MoneyInput id="baseAmount" name="baseAmount" currency={baseCurrency} placeholder="e.g. £90,000" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="baseCurrency">Currency</Label>
-              <Select name="baseCurrency" defaultValue="GBP">
+              <Select name="baseCurrency" value={baseCurrency} onValueChange={setBaseCurrency}>
                 <SelectTrigger id="baseCurrency">
                   <SelectValue />
                 </SelectTrigger>

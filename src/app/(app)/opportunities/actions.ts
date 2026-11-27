@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
-import { opportunityFormSchema, stageChangeSchema, createMandateFromOpportunitySchema, defaultProbabilityFor } from "@/lib/validation/opportunity";
+import { opportunityFormSchema, stageChangeSchema, createMandateFromOpportunitySchema, defaultProbabilityFor, CHANCE_OF_WINNING } from "@/lib/validation/opportunity";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { generateMandateReference } from "@/lib/mandate-reference";
 
@@ -30,36 +30,72 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
   const parsed = opportunityFormSchema.safeParse(raw);
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
+
+  // Round 4 screen 28 "New opportunity": "asks for a first next step, so nothing is
+  // created without one" -- schema-optional (edits don't need to resupply one), required here.
+  if (!data.firstNextStepTitle || !data.firstNextStepDueDate) {
+    return {
+      errors: { firstNextStepTitle: ["A first next step is required"] },
+      formValues: raw,
+    };
+  }
+
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
   const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle);
+  const stage = data.stage ?? "SIGNAL_IDENTIFIED";
+  const chance = data.chanceOfWinning ?? "MEDIUM";
 
-  const opportunity = await prisma.opportunity.create({
-    data: {
-      workspaceId: user.workspaceId,
-      name,
-      hiringOrganizationId: data.hiringOrganizationId,
-      type: data.type,
-      stage: "SIGNAL_IDENTIFIED",
-      stageProbabilityDefault: defaultProbabilityFor("SIGNAL_IDENTIFIED", overrides),
-      potentialRoleTitle: data.potentialRoleTitle ?? null,
-      employmentType: data.employmentType ?? null,
-      source: data.source,
-      leadContactPersonId: data.leadContactPersonId ?? null,
-      ownerId: data.ownerId,
-      estimatedFeeAmount: data.estimatedFeeAmount ?? null,
-      estimatedFeeCurrency: data.estimatedFeeCurrency ?? null,
-      expectedDecisionDate: data.expectedDecisionDate ?? null,
-      nextStepSummary: data.nextStepSummary ?? null,
-      notes: data.notes ?? null,
-      createdById: user.id,
-      stageHistory: { create: [{ toStage: "SIGNAL_IDENTIFIED", changedById: user.id, notes: "Opportunity created." }] },
-    },
+  const opportunity = await prisma.$transaction(async (tx) => {
+    const created = await tx.opportunity.create({
+      data: {
+        workspaceId: user.workspaceId,
+        name,
+        hiringOrganizationId: data.hiringOrganizationId,
+        portfolioCompanyId: data.portfolioCompanyId ?? null,
+        type: data.type,
+        stage,
+        stageProbabilityDefault: defaultProbabilityFor(stage, overrides),
+        probabilityOverride: CHANCE_OF_WINNING[chance],
+        isProbabilityOverridden: true,
+        potentialRoleTitle: data.potentialRoleTitle ?? null,
+        employmentType: data.employmentType ?? null,
+        source: data.source,
+        leadContactPersonId: data.leadContactPersonId ?? null,
+        ownerId: data.ownerId,
+        estimatedFeeAmount: data.estimatedFeeAmount ?? null,
+        estimatedFeeCurrency: data.estimatedFeeCurrency ?? null,
+        expectedDecisionDate: data.expectedDecisionDate ?? null,
+        nextStepSummary: data.nextStepSummary ?? null,
+        notes: data.notes ?? null,
+        createdById: user.id,
+        stageHistory: { create: [{ toStage: stage as any, changedById: user.id, notes: "Opportunity created." }] },
+      },
+    });
+
+    const task = await tx.task.create({
+      data: {
+        workspaceId: user.workspaceId,
+        title: data.firstNextStepTitle!,
+        type: "FOLLOW_UP",
+        status: "TODO",
+        priority: "NORMAL",
+        assignedUserId: data.ownerId,
+        createdById: user.id,
+        dueDate: data.firstNextStepDueDate!,
+        relatedRecordType: "OPPORTUNITY",
+        relatedRecordId: created.id,
+        opportunities: { create: [{ opportunityId: created.id }] },
+      },
+    });
+    await tx.opportunity.update({ where: { id: created.id }, data: { primaryNextTaskId: task.id } });
+
+    return created;
   });
 
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Opportunity", entityId: opportunity.id, action: "CREATE" });
 
   revalidatePath("/opportunities");
-  redirect(`/opportunities/${opportunity.id}`);
+  redirect(`/opportunities/${opportunity.id}?created=${encodeURIComponent("Opportunity added")}`);
 }
 
 export async function updateOpportunityAction(opportunityId: string, _prev: OpportunityFormState, formData: FormData): Promise<OpportunityFormState> {
@@ -78,6 +114,7 @@ export async function updateOpportunityAction(opportunityId: string, _prev: Oppo
     data: {
       name,
       hiringOrganizationId: data.hiringOrganizationId,
+      portfolioCompanyId: data.portfolioCompanyId ?? null,
       type: data.type,
       potentialRoleTitle: data.potentialRoleTitle ?? null,
       employmentType: data.employmentType ?? null,
@@ -128,6 +165,9 @@ export async function changeOpportunityStageAction(input: {
 
   const opportunity = await prisma.opportunity.findUniqueOrThrow({ where: { id: data.opportunityId } });
   if (opportunity.stage === data.toStage) return;
+  if (opportunity.wonMandateId) {
+    throw new Error("This opportunity is already linked to a mandate, its stage can't be changed. Go to the mandate instead.");
+  }
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
 
   await prisma.$transaction(async (tx) => {
@@ -161,7 +201,7 @@ export async function changeOpportunityStageAction(input: {
       await tx.task.create({
         data: {
           workspaceId: user.workspaceId,
-          title: `Check back in — ${opportunity.name}`,
+          title: `Check back in · ${opportunity.name}`,
           type: "FOLLOW_UP",
           status: "TODO",
           priority: "NORMAL",
@@ -180,7 +220,7 @@ export async function changeOpportunityStageAction(input: {
       await tx.task.create({
         data: {
           workspaceId: user.workspaceId,
-          title: `Review on-hold opportunity — ${opportunity.name}`,
+          title: `Review on-hold opportunity · ${opportunity.name}`,
           type: "FOLLOW_UP",
           status: "TODO",
           priority: "NORMAL",
@@ -224,6 +264,12 @@ export async function setProbabilityOverrideAction(opportunityId: string, probab
  * unique + Mandate.sourceOpportunityId unique). d01's dialog submits a
  * FormData with the reviewed/edited fields; a bare opportunityId falls back
  * to sensible defaults from the opportunity itself.
+ *
+ * Round 4 Part A item 3: pressing Won only opens this dialog — nothing is
+ * mutated until it's confirmed. So the stage change to WON happens here,
+ * atomically with the mandate it creates, rather than before the dialog
+ * opens; a still-open opportunity is moved to WON in the same transaction,
+ * one already WON (unconverted) is just converted as before.
  */
 export async function convertOpportunityToMandateAction(opportunityId: string, formData?: FormData) {
   const user = await requireUser();
@@ -244,21 +290,41 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
     },
   });
 
-  if (opportunity.stage !== "WON") throw new Error("Only a Won opportunity can be converted to a mandate.");
+  if (opportunity.stage === "LOST") throw new Error("A lost opportunity can't be converted to a mandate.");
   if (opportunity.wonMandateId) {
     // Already converted — idempotent no-op, just route to the existing mandate.
     redirect(`/mandates/${opportunity.wonMandateId}`);
   }
 
+  const wasAlreadyWon = opportunity.stage === "WON";
   const reference = await generateMandateReference(user.workspaceId);
+  const stageProbabilities = wasAlreadyWon ? null : await getWorkspaceStageProbabilities(user.workspaceId);
 
   const mandate = await prisma.$transaction(async (tx) => {
+    if (!wasAlreadyWon) {
+      await tx.opportunity.update({
+        where: { id: opportunity.id },
+        data: {
+          stage: "WON",
+          stageEnteredAt: new Date(),
+          stageProbabilityDefault: defaultProbabilityFor("WON", stageProbabilities),
+          isProbabilityOverridden: false,
+          probabilityOverride: null,
+          closedAt: new Date(),
+        },
+      });
+      await tx.opportunityStageHistory.create({
+        data: { opportunityId: opportunity.id, fromStage: opportunity.stage, toStage: "WON", changedById: user.id },
+      });
+    }
+
     const created = await tx.mandate.create({
       data: {
         workspaceId: user.workspaceId,
         reference,
         title: overrides.title || opportunity.potentialRoleTitle || opportunity.name,
         hiringOrganizationId: opportunity.hiringOrganizationId,
+        portfolioCompanyId: opportunity.portfolioCompanyId,
         sourceOpportunityId: opportunity.id,
         status: "BRIEF_RECEIVED",
         priority: "NORMAL",
@@ -270,10 +336,10 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
         minBaseAmount: overrides.minBaseAmount ?? null,
         maxBaseAmount: overrides.maxBaseAmount ?? null,
         startDate: overrides.startDate ?? null,
-        baseCurrency: opportunity.estimatedFeeCurrency ?? "GBP",
+        baseCurrency: overrides.agreedFeeCurrency ?? opportunity.estimatedFeeCurrency ?? "GBP",
         feeType: "FIXED_FEE",
         fixedFeeAmount: overrides.agreedFeeAmount ?? opportunity.estimatedFeeAmount ?? null,
-        fixedFeeCurrency: opportunity.estimatedFeeCurrency ?? null,
+        fixedFeeCurrency: overrides.agreedFeeCurrency ?? opportunity.estimatedFeeCurrency ?? null,
         engagementModel: overrides.engagementModel ?? (opportunity.type === "RETAINED_SEARCH" ? "RETAINED" : opportunity.type === "INTERIM_ASSIGNMENT" ? "INTERIM" : "CONTINGENT"),
         signedTerms: overrides.signedTerms ?? false,
         createdById: user.id,
@@ -343,7 +409,19 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
     return created;
   });
 
+  if (!wasAlreadyWon) {
+    await writeAuditLog({
+      workspaceId: user.workspaceId,
+      actorId: user.id,
+      entityType: "Opportunity",
+      entityId: opportunity.id,
+      action: "STAGE_CHANGE",
+      changedFields: { fromStage: opportunity.stage, toStage: "WON" },
+    });
+  }
+
   revalidatePath(`/opportunities/${opportunityId}`);
+  revalidatePath("/opportunities");
   revalidatePath("/mandates");
   redirect(`/mandates/${mandate.id}`);
 }

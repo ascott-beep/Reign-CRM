@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MoneyInput } from "@/components/ui/money-input";
+import { CURRENCIES } from "@/lib/iso";
 import { markSearchFilledAction } from "./candidate-process-actions";
 
 type FillableCandidate = { id: string; name: string; statusLabel: string; isPlaced: boolean };
@@ -30,6 +33,7 @@ export function MarkSearchFilledDialog({
   const [selected, setSelected] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [agreedBaseCurrency, setAgreedBaseCurrency] = useState("GBP");
 
   useEffect(() => {
     if (!open || !mandateId) return;
@@ -119,11 +123,22 @@ export function MarkSearchFilledDialog({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="agreedBaseAmount">Final base salary</Label>
-                <Input id="agreedBaseAmount" name="agreedBaseAmount" type="number" min={0} />
+                <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} placeholder="e.g. £90,000" />
               </div>
               <div>
                 <Label htmlFor="agreedBaseCurrency">Currency</Label>
-                <Input id="agreedBaseCurrency" name="agreedBaseCurrency" defaultValue="GBP" maxLength={3} />
+                <Select name="agreedBaseCurrency" value={agreedBaseCurrency} onValueChange={setAgreedBaseCurrency}>
+                  <SelectTrigger id="agreedBaseCurrency">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

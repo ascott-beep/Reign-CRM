@@ -7,11 +7,10 @@ import { DeskPicker } from "@/components/shell/desk-picker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
-import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { normalizeExchangeRates, convertAmount } from "@/lib/currency";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
-import { orgShortName, OPEN_OPPORTUNITY_STAGES } from "@/lib/rules";
+import { orgShortName, OPEN_OPPORTUNITY_STAGES, weightedOpportunityValue } from "@/lib/rules";
 import { Download } from "lucide-react";
 import { PeriodPicker } from "./period-picker";
 import type { Metadata } from "next";
@@ -124,12 +123,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     prisma.opportunity.count({ where: { workspaceId: wid, archivedAt: null, primaryNextTaskId: null, stage: { in: OPEN_OPPORTUNITY_STAGES }, ...ownerFilter } }),
   ]);
 
-  const openOpportunities = opportunities.filter((o) => o.stage !== "WON" && o.stage !== "LOST");
-  const weightedPipelineValue = openOpportunities.reduce((sum, o) => {
-    if (!o.estimatedFeeAmount) return sum;
-    const prob = o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[o.stage] ?? 0);
-    return sum + (convert(Number(o.estimatedFeeAmount), o.estimatedFeeCurrency) * prob) / 100;
-  }, 0);
+  // Same definition of "open" as the Opportunities board/Home (OPEN_OPPORTUNITY_STAGES, and never
+  // one already linked to a mandate) and the same value × probability formula, so "Likely fees"
+  // reads the same number here as it does on Home for the same filter.
+  const openOpportunities = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage) && !o.wonMandateId);
+  const likelyFeesValue = openOpportunities.reduce((sum, o) => sum + convert(weightedOpportunityValue(o), o.estimatedFeeCurrency), 0);
 
   const totalPlacementFees = placements.reduce((sum, p) => (p.feeAmount ? sum + convert(Number(p.feeAmount), p.feeCurrency) : sum), 0);
   const activeMandates = mandates.filter((m) => m.status !== "FILLED" && m.status !== "CANCELLED").length;
@@ -205,7 +203,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <KpiCard label="Placement fees" value={formatMoney(totalPlacementFees, currency)} description={`${placements.length} placement${placements.length === 1 ? "" : "s"}`} />
-        <KpiCard label="Weighted pipeline" value={formatMoney(weightedPipelineValue, currency)} description={`${openOpportunities.length} open opportunities`} />
+        <KpiCard label="Likely fees" value={formatMoney(likelyFeesValue, currency)} description={`${openOpportunities.length} open opportunities`} />
         <KpiCard label="Active mandates" value={String(activeMandates)} description={`${mandateAtOffer} at offer`} />
         <KpiCard label="Candidate conversion" value={`${conversionPct}%`} description={`${totalPlaced} of ${totalEntered} placed`} />
         <KpiCard
@@ -298,7 +296,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       </div>
 
       <p className="text-xs text-[var(--color-muted)]">
-        Monetary totals are converted using manually maintained exchange rates (Settings &gt; Workspace) — there is no live FX feed. Portfolio coverage, time-to-fill and
+        Monetary totals are converted using manually maintained exchange rates (Settings &gt; Workspace), there is no live FX feed. Portfolio coverage, time-to-fill and
         source-to-placement will become separate report pages linked from here.
       </p>
     </div>

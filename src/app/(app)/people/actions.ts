@@ -26,15 +26,10 @@ export async function createPersonAction(_prev: PersonFormState, formData: FormD
   }
   const data = parsed.data;
 
-  if (!data.confirmNotDuplicate) {
-    const duplicates = await findPersonDuplicates(user.workspaceId, {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      primaryEmail: data.primaryEmail,
-      linkedinUrl: data.linkedinUrl,
-    });
-    if (duplicates.length > 0) return { duplicates, formValues: rawWithArrays };
-  }
+  // Round 4 screen 26: the duplicate banner on this form is advisory and live
+  // (checked as you type via /api/people/duplicate-check) -- it never blocks
+  // saving, so the create itself no longer gates on a server-side duplicate
+  // check the way earlier rounds did.
 
   const person = await prisma.person.create({
     data: {
@@ -78,7 +73,10 @@ export async function createPersonAction(_prev: PersonFormState, formData: FormD
   });
 
   revalidatePath("/people");
-  redirect(`/people/${person.id}`);
+  if (formData.get("intent") === "another") {
+    redirect(`/people/new?created=${encodeURIComponent("Person added")}`);
+  }
+  redirect(`/people/${person.id}?created=${encodeURIComponent("Person added")}`);
 }
 
 export async function updatePersonAction(personId: string, _prev: PersonFormState, formData: FormData): Promise<PersonFormState> {

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { label } from "@/lib/labels";
-import { format, isBefore, startOfToday, isToday } from "date-fns";
+import { formatShortDate, isBeforeTodayInLondon, isTodayInLondon } from "@/lib/datetime";
 import { TaskCheckbox } from "./task-checkbox";
 import { QuickAddTask } from "./quick-add";
 import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
@@ -43,7 +43,7 @@ function linkedRecordText(t: TaskWithLinks): string | null {
 
 function Row({ t }: { t: TaskWithLinks }) {
   const completed = t.status === "COMPLETED";
-  const overdue = !completed && t.status !== "CANCELLED" && isBefore(t.dueDate, startOfToday());
+  const overdue = !completed && t.status !== "CANCELLED" && isBeforeTodayInLondon(t.dueDate);
   const linked = linkedRecordText(t);
   return (
     <div className="flex items-center gap-4 border-t border-[var(--color-line)] px-5 py-3 text-[13.5px]">
@@ -58,7 +58,7 @@ function Row({ t }: { t: TaskWithLinks }) {
       </div>
       <div className={`w-32 shrink-0 text-right text-[13px] ${overdue ? "text-[var(--color-warn)]" : "text-[var(--color-muted)]"}`}>
         {overdue ? "Overdue · " : ""}
-        {format(t.dueDate, "d MMM")}
+        {formatShortDate(t.dueDate)}
       </div>
       <div className="w-20 shrink-0 text-right">
         <Badge tone={t.priority === "URGENT" ? "warning" : "neutral"}>{label(t.priority)}</Badge>
@@ -81,10 +81,9 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     computeSuggestions(user.workspaceId),
   ]);
 
-  const today = startOfToday();
-  const overdue = openTasks.filter((t) => isBefore(t.dueDate, today));
-  const dueToday = openTasks.filter((t) => isToday(t.dueDate));
-  const upcoming = openTasks.filter((t) => !isBefore(t.dueDate, today) && !isToday(t.dueDate));
+  const overdue = openTasks.filter((t) => isBeforeTodayInLondon(t.dueDate));
+  const dueToday = openTasks.filter((t) => isTodayInLondon(t.dueDate));
+  const upcoming = openTasks.filter((t) => !isBeforeTodayInLondon(t.dueDate) && !isTodayInLondon(t.dueDate));
 
   const todayText = dueToday.length === 0 ? "nothing due today" : `${dueToday.length} due today`;
 

@@ -27,7 +27,7 @@ async function resolveLinkLabel(params: LinkParams): Promise<string | undefined>
   }
   if (params.mandateId) {
     const m = await prisma.mandate.findUnique({ where: { id: params.mandateId }, select: { reference: true, title: true } });
-    return m ? `${m.reference} — ${m.title}` : undefined;
+    return m ? `${m.reference} · ${m.title}` : undefined;
   }
   if (params.intelligenceItemId) {
     const i = await prisma.intelligenceItem.findUnique({ where: { id: params.intelligenceItemId }, select: { title: true } });

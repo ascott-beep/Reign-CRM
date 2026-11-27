@@ -31,6 +31,14 @@ function dateOnly(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+function timeOnly(d: Date) {
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+function isPastMoment(dateStr: string, timeStr: string) {
+  return new Date(`${dateStr}T${timeStr || "00:00"}`).getTime() < Date.now();
+}
+
 type ComposerTab = "activity" | "note" | "email" | "file";
 
 export function Composer({
@@ -55,9 +63,10 @@ export function Composer({
   const [subject, setSubject] = useState("");
   const [subjectTouched, setSubjectTouched] = useState(false);
   const [when, setWhen] = useState(() => dateOnly(new Date()));
+  const [whenTime, setWhenTime] = useState(() => timeOnly(new Date()));
   const [pickingDate, setPickingDate] = useState(false);
   const [duration, setDuration] = useState("");
-  const [markAsDone, setMarkAsDone] = useState(true);
+  const [markAsDone, setMarkAsDone] = useState(false);
   const [outcome, setOutcome] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [noteText, setNoteText] = useState("");
@@ -77,17 +86,26 @@ export function Composer({
     setSubject("");
     setSubjectTouched(false);
     setWhen(dateOnly(new Date()));
+    setWhenTime(timeOnly(new Date()));
     setPickingDate(false);
     setDuration("");
+    setMarkAsDone(false);
     setOutcome("");
     setNotes("");
+  }
+
+  /** Round 3 item 9: "Mark as done" ticks itself whenever the chosen date/time lands in the past. */
+  function applyWhen(nextWhen: string, nextTime: string) {
+    setWhen(nextWhen);
+    setWhenTime(nextTime);
+    if (canMarkDone) setMarkAsDone(isPastMoment(nextWhen, nextTime));
   }
 
   async function handleQuickDate(choice: "today" | "tomorrow" | "next-week") {
     const d = new Date();
     if (choice === "tomorrow") d.setDate(d.getDate() + 1);
     if (choice === "next-week") d.setDate(d.getDate() + 7);
-    setWhen(dateOnly(d));
+    applyWhen(dateOnly(d), whenTime);
     setPickingDate(false);
   }
 
@@ -98,7 +116,7 @@ export function Composer({
         kind,
         markAsDone: canMarkDone && markAsDone,
         subject: effectiveSubject || KIND_OPTIONS.find((k) => k.value === kind)!.label,
-        when,
+        when: `${when}T${whenTime}`,
         durationMinutes: kind === "MEETING" && duration ? Number(duration) : undefined,
         outcome: canMarkDone && markAsDone && kind === "CALL" && outcome ? (outcome as "CONNECTED" | "VOICEMAIL" | "NO_ANSWER") : undefined,
         notes: notes || undefined,
@@ -163,7 +181,7 @@ export function Composer({
                     type="button"
                     onClick={() => setKind(k.value)}
                     className={cn(
-                      "flex h-9 flex-1 flex-col items-center justify-center gap-1 rounded-[6px] border px-2 text-[12px]",
+                      "flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-[12.5px]",
                       kind === k.value ? "border-[var(--color-navy)] bg-[var(--color-chip-strong)] text-[var(--color-chip-strong-ink)]" : "border-[var(--color-line)] text-[var(--color-ink2)]",
                     )}
                   >
@@ -213,7 +231,8 @@ export function Composer({
                   Pick a date
                 </Button>
               </div>
-              {pickingDate ? <Input type="date" value={when} onChange={(e) => setWhen(e.target.value)} className="h-8 w-40 text-xs" /> : null}
+              {pickingDate ? <Input type="date" value={when} onChange={(e) => applyWhen(e.target.value, whenTime)} className="h-8 w-40 text-xs" /> : null}
+              <Input type="time" value={whenTime} onChange={(e) => applyWhen(when, e.target.value)} className="h-8 w-28 text-xs" aria-label="Time" />
 
               {(tab === "activity" && kind === "MEETING") ? (
                 <Input type="number" min={0} placeholder="Duration (min)" value={duration} onChange={(e) => setDuration(e.target.value)} className="h-8 w-32 text-xs" />
@@ -226,7 +245,7 @@ export function Composer({
               <div className="flex flex-wrap items-center gap-3">
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={markAsDone} onCheckedChange={(v) => setMarkAsDone(v === true)} />
-                  Mark as done
+                  Already happened, log it as done
                 </label>
                 {markAsDone && kind === "CALL" ? (
                   <Select value={outcome} onValueChange={setOutcome}>
@@ -249,7 +268,7 @@ export function Composer({
               <p className="text-xs text-[var(--color-muted)]">
                 {hasMailboxConnection
                   ? "Sends through your connected mailbox and lands in your Sent folder."
-                  : "Connect your mailbox in Settings → Connections to send for real — for now this logs the email."}
+                  : "Connect your mailbox in Settings → Connections to send for real, for now this logs the email."}
               </p>
             ) : null}
 
@@ -261,7 +280,11 @@ export function Composer({
                 }}
                 disabled={pending}
               >
-                {pending ? "Saving…" : tab === "activity" && canMarkDone && !markAsDone ? "Schedule" : "Save"}
+                {pending
+                  ? "Saving…"
+                  : tab === "activity" && canMarkDone
+                    ? `${markAsDone ? "Log" : "Schedule"} ${KIND_OPTIONS.find((k) => k.value === kind)?.label.toLowerCase()}`
+                    : "Save"}
               </Button>
             </div>
           </div>

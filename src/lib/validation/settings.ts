@@ -8,13 +8,9 @@ export const inviteUserSchema = z.object({
   role: z.nativeEnum(UserRole),
 });
 
+/** Round 4 screen 37 (R4SetWorkspace): no brand colour picker, Atlas colours are fixed. Time zone is fixed to Europe/London everywhere (ground rule 5), not a per-workspace preference. */
 export const workspaceSettingsSchema = z.object({
   name: z.string().trim().min(1),
-  defaultTimezone: z.string().trim().min(1),
-  brandAccent: z
-    .string()
-    .trim()
-    .regex(/^#[0-9a-fA-F]{6}$/, "Enter a hex colour like #1C2B4A"),
 });
 
 export const currencySettingsSchema = z.object({
