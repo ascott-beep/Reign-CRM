@@ -15,7 +15,7 @@ export default async function EditMandatePage({ params }: { params: Promise<{ id
   const [mandate, people, users, allTags] = await Promise.all([
     prisma.mandate.findFirst({
       where: { id, workspaceId: user.workspaceId },
-      include: { hiringOrganization: { select: { name: true } }, tags: { select: { tagId: true } } },
+      include: { hiringOrganization: { select: { name: true } }, portfolioCompany: { select: { name: true } }, tags: { select: { tagId: true } } },
     }),
     prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
@@ -37,10 +37,13 @@ export default async function EditMandatePage({ params }: { params: Promise<{ id
         submitLabel="Save changes"
         presetOrganizationId={mandate.hiringOrganizationId}
         presetOrganizationName={mandate.hiringOrganization.name}
+        presetPortfolioCompanyId={mandate.portfolioCompanyId ?? undefined}
+        presetPortfolioCompanyName={mandate.portfolioCompany?.name}
         lockedClientReason={mandate.sourceOpportunityId ? "Set when the opportunity was won" : undefined}
         defaultValues={{
           title: mandate.title,
           hiringOrganizationId: mandate.hiringOrganizationId,
+          portfolioCompanyId: mandate.portfolioCompanyId ?? "",
           priority: mandate.priority,
           confidentiality: mandate.confidentiality,
           ownerId: mandate.ownerId,

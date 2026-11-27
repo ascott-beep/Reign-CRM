@@ -21,6 +21,11 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mandates" };
 
+/** Round 4 "Portfolio company" addition: pipeline cards/rows show "Client · Portfolio company" when the two differ. */
+function clientLabel(m: { hiringOrganization: { name: string }; portfolioCompany: { name: string } | null }) {
+  return m.portfolioCompany ? `${m.hiringOrganization.name} · ${m.portfolioCompany.name}` : m.hiringOrganization.name;
+}
+
 export default async function MandatesPage({
   searchParams,
 }: {
@@ -44,6 +49,7 @@ export default async function MandatesPage({
     orderBy: { updatedAt: "desc" },
     include: {
       hiringOrganization: { select: { name: true } },
+      portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },
       candidateProcesses: { select: { stage: true } },
       primaryNextTask: { select: { title: true, dueDate: true } },
@@ -59,7 +65,7 @@ export default async function MandatesPage({
     reference: m.reference,
     title: m.title,
     status: m.status,
-    organizationName: m.hiringOrganization.name,
+    organizationName: clientLabel(m),
     candidateCount: m.candidateProcesses.filter((p) => !isCandidateHidden(p.stage)).length,
     nextActionStatus: nextActionStatus(m.primaryNextTask?.dueDate),
   }));
@@ -67,7 +73,7 @@ export default async function MandatesPage({
   const closedMandates: ClosedMandate[] = closedMandatesRaw.map((m) => ({
     id: m.id,
     title: m.title,
-    organizationName: m.hiringOrganization.name,
+    organizationName: clientLabel(m),
     status: m.status,
   }));
 
@@ -80,7 +86,7 @@ export default async function MandatesPage({
     return {
       id: m.id,
       title: m.title,
-      organizationName: m.hiringOrganization.name,
+      organizationName: clientLabel(m),
       isCritical: m.priority === "CRITICAL",
       stageLabel: label(m.status),
       stepLabel: `Step ${step} of 7`,

@@ -11,6 +11,9 @@ export const opportunityFormSchema = z.object({
   // short form (company, role, fee) — left blank, the action derives "<role> · <company>".
   name: z.preprocess(emptyToUndefined, z.string().trim().max(300).optional()),
   hiringOrganizationId: z.string().min(1, "Hiring organisation is required"),
+  // Separate from the hiring organisation (the fund/client commissioning the search):
+  // the portfolio company the role actually sits at, when that's a distinct organisation.
+  portfolioCompanyId: z.preprocess(emptyToUndefined, z.string().optional()),
   type: z.nativeEnum(OpportunityType).default("UNKNOWN"),
   potentialRoleTitle: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   employmentType: z.preprocess(emptyToUndefined, z.nativeEnum(EmploymentType).optional()),

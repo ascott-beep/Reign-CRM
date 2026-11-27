@@ -47,6 +47,8 @@ export function MandateForm({
   submitLabel = "Create mandate",
   presetOrganizationId,
   presetOrganizationName,
+  presetPortfolioCompanyId,
+  presetPortfolioCompanyName,
   lockedClientReason,
   cancelHref = "/mandates",
 }: {
@@ -59,6 +61,9 @@ export function MandateForm({
   submitLabel?: string;
   presetOrganizationId?: string;
   presetOrganizationName?: string;
+  /** The portfolio company the role sits at, when distinct from the Client -- optional. */
+  presetPortfolioCompanyId?: string;
+  presetPortfolioCompanyName?: string;
   /** e.g. "Set when the opportunity was won" -- when present, the Client field shows locked instead of editable. */
   lockedClientReason?: string;
   cancelHref?: string;
@@ -157,6 +162,17 @@ export function MandateForm({
         </Label>
         <Input id="title" name="title" placeholder="e.g. Group Finance Director" defaultValue={values.title} required />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="portfolioCompanyId">Portfolio company</Label>
+        <OrganisationCombobox
+          name="portfolioCompanyId"
+          defaultId={values.portfolioCompanyId ?? presetPortfolioCompanyId}
+          defaultName={presetPortfolioCompanyName}
+          placeholder="If different from the client"
+        />
+        <p className="text-xs text-[var(--color-ink-subtle)]">Only if the role sits at a portfolio company rather than the client itself.</p>
       </div>
 
       <div className="flex flex-col gap-1.5">

@@ -45,6 +45,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     where: { id, workspaceId: user.workspaceId },
     include: {
       hiringOrganization: true,
+      portfolioCompany: true,
       owner: true,
       createdBy: true,
       leadContactPerson: true,
@@ -100,6 +101,20 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 {opportunity.hiringOrganization.name}
               </Link>
             </OrganizationHoverCard>
+            {opportunity.portfolioCompany ? (
+              <>
+                <span className="text-[var(--color-ink-subtle)]">·</span>
+                <OrganizationHoverCard
+                  organizationId={opportunity.portfolioCompany.id}
+                  name={opportunity.portfolioCompany.name}
+                  typeLabel={label(opportunity.portfolioCompany.type)}
+                >
+                  <Link href={`/organisations/${opportunity.portfolioCompany.id}`} className="text-[var(--color-accent)]">
+                    {opportunity.portfolioCompany.name}
+                  </Link>
+                </OrganizationHoverCard>
+              </>
+            ) : null}
             <span>
               {opportunity.wonMandateId && opportunity.wonMandate
                 ? formatMoney(opportunity.wonMandate.fixedFeeAmount ?? opportunity.estimatedFeeAmount, opportunity.wonMandate.fixedFeeCurrency ?? opportunity.estimatedFeeCurrency)

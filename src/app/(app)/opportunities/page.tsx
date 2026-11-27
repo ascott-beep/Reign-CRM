@@ -16,6 +16,11 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Opportunities" };
 
+/** Round 4 "Portfolio company" addition: pipeline cards/rows show "Client · Portfolio company" when the two differ. */
+function clientLabel(o: { hiringOrganization: { name: string }; portfolioCompany: { name: string } | null }) {
+  return o.portfolioCompany ? `${o.hiringOrganization.name} · ${o.portfolioCompany.name}` : o.hiringOrganization.name;
+}
+
 export default async function OpportunitiesPage({
   searchParams,
 }: {
@@ -45,6 +50,7 @@ export default async function OpportunitiesPage({
     orderBy: { updatedAt: "desc" },
     include: {
       hiringOrganization: { select: { name: true } },
+      portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },
       primaryNextTask: { select: { title: true, dueDate: true } },
       wonMandate: { select: { id: true, status: true } },
@@ -70,7 +76,7 @@ export default async function OpportunitiesPage({
     id: o.id,
     name: o.name,
     stage: o.stage,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     potentialRoleTitle: o.potentialRoleTitle,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
@@ -81,7 +87,7 @@ export default async function OpportunitiesPage({
   const closedOpportunities: ClosedOpportunity[] = closedOpportunitiesRaw.map((o) => ({
     id: o.id,
     name: o.name,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     stage: o.stage,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
@@ -92,7 +98,7 @@ export default async function OpportunitiesPage({
   const listRows: OpportunityListRow[] = opportunities.map((o) => ({
     id: o.id,
     name: o.name,
-    organizationName: o.hiringOrganization.name,
+    organizationName: clientLabel(o),
     stage: o.stage,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,

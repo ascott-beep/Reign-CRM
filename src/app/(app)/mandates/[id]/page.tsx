@@ -57,6 +57,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
     where: { id, workspaceId: user.workspaceId },
     include: {
       hiringOrganization: true,
+      portfolioCompany: true,
       owner: true,
       hiringManagerPerson: true,
       sourceOpportunity: { include: { relatedFunds: { include: { organization: true } } } },
@@ -196,6 +197,16 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                   {mandate.hiringOrganization.name}
                 </Link>
               </OrganizationHoverCard>
+              {mandate.portfolioCompany ? (
+                <span className="flex items-center gap-3.5">
+                  <span className="h-3.5 w-px bg-[var(--color-line)]" />
+                  <OrganizationHoverCard organizationId={mandate.portfolioCompany.id} name={mandate.portfolioCompany.name} typeLabel={label(mandate.portfolioCompany.type)}>
+                    <Link href={`/organisations/${mandate.portfolioCompany.id}`} className="text-[var(--color-ink)] no-underline">
+                      {mandate.portfolioCompany.name}
+                    </Link>
+                  </OrganizationHoverCard>
+                </span>
+              ) : null}
               {metaParts.map((p) => (
                 <span key={p} className="flex items-center gap-3.5">
                   <span className="h-3.5 w-px bg-[var(--color-line)]" />
@@ -254,6 +265,18 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                   </OrganizationHoverCard>
                 </dd>
               </div>
+              {mandate.portfolioCompany ? (
+                <div className="flex justify-between gap-2">
+                  <dt className="text-[var(--color-ink-subtle)]">Portfolio company</dt>
+                  <dd className="truncate text-right">
+                    <OrganizationHoverCard organizationId={mandate.portfolioCompany.id} name={mandate.portfolioCompany.name} typeLabel={label(mandate.portfolioCompany.type)}>
+                      <Link href={`/organisations/${mandate.portfolioCompany.id}`} className="text-[var(--color-accent)]">
+                        {mandate.portfolioCompany.name}
+                      </Link>
+                    </OrganizationHoverCard>
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex justify-between gap-2">
                 <dt className="text-[var(--color-ink-subtle)]">Fee</dt>
                 <dd>

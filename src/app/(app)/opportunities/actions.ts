@@ -51,6 +51,7 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
         workspaceId: user.workspaceId,
         name,
         hiringOrganizationId: data.hiringOrganizationId,
+        portfolioCompanyId: data.portfolioCompanyId ?? null,
         type: data.type,
         stage,
         stageProbabilityDefault: defaultProbabilityFor(stage, overrides),
@@ -113,6 +114,7 @@ export async function updateOpportunityAction(opportunityId: string, _prev: Oppo
     data: {
       name,
       hiringOrganizationId: data.hiringOrganizationId,
+      portfolioCompanyId: data.portfolioCompanyId ?? null,
       type: data.type,
       potentialRoleTitle: data.potentialRoleTitle ?? null,
       employmentType: data.employmentType ?? null,
@@ -322,6 +324,7 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
         reference,
         title: overrides.title || opportunity.potentialRoleTitle || opportunity.name,
         hiringOrganizationId: opportunity.hiringOrganizationId,
+        portfolioCompanyId: opportunity.portfolioCompanyId,
         sourceOpportunityId: opportunity.id,
         status: "BRIEF_RECEIVED",
         priority: "NORMAL",

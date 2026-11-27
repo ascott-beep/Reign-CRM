@@ -29,6 +29,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
       reference,
       title: data.title,
       hiringOrganizationId: data.hiringOrganizationId,
+      portfolioCompanyId: data.portfolioCompanyId ?? null,
       source: data.source,
       status: "BRIEF_RECEIVED",
       priority: data.priority,
@@ -83,6 +84,7 @@ export async function updateMandateAction(mandateId: string, _prev: MandateFormS
       data: {
         title: data.title,
         hiringOrganizationId: data.hiringOrganizationId,
+        portfolioCompanyId: data.portfolioCompanyId ?? null,
         source: data.source,
         priority: data.priority,
         confidentiality: data.confidentiality,

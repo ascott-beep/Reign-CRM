@@ -6,6 +6,9 @@ const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 export const mandateFormSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   hiringOrganizationId: z.string().min(1, "Hiring organisation is required"),
+  // Separate from the hiring organisation (the fund/client commissioning the search):
+  // the portfolio company the role actually sits at, when that's a distinct organisation.
+  portfolioCompanyId: z.preprocess(emptyToUndefined, z.string().optional()),
   // Section 5 rule 4: required when creating a mandate directly (no source opportunity) —
   // enforced in createMandateAction, not here, since editing a mandate that already has a
   // source opportunity should not be forced to pick one of these instead.

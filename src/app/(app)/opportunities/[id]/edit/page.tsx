@@ -10,7 +10,10 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
   const { id } = await params;
 
   const [opportunity, people, users] = await Promise.all([
-    prisma.opportunity.findFirst({ where: { id, workspaceId: user.workspaceId }, include: { hiringOrganization: { select: { name: true } } } }),
+    prisma.opportunity.findFirst({
+      where: { id, workspaceId: user.workspaceId },
+      include: { hiringOrganization: { select: { name: true } }, portfolioCompany: { select: { name: true } } },
+    }),
     prisma.person.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
   ]);
@@ -29,9 +32,12 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
         submitLabel="Save changes"
         presetOrganizationId={opportunity.hiringOrganizationId}
         presetOrganizationName={opportunity.hiringOrganization.name}
+        presetPortfolioCompanyId={opportunity.portfolioCompanyId ?? undefined}
+        presetPortfolioCompanyName={opportunity.portfolioCompany?.name}
         defaultValues={{
           name: opportunity.name,
           hiringOrganizationId: opportunity.hiringOrganizationId,
+          portfolioCompanyId: opportunity.portfolioCompanyId ?? "",
           stage: opportunity.stage,
           chanceOfWinning: opportunity.isProbabilityOverridden
             ? opportunity.probabilityOverride === 25

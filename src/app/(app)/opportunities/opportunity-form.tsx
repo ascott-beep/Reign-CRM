@@ -67,6 +67,8 @@ export function OpportunityForm({
   submitLabel = "Create opportunity",
   presetOrganizationId,
   presetOrganizationName,
+  presetPortfolioCompanyId,
+  presetPortfolioCompanyName,
   cancelHref = "/opportunities",
 }: {
   action: (state: OpportunityFormState, formData: FormData) => Promise<OpportunityFormState>;
@@ -77,6 +79,9 @@ export function OpportunityForm({
   submitLabel?: string;
   presetOrganizationId?: string;
   presetOrganizationName?: string;
+  /** The portfolio company the role sits at, when distinct from the Client -- optional. */
+  presetPortfolioCompanyId?: string;
+  presetPortfolioCompanyName?: string;
   cancelHref?: string;
 }) {
   const router = useRouter();
@@ -177,6 +182,16 @@ export function OpportunityForm({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="portfolioCompanyId">Portfolio company</Label>
+              <OrganisationCombobox
+                name="portfolioCompanyId"
+                defaultId={values.portfolioCompanyId ?? presetPortfolioCompanyId}
+                defaultName={presetPortfolioCompanyName}
+                placeholder="If different from the client"
+              />
+              <p className="text-xs text-[var(--color-ink-subtle)]">Only if the role sits at a portfolio company rather than the client itself.</p>
             </div>
           </section>
 
