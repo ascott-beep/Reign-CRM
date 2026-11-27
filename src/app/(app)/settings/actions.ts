@@ -89,6 +89,52 @@ export async function setUserRoleAction(userId: string, role: string) {
   revalidatePath("/settings/users");
 }
 
+/** Moves every open opportunity, mandate, task and candidate process owned by one user onto another — row menu action in screen 12. */
+export async function reassignOpenWorkAction(userId: string, targetUserId: string) {
+  const user = await requireUser();
+  requireAdmin(user.role);
+  if (userId === targetUserId) throw new Error("Pick a different person to reassign to.");
+
+  const target = await prisma.user.findFirstOrThrow({ where: { id: targetUserId, workspaceId: user.workspaceId, active: true } });
+
+  const [opportunities, mandates, tasks, candidateProcesses] = await prisma.$transaction([
+    prisma.opportunity.updateMany({
+      where: { workspaceId: user.workspaceId, ownerId: userId, archivedAt: null, stage: { notIn: ["WON", "LOST"] } },
+      data: { ownerId: targetUserId },
+    }),
+    prisma.mandate.updateMany({
+      where: { workspaceId: user.workspaceId, ownerId: userId, archivedAt: null, status: { notIn: ["FILLED", "CANCELLED"] } },
+      data: { ownerId: targetUserId },
+    }),
+    prisma.task.updateMany({
+      where: { workspaceId: user.workspaceId, assignedUserId: userId, archivedAt: null, status: { in: ["TODO", "IN_PROGRESS"] } },
+      data: { assignedUserId: targetUserId },
+    }),
+    prisma.candidateProcess.updateMany({
+      where: { workspaceId: user.workspaceId, ownerId: userId, stage: { notIn: ["PLACED", "REJECTED", "WITHDRAWN"] } },
+      data: { ownerId: targetUserId },
+    }),
+  ]);
+
+  await writeAuditLog({
+    workspaceId: user.workspaceId,
+    actorId: user.id,
+    entityType: "User",
+    entityId: userId,
+    action: "UPDATE",
+    changedFields: {
+      reassignedTo: target.id,
+      opportunities: opportunities.count,
+      mandates: mandates.count,
+      tasks: tasks.count,
+      candidateProcesses: candidateProcesses.count,
+    },
+  });
+
+  revalidatePath("/settings/users");
+  return { opportunities: opportunities.count, mandates: mandates.count, tasks: tasks.count, candidateProcesses: candidateProcesses.count };
+}
+
 export async function updateWorkspaceAction(formData: FormData) {
   const user = await requireUser();
   requireAdmin(user.role);

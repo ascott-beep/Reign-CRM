@@ -84,7 +84,14 @@ export default async function SettingsUsersPage() {
                 </span>
               </span>
               <span className="truncate text-[var(--color-ink2)]">{lastSignedInText(u)}</span>
-              <UserRowMenu userId={u.id} role={u.role} active={u.active} isSelf={u.id === user.id} hasPassword={Boolean(u.passwordHash)} />
+              <UserRowMenu
+                userId={u.id}
+                role={u.role}
+                active={u.active}
+                isSelf={u.id === user.id}
+                hasPassword={Boolean(u.passwordHash)}
+                otherActiveUsers={users.filter((o) => o.id !== u.id && o.active && Boolean(o.passwordHash))}
+              />
             </div>
           );
         })}
