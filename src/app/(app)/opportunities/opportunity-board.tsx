@@ -23,11 +23,10 @@ export type BoardOpportunity = {
   estimatedFeeCurrency: string | null;
   /** value × probability, pre-computed server-side (lib/rules.ts weightedOpportunityValue). */
   weightedValue: number;
-  hasLiveMandate: boolean;
   nextActionStatus: NextActionStatus;
 };
 
-function Card({ opp, onMarkWon }: { opp: BoardOpportunity; onMarkWon: (id: string) => void }) {
+function Card({ opp }: { opp: BoardOpportunity }) {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 20 } : undefined;
@@ -55,21 +54,7 @@ function Card({ opp, onMarkWon }: { opp: BoardOpportunity; onMarkWon: (id: strin
       </span>
       <span className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--color-line)] pt-2.5">
         <span className="text-sm">{formatMoney(opp.estimatedFeeAmount, opp.estimatedFeeCurrency)}</span>
-        <span className="flex items-center gap-2.5">
-          {opp.hasLiveMandate ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onMarkWon(opp.id);
-              }}
-              className="whitespace-nowrap border-b border-[var(--color-line)] text-[12.5px] text-[var(--color-ink2)]"
-            >
-              Mark won
-            </button>
-          ) : null}
-          <NextActionDot status={opp.nextActionStatus} />
-        </span>
+        <NextActionDot status={opp.nextActionStatus} />
       </span>
     </div>
   );
@@ -158,7 +143,6 @@ export function OpportunityBoard({
                   approx={approx}
                   displayCurrency={displayCurrency}
                   widthPct={pct(weighted)}
-                  onMarkWon={setPendingWon}
                 />
               </div>
             );
@@ -207,7 +191,6 @@ function ColumnShell({
   approx,
   displayCurrency,
   widthPct,
-  onMarkWon,
 }: {
   stage: (typeof OPEN_OPPORTUNITY_STAGES)[number];
   items: BoardOpportunity[];
@@ -215,7 +198,6 @@ function ColumnShell({
   approx: boolean;
   displayCurrency: string;
   widthPct: number;
-  onMarkWon: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
@@ -235,7 +217,7 @@ function ColumnShell({
         </div>
       </div>
       {items.map((o) => (
-        <Card key={o.id} opp={o} onMarkWon={onMarkWon} />
+        <Card key={o.id} opp={o} />
       ))}
     </div>
   );

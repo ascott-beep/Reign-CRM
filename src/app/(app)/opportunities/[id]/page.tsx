@@ -97,11 +97,17 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         actions={
           <>
             <AskAtlasButton recordType="opportunity" recordName={opportunity.name} />
-            <StageSelect
-              opportunityId={opportunity.id}
-              currentStage={opportunity.stage}
-              context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
-            />
+            {opportunity.wonMandateId ? (
+              <Button variant="secondary" size="sm" asChild>
+                <Link href={`/mandates/${opportunity.wonMandateId}`}>View live search →</Link>
+              </Button>
+            ) : (
+              <StageSelect
+                opportunityId={opportunity.id}
+                currentStage={opportunity.stage}
+                context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
+              />
+            )}
             {opportunity.stage === "WON" && !opportunity.wonMandateId ? <ConvertToMandateButton opportunityId={opportunity.id} /> : null}
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/opportunities/${opportunity.id}/edit`}>

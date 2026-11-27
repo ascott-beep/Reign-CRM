@@ -128,6 +128,9 @@ export async function changeOpportunityStageAction(input: {
 
   const opportunity = await prisma.opportunity.findUniqueOrThrow({ where: { id: data.opportunityId } });
   if (opportunity.stage === data.toStage) return;
+  if (opportunity.wonMandateId) {
+    throw new Error("This opportunity is already linked to a mandate — its stage can't be changed. Go to the mandate instead.");
+  }
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
 
   await prisma.$transaction(async (tx) => {

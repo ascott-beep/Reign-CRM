@@ -52,8 +52,10 @@ export default async function OpportunitiesPage({
     },
   });
 
-  const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage));
-  const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage));
+  // An opportunity already linked to a mandate is resolved — it belongs in the Closed tray with a
+  // link to the live search, never back in the open pipeline, whatever its stage field reads.
+  const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage) && !o.wonMandateId);
+  const closedOpportunitiesRaw = opportunities.filter((o) => (CLOSED_OPPORTUNITY_STAGES as string[]).includes(o.stage) || o.wonMandateId);
 
   const stageWeighted = new Map<string, number>();
   let totalApprox = false;
@@ -74,9 +76,6 @@ export default async function OpportunitiesPage({
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
     weightedValue: weightedOpportunityValue(o),
-    // The one known anomaly (section 5 rule 3): a mandate already exists although the
-    // opportunity is still showing in an open stage — offer a one-click reconciliation.
-    hasLiveMandate: Boolean(o.wonMandateId),
     nextActionStatus: nextActionStatus(o.primaryNextTask?.dueDate),
   }));
 

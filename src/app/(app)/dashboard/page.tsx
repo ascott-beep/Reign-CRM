@@ -170,7 +170,9 @@ export default async function DashboardPage() {
       },
     }),
     prisma.opportunity.findMany({
-      where: { workspaceId: wid, archivedAt: null, stage: { in: OPEN_OPPORTUNITY_STAGES } },
+      // Never one already linked to a mandate — it's resolved, not open pipeline, however its
+      // stage field reads (see opportunities/actions.ts changeOpportunityStageAction's guard).
+      where: { workspaceId: wid, archivedAt: null, stage: { in: OPEN_OPPORTUNITY_STAGES }, wonMandateId: null },
       select: { stage: true, estimatedFeeAmount: true, estimatedFeeCurrency: true, probabilityOverride: true, isProbabilityOverridden: true },
     }),
     prisma.intelligenceItem.findMany({
