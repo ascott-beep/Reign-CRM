@@ -30,7 +30,7 @@ export function NextActionCard({
   return (
     <Card>
       <CardContent className="flex items-center gap-3 py-3.5">
-        <NextActionDot status={status} className="h-7 w-7" />
+        <NextActionDot status={status} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-[var(--color-ink)]">{task.title}</p>
           <p className="text-xs text-[var(--color-ink-subtle)]">

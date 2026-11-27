@@ -91,7 +91,7 @@ function TimelineRow({ item }: { item: TimelineItem }) {
             <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
           </div>
           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
-            {item.completed ? "Completed" : "Due"} · {item.assigneeName}
+            {item.completed ? "Completed" : "Cancelled"} · {item.assigneeName}
           </p>
         </div>
       </div>

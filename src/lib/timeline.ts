@@ -73,8 +73,10 @@ export async function getOpportunityTimeline(opportunityId: string, viewerId: st
       where: { opportunityId },
       include: { activity: { include: ACTIVITY_INCLUDE } },
     }),
+    // Round 3 item 4: History is for what's done — an open task belongs only in Focus
+    // (the NextActionCard), never duplicated here until it's completed or cancelled.
     prisma.taskOpportunity.findMany({
-      where: { opportunityId },
+      where: { opportunityId, task: { status: { in: ["COMPLETED", "CANCELLED"] } } },
       include: { task: { include: { assignedUser: true } } },
     }),
     prisma.opportunityStageHistory.findMany({
@@ -126,8 +128,9 @@ export async function getPersonTimeline(personId: string, viewerId: string): Pro
       include: { activity: { include: ACTIVITY_INCLUDE } },
       take: 50,
     }),
+    // Round 3 item 4: History shows only completed/cancelled tasks — open ones live in Focus only.
     prisma.taskPerson.findMany({
-      where: { personId },
+      where: { personId, task: { status: { in: ["COMPLETED", "CANCELLED"] } } },
       include: { task: { include: { assignedUser: true } } },
     }),
   ]);
@@ -155,8 +158,9 @@ export async function getOrganizationTimeline(organizationId: string, viewerId: 
       include: { activity: { include: ACTIVITY_INCLUDE } },
       take: 50,
     }),
+    // Round 3 item 4: History shows only completed/cancelled tasks — open ones live in Focus only.
     prisma.taskOrganization.findMany({
-      where: { organizationId },
+      where: { organizationId, task: { status: { in: ["COMPLETED", "CANCELLED"] } } },
       include: { task: { include: { assignedUser: true } } },
     }),
   ]);
@@ -183,8 +187,9 @@ export async function getMandateTimeline(mandateId: string, viewerId: string): P
       where: { mandateId },
       include: { activity: { include: ACTIVITY_INCLUDE } },
     }),
+    // Round 3 item 4: History shows only completed/cancelled tasks — open ones live in Focus only.
     prisma.taskMandate.findMany({
-      where: { mandateId },
+      where: { mandateId, task: { status: { in: ["COMPLETED", "CANCELLED"] } } },
       include: { task: { include: { assignedUser: true } } },
     }),
     prisma.mandateStatusHistory.findMany({
