@@ -132,13 +132,13 @@ export default async function SettingsConnectionsPage({ searchParams }: { search
             title="Google sign-in"
             description="Lets people with a matching email address sign in with their Google account instead of a password."
             status={googleConfigured ? "connected" : "not-configured"}
-            detail={googleConfigured ? undefined : "Needs GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."}
+            detail={googleConfigured ? undefined : "Not set up yet."}
           />
           <ConnectionCard
             title="Microsoft sign-in"
             description="Lets people with a matching email address sign in with their Microsoft 365 account instead of a password."
             status={microsoftConfigured ? "connected" : "not-configured"}
-            detail={microsoftConfigured ? undefined : "Needs AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET and AZURE_AD_TENANT_ID."}
+            detail={microsoftConfigured ? undefined : "Not set up yet."}
           />
         </div>
       </section>
