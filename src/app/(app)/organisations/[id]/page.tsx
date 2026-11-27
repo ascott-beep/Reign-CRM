@@ -20,7 +20,7 @@ import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { getOrganizationTimeline } from "@/lib/timeline";
 import { format } from "date-fns";
 import { forwardRelationshipLabel, inverseRelationshipLabel } from "@/lib/relationship-labels";
-import { LIVE_MANDATE_STATUSES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
+import { LIVE_MANDATE_STATUSES, OPEN_OPPORTUNITY_STAGES, mandateStagePosition, holdStageFromAcquisitionDate } from "@/lib/rules";
 import { AddRelationshipDialog } from "../add-relationship-dialog";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
 import { LogActivityDialog } from "../../activities/log-activity-dialog";
@@ -109,6 +109,9 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   const siblingHasLiveMandate = new Set(siblingLiveMandates.map((m) => m.hiringOrganizationId));
 
   const liveMandates = mandates.filter((m) => (LIVE_MANDATE_STATUSES as readonly string[]).includes(m.status));
+  // Round 2 section 2: "shows both its open opportunities and its live mandates together" —
+  // a Won opportunity already appears here as its mandate, so exclude it (and Lost) to avoid a duplicate row.
+  const openOpportunitiesForOrg = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage));
   const currentInvestors = org.relationshipsAsTarget.filter((r) => !r.exitDate);
   const earliestInvestmentDate = currentInvestors.reduce<Date | null>(
     (earliest, r) => (r.investmentDate && (!earliest || r.investmentDate < earliest) ? r.investmentDate : earliest),
@@ -215,43 +218,39 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
         <div className="flex min-w-0 flex-[2_1_540px] flex-col gap-4">
           <section className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] pb-2 pt-[18px]">
             <h2 className="m-0 text-base font-medium">Work with {org.name.split(" ")[0]}</h2>
-            {mandates.length === 0 && opportunities.length === 0 ? (
+            {liveMandates.length === 0 && openOpportunitiesForOrg.length === 0 ? (
               <p className="py-6 text-sm text-[var(--color-muted)]">Nothing on this client yet.</p>
             ) : (
               <>
-                {mandates.map((m, i) => (
+                {liveMandates.map((m, i) => (
                   <Link
                     key={m.id}
                     href={`/mandates/${m.id}`}
-                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || opportunities.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
+                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || openOpportunitiesForOrg.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
                   >
                     <span>
                       <Badge tone="neutral">Mandate</Badge>
                     </span>
                     <span>{m.title}</span>
-                    {(LIVE_MANDATE_STATUSES as readonly string[]).includes(m.status) ? (
-                      <span className="relative flex h-3.5 items-center">
-                        <span className="absolute inset-x-0 h-1.5 rounded-full bg-[var(--color-track)]" />
-                        <span
-                          className="absolute h-1.5 rounded-full bg-[var(--color-fill)]"
-                          style={{ width: `${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}%` }}
-                        />
-                        <span
-                          className="absolute h-3.5 w-3.5 rounded-full bg-[var(--color-dot)]"
-                          style={{ left: `calc(${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}% - 7px)` }}
-                        />
-                      </span>
-                    ) : (
-                      <span className="text-xs text-[var(--color-muted)]">{label(m.status)}</span>
-                    )}
+                    <span className="relative flex h-3.5 items-center">
+                      <span className="absolute inset-x-0 h-1.5 rounded-full bg-[var(--color-track)]" />
+                      <span
+                        className="absolute h-1.5 rounded-full bg-[var(--color-fill)]"
+                        style={{ width: `${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}%` }}
+                      />
+                      <span
+                        className="absolute h-3.5 w-3.5 rounded-full bg-[var(--color-dot)]"
+                        style={{ left: `calc(${mandateStagePosition(m.status as (typeof LIVE_MANDATE_STATUSES)[number])}% - 7px)` }}
+                      />
+                    </span>
                     <span className="text-right text-[12.5px] text-[var(--color-ink2)]">{label(m.status)}</span>
                   </Link>
                 ))}
-                {opportunities.map((o, i) => (
+                {openOpportunitiesForOrg.map((o, i) => (
                   <Link
                     key={o.id}
                     href={`/opportunities/${o.id}`}
-                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || mandates.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
+                    className={`grid grid-cols-[90px_minmax(0,1.4fr)_minmax(0,1.2fr)_110px] items-center gap-[18px] py-3 text-[13.5px] text-[var(--color-ink)] no-underline ${i > 0 || liveMandates.length > 0 ? "border-t border-[var(--color-line)]" : "border-t border-[var(--color-line)] mt-3"}`}
                   >
                     <span>
                       <Badge tone="neutral">Opportunity</Badge>

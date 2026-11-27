@@ -63,4 +63,5 @@ export const createMandateFromOpportunitySchema = z.object({
   minBaseAmount: z.coerce.number().min(0).optional().nullable(),
   maxBaseAmount: z.coerce.number().min(0).optional().nullable(),
   signedTerms: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()).default(false),
+  startDate: z.coerce.date().optional().nullable(),
 });

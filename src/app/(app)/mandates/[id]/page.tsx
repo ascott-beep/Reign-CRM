@@ -178,9 +178,12 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
                 <Link href={`/opportunities/${mandate.sourceOpportunity.id}`} className="border-b border-[var(--color-line)] text-[var(--color-ink2)] no-underline">
                   {mandate.sourceOpportunity.name}
                 </Link>
-                {mandate.sourceOpportunity.estimatedFeeAmount
-                  ? ` · ${formatMoney(mandate.sourceOpportunity.estimatedFeeAmount, mandate.sourceOpportunity.estimatedFeeCurrency)} estimated fee`
-                  : ""}
+                {mandate.sourceOpportunity.closedAt ? ` · ${format(mandate.sourceOpportunity.closedAt, "d MMM yyyy")}` : ""}
+                {mandate.fixedFeeAmount
+                  ? ` · ${formatMoney(mandate.fixedFeeAmount, mandate.fixedFeeCurrency)} fee`
+                  : mandate.sourceOpportunity.estimatedFeeAmount
+                    ? ` · ${formatMoney(mandate.sourceOpportunity.estimatedFeeAmount, mandate.sourceOpportunity.estimatedFeeCurrency)} estimated fee`
+                    : ""}
                 {wonFromFund ? ` · introduced by ${wonFromFund}` : ""}
               </div>
             ) : null}

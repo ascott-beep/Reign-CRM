@@ -68,8 +68,16 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
             <Link href={`/organisations/${opportunity.hiringOrganizationId}`} className="text-[var(--color-accent)]">
               {opportunity.hiringOrganization.name}
             </Link>
-            <span>Probability: {probability}%</span>
-            <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
+            {opportunity.wonMandate ? (
+              <Link href={`/mandates/${opportunity.wonMandate.id}`} className="text-[var(--color-accent)]">
+                Now a live search: {label(opportunity.wonMandate.status)} →
+              </Link>
+            ) : (
+              <>
+                <span>Probability: {probability}%</span>
+                <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
+              </>
+            )}
             <span>Owner: {opportunity.owner.firstName} {opportunity.owner.lastName}</span>
           </div>
         }
@@ -81,11 +89,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
             />
             {opportunity.stage === "WON" && !opportunity.wonMandateId ? <ConvertToMandateButton opportunityId={opportunity.id} /> : null}
-            {opportunity.wonMandateId ? (
-              <Button variant="secondary" asChild>
-                <Link href={`/mandates/${opportunity.wonMandateId}`}>View Mandate</Link>
-              </Button>
-            ) : null}
             <LogActivityDialog
               users={users}
               currentUserId={user.id}

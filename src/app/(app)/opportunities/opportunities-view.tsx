@@ -4,12 +4,22 @@ import { useState } from "react";
 import Link from "next/link";
 import { LayoutGrid, List as ListIcon, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatMoney, cn } from "@/lib/utils";
 import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
 import { OpportunitiesTable, type OpportunityListRow } from "./opportunities-table";
 
-export type ClosedOpportunity = { id: string; name: string; organizationName: string; stage: string; estimatedFeeAmount: string | null; estimatedFeeCurrency: string | null };
+export type ClosedOpportunity = {
+  id: string;
+  name: string;
+  organizationName: string;
+  stage: string;
+  estimatedFeeAmount: string | null;
+  estimatedFeeCurrency: string | null;
+  mandateId: string | null;
+  mandateStatus: string | null;
+};
 
 export function OpportunitiesView({
   display,
@@ -32,32 +42,20 @@ export function OpportunitiesView({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center rounded-control border border-[var(--color-line)] bg-[var(--color-card)] p-[3px]">
-          <Link
-            href="?display=board"
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[12.5px]",
-              display === "board" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "text-[var(--color-ink2)]",
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" /> Board
-          </Link>
-          <Link
-            href="?display=table"
-            className={cn(
-              "flex h-7 items-center gap-1.5 rounded-[3px] px-3 text-[12.5px]",
-              display === "table" ? "bg-[var(--color-navy)] text-[var(--color-navy-ink)]" : "text-[var(--color-ink2)]",
-            )}
-          >
-            <ListIcon className="h-3.5 w-3.5" /> Table
-          </Link>
-        </div>
+      <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
+        <LinkSegmentedToggle
+          name="Board or table"
+          value={display}
+          options={[
+            { value: "board", label: "Board", icon: LayoutGrid, href: "?display=board" },
+            { value: "table", label: "Table", icon: ListIcon, href: "?display=table" },
+          ]}
+        />
         <div className="flex flex-1 flex-wrap items-center justify-end gap-2.5">
           <button
             type="button"
             onClick={() => setClosedOpen((v) => !v)}
-            className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-4 text-[13px] text-[var(--color-ink)]"
+            className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-[14px] text-[13px] text-[var(--color-ink)]"
           >
             Closed <span className="text-[var(--color-muted)]">{closedOpportunities.length}</span>
             <ChevronDown className="h-3.5 w-3.5 text-[var(--color-muted)]" />
@@ -90,7 +88,7 @@ export function OpportunitiesView({
             closedOpportunities.map((o, i) => (
               <Link
                 key={o.id}
-                href={`/opportunities/${o.id}`}
+                href={o.mandateId ? `/mandates/${o.mandateId}` : `/opportunities/${o.id}`}
                 className={cn("flex min-h-[46px] items-center justify-between gap-3 px-4 py-2 text-[var(--color-ink)] no-underline", i > 0 && "border-t border-[var(--color-line)]")}
               >
                 <span className="min-w-0 flex-1">
@@ -98,7 +96,7 @@ export function OpportunitiesView({
                   <span className="block truncate text-xs text-[var(--color-muted)]">{o.organizationName}</span>
                 </span>
                 <span className="text-sm text-[var(--color-ink2)]">{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</span>
-                <StatusBadge value={o.stage} />
+                {o.mandateStatus ? <StatusBadge value={o.mandateStatus} /> : <StatusBadge value={o.stage} />}
               </Link>
             ))
           )}

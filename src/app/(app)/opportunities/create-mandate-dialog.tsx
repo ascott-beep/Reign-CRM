@@ -40,6 +40,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
   const [ownerId, setOwnerId] = useState("");
   const [engagementModel, setEngagementModel] = useState<(typeof FEE_TYPES)[number]["value"]>("RETAINED");
   const [agreedFee, setAgreedFee] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [minBase, setMinBase] = useState("");
   const [maxBase, setMaxBase] = useState("");
   const [signedTerms, setSignedTerms] = useState(false);
@@ -76,6 +77,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
       fd.set("ownerId", ownerId);
       fd.set("engagementModel", engagementModel);
       if (agreedFee) fd.set("agreedFeeAmount", agreedFee);
+      if (startDate) fd.set("startDate", startDate);
       if (minBase) fd.set("minBaseAmount", minBase);
       if (maxBase) fd.set("maxBaseAmount", maxBase);
       fd.set("signedTerms", String(signedTerms));
@@ -165,11 +167,16 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
                 ) : null}
               </div>
               <div>
-                <Label>Base salary range</Label>
-                <div className="flex gap-2">
-                  <Input type="number" min={0} placeholder="Min" value={minBase} onChange={(e) => setMinBase(e.target.value)} />
-                  <Input type="number" min={0} placeholder="Max" value={maxBase} onChange={(e) => setMaxBase(e.target.value)} />
-                </div>
+                <Label htmlFor="startDate">Start date</Label>
+                <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <Label>Base salary range</Label>
+              <div className="flex gap-2">
+                <Input type="number" min={0} placeholder="Min" value={minBase} onChange={(e) => setMinBase(e.target.value)} />
+                <Input type="number" min={0} placeholder="Max" value={maxBase} onChange={(e) => setMaxBase(e.target.value)} />
               </div>
             </div>
 

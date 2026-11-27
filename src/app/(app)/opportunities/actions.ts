@@ -226,7 +226,13 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
 
   const opportunity = await prisma.opportunity.findUniqueOrThrow({
     where: { id: opportunityId },
-    include: { relatedFunds: true, functionalSpecialisms: true, stakeholders: true },
+    include: {
+      relatedFunds: true,
+      functionalSpecialisms: true,
+      stakeholders: true,
+      activities: { select: { activityId: true } },
+      documents: { select: { documentId: true } },
+    },
   });
 
   if (opportunity.stage !== "WON") throw new Error("Only a Won opportunity can be converted to a mandate.");
@@ -254,6 +260,7 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
         hiringManagerPersonId: opportunity.leadContactPersonId,
         minBaseAmount: overrides.minBaseAmount ?? null,
         maxBaseAmount: overrides.maxBaseAmount ?? null,
+        startDate: overrides.startDate ?? null,
         baseCurrency: opportunity.estimatedFeeCurrency ?? "GBP",
         feeType: "FIXED_FEE",
         fixedFeeAmount: overrides.agreedFeeAmount ?? opportunity.estimatedFeeAmount ?? null,
@@ -270,6 +277,35 @@ export async function convertOpportunityToMandateAction(opportunityId: string, f
     await tx.mandateStatusHistory.create({
       data: { mandateId: created.id, toStatus: "BRIEF_RECEIVED", changedById: user.id, notes: `Converted from opportunity "${opportunity.name}".` },
     });
+
+    // Round 2 section 2: "everything else carries over automatically... notes, files and activity history" —
+    // the opportunity's own activity and file history now also shows on the new mandate (the opportunity keeps
+    // its copy too, so nothing already linked to it is lost).
+    if (opportunity.activities.length > 0) {
+      await tx.activityMandate.createMany({
+        data: opportunity.activities.map((a) => ({ activityId: a.activityId, mandateId: created.id })),
+        skipDuplicates: true,
+      });
+    }
+    if (opportunity.documents.length > 0) {
+      await tx.documentMandate.createMany({
+        data: opportunity.documents.map((d) => ({ documentId: d.documentId, mandateId: created.id })),
+        skipDuplicates: true,
+      });
+    }
+    if (opportunity.notes?.trim()) {
+      const noteActivity = await tx.activity.create({
+        data: {
+          workspaceId: user.workspaceId,
+          type: "NOTE",
+          subject: "Notes carried over from the opportunity",
+          fullNotes: opportunity.notes,
+          createdById: user.id,
+          assignedOwnerId: created.ownerId,
+        },
+      });
+      await tx.activityMandate.create({ data: { activityId: noteActivity.id, mandateId: created.id } });
+    }
 
     await tx.opportunity.update({ where: { id: opportunity.id }, data: { wonMandateId: created.id } });
 

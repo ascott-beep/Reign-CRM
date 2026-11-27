@@ -44,7 +44,12 @@ export default async function OpportunitiesPage({
   const opportunities = await prisma.opportunity.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: { hiringOrganization: { select: { name: true } }, owner: { select: { firstName: true, lastName: true } }, primaryNextTask: { select: { title: true, dueDate: true } } },
+    include: {
+      hiringOrganization: { select: { name: true } },
+      owner: { select: { firstName: true, lastName: true } },
+      primaryNextTask: { select: { title: true, dueDate: true } },
+      wonMandate: { select: { id: true, status: true } },
+    },
   });
 
   const openOpportunitiesRaw = opportunities.filter((o) => (OPEN_OPPORTUNITY_STAGES as string[]).includes(o.stage));
@@ -82,6 +87,8 @@ export default async function OpportunitiesPage({
     stage: o.stage,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
+    mandateId: o.wonMandate?.id ?? null,
+    mandateStatus: o.wonMandate?.status ?? null,
   }));
 
   const listRows: OpportunityListRow[] = opportunities.map((o) => ({
