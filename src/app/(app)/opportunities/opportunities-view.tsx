@@ -1,0 +1,113 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { LayoutGrid, List as ListIcon, ChevronDown, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatMoney, cn } from "@/lib/utils";
+import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
+import { OpportunitiesTable, type OpportunityListRow } from "./opportunities-table";
+
+export type ClosedOpportunity = {
+  id: string;
+  name: string;
+  organizationName: string;
+  stage: string;
+  estimatedFeeAmount: string | null;
+  estimatedFeeCurrency: string | null;
+  mandateId: string | null;
+  mandateStatus: string | null;
+};
+
+export function OpportunitiesView({
+  display,
+  openOpportunities,
+  maxOpenWeighted,
+  closedOpportunities,
+  listRows,
+  displayCurrency,
+  ratesToGbp,
+}: {
+  display: "board" | "table";
+  openOpportunities: BoardOpportunity[];
+  maxOpenWeighted: number;
+  closedOpportunities: ClosedOpportunity[];
+  listRows: OpportunityListRow[];
+  displayCurrency: string;
+  ratesToGbp: Record<string, number>;
+}) {
+  const [closedOpen, setClosedOpen] = useState(false);
+
+  return (
+    <div className="flex flex-1 flex-col gap-4">
+      <div data-toolbar className="flex flex-wrap items-center justify-between gap-3">
+        <LinkSegmentedToggle
+          name="Board or table"
+          value={display}
+          options={[
+            { value: "board", label: "Board", icon: LayoutGrid, href: "?display=board" },
+            { value: "table", label: "Table", icon: ListIcon, href: "?display=table" },
+          ]}
+        />
+        <div className="flex flex-1 flex-wrap items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={() => setClosedOpen((v) => !v)}
+            className="flex h-9 items-center gap-1.5 rounded-md border border-[var(--color-line)] bg-[var(--color-card)] px-[14px] text-[13px] text-[var(--color-ink)]"
+          >
+            Closed <span className="text-[var(--color-muted)]">{closedOpportunities.length}</span>
+            <ChevronDown className="h-3.5 w-3.5 text-[var(--color-muted)]" />
+          </button>
+          <Button asChild>
+            <Link href="/opportunities/new">
+              <Plus className="h-[14px] w-[14px]" /> New opportunity
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      <div className="-mt-2 flex flex-wrap justify-end gap-[18px] text-[13px] text-[var(--color-muted)]">
+        <span className="flex items-center gap-1.5">
+          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-alert)]" /> Next action overdue
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-pos)]" /> Next action due today or later
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-muted)] opacity-55" /> No next action
+        </span>
+      </div>
+
+      {closedOpen ? (
+        <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
+          {closedOpportunities.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-[var(--color-muted)]">No closed opportunities.</p>
+          ) : (
+            closedOpportunities.map((o, i) => (
+              <Link
+                key={o.id}
+                href={o.mandateId ? `/mandates/${o.mandateId}` : `/opportunities/${o.id}`}
+                className={cn("flex min-h-[46px] items-center justify-between gap-3 px-4 py-2 text-[var(--color-ink)] no-underline", i > 0 && "border-t border-[var(--color-line)]")}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{o.name}</span>
+                  <span className="block truncate text-xs text-[var(--color-muted)]">{o.organizationName}</span>
+                </span>
+                <span className="text-sm text-[var(--color-ink2)]">{formatMoney(o.estimatedFeeAmount, o.estimatedFeeCurrency)}</span>
+                {o.mandateStatus ? <StatusBadge value={o.mandateStatus} /> : <StatusBadge value={o.stage} />}
+              </Link>
+            ))
+          )}
+        </div>
+      ) : null}
+
+      {display === "board" ? (
+        <OpportunityBoard initialOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} displayCurrency={displayCurrency} ratesToGbp={ratesToGbp} />
+      ) : (
+        <OpportunitiesTable rows={listRows} />
+      )}
+    </div>
+  );
+}

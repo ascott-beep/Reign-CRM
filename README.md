@@ -64,6 +64,74 @@ Users** (Admin only) to exercise that role.
 | `npm test`                             | Vitest (unit + integration)                                  |
 | `npm run test:e2e`                      | Playwright E2E (needs a running app + seeded database)          |
 
+## Deploying (Vercel)
+
+The build command runs `prisma migrate deploy` before `next build` (see
+`package.json`'s `build` script), so every deploy — production or preview —
+applies any migrations committed in `prisma/migrations/` that aren't already
+recorded as applied, before the app builds. `migrate deploy` is non-
+interactive and only ever applies forward; it never resets or drops data.
+
+**Before this takes effect anywhere, every existing database this app talks
+to (production, and preview if it's separate) needs a one-time baseline
+check.** `migrate deploy` tracks what it's applied in a `_prisma_migrations`
+table it manages itself; if a database was ever set up by another route —
+`prisma db push`, a restored dump, hand-run SQL — that table won't exist or
+won't list migrations that are nonetheless already reflected in the schema.
+`migrate deploy` then refuses outright (`P3005: database schema is not
+empty`), which would turn the next deploy into a hard build failure instead
+of the silent 500s this is meant to fix. The dev database in this repo's own
+history had exactly this gap. Check and fix it once, per database, **before**
+relying on the automatic step:
+
+```bash
+# 1. Back up first — always, before touching migration state.
+pg_dump "$DATABASE_URL" -F c -f "pre-baseline-$(date +%Y%m%d%H%M%S).dump"
+
+# 2. From a checkout with every migration folder in prisma/migrations/:
+npx prisma migrate deploy
+```
+
+If step 2 fails with `P3005`, the database predates migration tracking and
+needs baselining: confirm the existing schema actually matches what these
+migrations would produce (it should, if nothing's drifted out of band), then
+mark each migration folder as already applied, oldest first —
+
+```bash
+for m in prisma/migrations/*/; do
+  name=$(basename "$m")
+  [ "$name" = "migration_lock.toml" ] && continue
+  npx prisma migrate resolve --applied "$name"
+done
+```
+
+— then re-run `npx prisma migrate deploy`, which should now report "No
+pending migrations to apply." From here on, both the manual command and the
+automatic build-time step stay in sync for that database.
+
+**Preview deployments must use their own database, not production's.** If
+every Vercel environment points at the same `DATABASE_URL`, a preview build
+will run `migrate deploy` against production the moment it's pushed — before
+anyone's reviewed the change. Check this in Vercel → Project → Settings →
+Environment Variables: compare `DATABASE_URL` under the Production and
+Preview tabs. If they're identical, set up an isolated preview database:
+
+- **Easiest:** install the official **Neon** integration from the Vercel
+  Marketplace, connect it to this project's Neon project, and enable
+  "Create a branch for each preview deployment." Vercel then injects a
+  per-preview `DATABASE_URL` pointing at a disposable Neon branch — no
+  further env var wiring needed, and nothing a preview build does can touch
+  production. A fresh branch cut from production inherits its migration
+  history too, so it won't need baselining separately.
+- **Manual alternative:** create a Neon branch yourself (instant
+  copy-on-write, from the Neon console), then add a `DATABASE_URL` in Vercel
+  scoped to the **Preview** environment only, pointing at that branch's
+  connection string, distinct from the Production-scoped one.
+
+It prints each migration it applies (or reports none pending). Restore from
+the dump with `pg_restore -d "$DATABASE_URL" <file>` if anything looks wrong
+afterwards.
+
 ## Testing
 
 **Unit/integration** run against a separate database so they never touch your

@@ -1,35 +1,62 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { label } from "@/lib/labels";
 import { changeOpportunityStageAction } from "./actions";
-import { StageChangeDialog } from "./stage-change-dialog";
-import { useState } from "react";
+import { LostReasonDialog, type LostReasonResult } from "./lost-reason-dialog";
+import { OnHoldDialog, type OnHoldResult } from "./on-hold-dialog";
+import { CreateMandateDialog } from "./create-mandate-dialog";
 
 const STAGES = ["SIGNAL_IDENTIFIED", "CONTACT_IDENTIFIED", "CONTACTED", "DISCOVERY_ARRANGED", "QUALIFIED", "PROPOSAL_OR_TERMS", "WON", "LOST", "ON_HOLD"];
-const TERMINAL_STAGES = new Set(["WON", "LOST", "ON_HOLD"]);
 
 /**
  * Keyboard-accessible alternative to dragging a card between kanban
- * columns — same server action, same required-field dialog for
- * Won/Lost/On Hold.
+ * columns — same server action, same dialogs (d01/d05/d06) as the board.
  */
-export function StageSelect({ opportunityId, currentStage }: { opportunityId: string; currentStage: string }) {
+export function StageSelect({ opportunityId, currentStage, context }: { opportunityId: string; currentStage: string; context?: string }) {
+  const router = useRouter();
   const [, startTransition] = useTransition();
-  const [pendingStage, setPendingStage] = useState<string | null>(null);
+  const [pendingLost, setPendingLost] = useState(false);
+  const [pendingHold, setPendingHold] = useState(false);
+  const [pendingWon, setPendingWon] = useState(false);
 
   function handleChange(toStage: string) {
     if (toStage === currentStage) return;
-    if (TERMINAL_STAGES.has(toStage)) {
-      setPendingStage(toStage);
+    if (toStage === "LOST") {
+      setPendingLost(true);
+      return;
+    }
+    if (toStage === "ON_HOLD") {
+      setPendingHold(true);
+      return;
+    }
+    if (toStage === "WON") {
+      startTransition(async () => {
+        await changeOpportunityStageAction({ opportunityId, toStage });
+        setPendingWon(true);
+      });
       return;
     }
     startTransition(() => changeOpportunityStageAction({ opportunityId, toStage }));
   }
 
+  const isClosed = currentStage === "WON" || currentStage === "LOST";
+
   return (
     <>
+      {!isClosed ? (
+        <>
+          <Button variant="secondary" className="text-[var(--color-pos)]" onClick={() => handleChange("WON")}>
+            Won
+          </Button>
+          <Button variant="secondary" className="text-[var(--color-warn)]" onClick={() => handleChange("LOST")}>
+            Lost
+          </Button>
+        </>
+      ) : null}
       <Select value={currentStage} onValueChange={handleChange}>
         <SelectTrigger aria-label="Change opportunity stage" className="w-56">
           <SelectValue />
@@ -42,13 +69,30 @@ export function StageSelect({ opportunityId, currentStage }: { opportunityId: st
           ))}
         </SelectContent>
       </Select>
-      <StageChangeDialog
-        open={pendingStage !== null}
-        toStage={pendingStage}
-        onCancel={() => setPendingStage(null)}
-        onConfirm={(extra) => {
-          if (pendingStage) startTransition(() => changeOpportunityStageAction({ opportunityId, toStage: pendingStage, ...extra }));
-          setPendingStage(null);
+      <LostReasonDialog
+        open={pendingLost}
+        context={context}
+        onCancel={() => setPendingLost(false)}
+        onConfirm={(result: LostReasonResult) => {
+          startTransition(() => changeOpportunityStageAction({ opportunityId, toStage: "LOST", ...result }));
+          setPendingLost(false);
+        }}
+      />
+      <OnHoldDialog
+        open={pendingHold}
+        context={context}
+        onCancel={() => setPendingHold(false)}
+        onConfirm={(result: OnHoldResult) => {
+          startTransition(() => changeOpportunityStageAction({ opportunityId, toStage: "ON_HOLD", ...result }));
+          setPendingHold(false);
+        }}
+      />
+      <CreateMandateDialog
+        open={pendingWon}
+        opportunityId={pendingWon ? opportunityId : null}
+        onClose={() => {
+          setPendingWon(false);
+          router.refresh();
         }}
       />
     </>

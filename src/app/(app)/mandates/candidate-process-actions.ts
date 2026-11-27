@@ -11,7 +11,9 @@ import {
   interviewOutcomeSchema,
   offerFormSchema,
   placementFormSchema,
+  markSearchFilledSchema,
 } from "@/lib/validation/candidate-process";
+import { isCandidateInPlay } from "@/lib/rules";
 import { writeAuditLog } from "@/lib/audit";
 
 async function checkOffLimits(workspaceId: string, mandateOrgId: string, candidatePersonId: string) {
@@ -55,10 +57,12 @@ export async function addCandidateToMandateAction(formData: FormData, offLimitsO
         relationshipStatus: "ENGAGED",
         source: "DATABASE",
         createdById: user.id,
-        candidateProfile: { create: { status: "PROSPECT", rating: "NOT_RATED", consentStatus: "NOT_REQUESTED", legalBasis: "NOT_SET" } },
+        candidateProfile: { create: { status: "PROSPECT", rating: (data.fit as any) ?? "NOT_RATED", consentStatus: "NOT_REQUESTED", legalBasis: "NOT_SET" } },
       },
     });
     candidatePersonId = person.id;
+  } else if (data.fit) {
+    await prisma.candidateProfile.updateMany({ where: { personId: candidatePersonId }, data: { rating: data.fit as any } });
   }
 
   const { block, warning } = await checkOffLimits(user.workspaceId, mandate.hiringOrganizationId, candidatePersonId);
@@ -87,10 +91,23 @@ export async function addCandidateToMandateAction(formData: FormData, offLimitsO
       // Reopen rather than duplicate — preserves full stage history.
       const reopened = await prisma.candidateProcess.update({
         where: { id: existing.id },
-        data: { stage: "SOURCED", rejectionReason: null, rejectionExplanation: null, withdrawalReason: null, withdrawalExplanation: null },
+        data: {
+          stage: data.startAt,
+          rejectionReason: null,
+          rejectionExplanation: null,
+          withdrawalReason: null,
+          withdrawalExplanation: null,
+          exitDecidedBy: null,
+        },
       });
       await prisma.candidateProcessStageHistory.create({
-        data: { candidateProcessId: reopened.id, fromStage: existing.stage, toStage: "SOURCED", changedById: user.id, notes: "Candidate reopened for this mandate." },
+        data: {
+          candidateProcessId: reopened.id,
+          fromStage: existing.stage,
+          toStage: data.startAt,
+          changedById: user.id,
+          notes: data.note ?? "Candidate reopened for this mandate.",
+        },
       });
       revalidatePath(`/mandates/${data.mandateId}`);
       return { warning: warning?.reason };
@@ -103,11 +120,11 @@ export async function addCandidateToMandateAction(formData: FormData, offLimitsO
       workspaceId: user.workspaceId,
       mandateId: data.mandateId,
       candidatePersonId,
-      stage: "SOURCED",
+      stage: data.startAt,
       source: data.source as any,
       addedById: user.id,
       ownerId: user.id,
-      stageHistory: { create: [{ toStage: "SOURCED", changedById: user.id, notes: "Added to mandate pipeline." }] },
+      stageHistory: { create: [{ toStage: data.startAt, changedById: user.id, notes: data.note ?? "Added to mandate pipeline." }] },
     },
   });
 
@@ -124,6 +141,7 @@ export async function changeProcessStageAction(input: {
   rejectionExplanation?: string;
   withdrawalReason?: string;
   withdrawalExplanation?: string;
+  exitDecidedBy?: string;
   notes?: string;
 }) {
   const user = await requireUser();
@@ -157,6 +175,7 @@ export async function changeProcessStageAction(input: {
         rejectionExplanation: data.toStage === "REJECTED" ? (data.rejectionExplanation ?? null) : null,
         withdrawalReason: data.toStage === "WITHDRAWN" ? (data.withdrawalReason as any) : null,
         withdrawalExplanation: data.toStage === "WITHDRAWN" ? (data.withdrawalExplanation ?? null) : null,
+        exitDecidedBy: ["REJECTED", "WITHDRAWN", "ON_HOLD"].includes(data.toStage) ? (data.exitDecidedBy ?? null) : null,
         rejectedAt: data.toStage === "REJECTED" ? new Date() : null,
         withdrawnAt: data.toStage === "WITHDRAWN" ? new Date() : null,
         submittedAt: data.toStage === "SUBMITTED" ? new Date() : undefined,
@@ -418,4 +437,127 @@ export async function placeCandidateAction(formData: FormData) {
   });
 
   revalidatePath(`/mandates/${process.mandateId}`);
+}
+
+/**
+ * d03 "Mark search as filled": the mandate-level close-out flow, used either
+ * from the check banner (section 5 rule 1) or when a mandate card is moved
+ * to Filled on the board. If the chosen candidate isn't already Placed, this
+ * records the placement first (reusing the same effects as placeCandidateAction);
+ * either way it then sets the mandate to Filled and, if asked, creates a
+ * "let them know" task for every other candidate still active on the search.
+ * Those candidates' own stage is left untouched — only the consultant moving
+ * them to Rejected/Withdrawn via d04, once they've actually been told,
+ * should change their status.
+ */
+export async function markSearchFilledAction(formData: FormData) {
+  const user = await requireUser();
+  if (!canMutate(user.role)) throw new PermissionError();
+
+  const raw = Object.fromEntries(formData.entries());
+  const parsed = markSearchFilledSchema.safeParse(raw);
+  if (!parsed.success) throw new Error(parsed.error.issues.map((i) => i.message).join(", "));
+  const data = parsed.data;
+
+  if (!(await canViewMandate(user, data.mandateId))) throw new PermissionError("You do not have access to this mandate.");
+
+  const mandate = await prisma.mandate.findUniqueOrThrow({ where: { id: data.mandateId } });
+  const process = await prisma.candidateProcess.findUniqueOrThrow({
+    where: { id: data.candidateProcessId },
+    include: { placement: true, candidatePerson: true },
+  });
+  if (process.mandateId !== data.mandateId) throw new Error("That candidate is not on this search.");
+
+  const guaranteeEndDate = (() => {
+    if (!mandate.guaranteeValue || !mandate.guaranteeUnit) return null;
+    const base = data.startDate ?? data.placementDate;
+    const d = new Date(base);
+    if (mandate.guaranteeUnit.toLowerCase().startsWith("week")) d.setDate(d.getDate() + mandate.guaranteeValue * 7);
+    else d.setMonth(d.getMonth() + mandate.guaranteeValue);
+    return d;
+  })();
+
+  const completionFee = (() => {
+    const base = data.agreedBaseAmount ?? (mandate.maxBaseAmount ? Number(mandate.maxBaseAmount) : null);
+    if (mandate.feeType === "FIXED_FEE" && mandate.fixedFeeAmount) return Number(mandate.fixedFeeAmount);
+    if (mandate.feePercentage && base) return (base * Number(mandate.feePercentage)) / 100;
+    return null;
+  })();
+
+  await prisma.$transaction(async (tx) => {
+    if (process.stage !== "PLACED" || !process.placement) {
+      await tx.placement.create({
+        data: {
+          candidateProcessId: process.id,
+          mandateId: mandate.id,
+          candidatePersonId: process.candidatePersonId,
+          hiringOrganizationId: mandate.hiringOrganizationId,
+          placementDate: data.placementDate,
+          startDate: data.startDate ?? null,
+          employmentType: mandate.employmentType,
+          agreedBaseAmount: data.agreedBaseAmount ?? null,
+          agreedBaseCurrency: data.agreedBaseCurrency ?? mandate.baseCurrency ?? null,
+          feeAmount: completionFee,
+          feeCurrency: mandate.baseCurrency ?? null,
+          guaranteeEndDate,
+          status: "PLANNED_START",
+          createdById: user.id,
+        },
+      });
+      await tx.candidateProcessStageHistory.create({
+        data: { candidateProcessId: process.id, fromStage: process.stage, toStage: "PLACED", changedById: user.id, notes: "Marked as placed when the search was closed." },
+      });
+      await tx.candidateProcess.update({ where: { id: process.id }, data: { stage: "PLACED", stageEnteredAt: new Date(), placedAt: new Date() } });
+      await tx.candidateProfile.updateMany({ where: { personId: process.candidatePersonId }, data: { status: "PLACED" } });
+    } else if (data.startDate || data.agreedBaseAmount) {
+      await tx.placement.update({
+        where: { id: process.placement.id },
+        data: {
+          startDate: data.startDate ?? process.placement.startDate,
+          agreedBaseAmount: data.agreedBaseAmount ?? process.placement.agreedBaseAmount,
+          agreedBaseCurrency: data.agreedBaseCurrency ?? process.placement.agreedBaseCurrency,
+          guaranteeEndDate: guaranteeEndDate ?? process.placement.guaranteeEndDate,
+        },
+      });
+    }
+
+    if (mandate.status !== "FILLED") {
+      await tx.mandate.update({ where: { id: mandate.id }, data: { status: "FILLED", statusEnteredAt: new Date(), filledDate: new Date() } });
+      await tx.mandateStatusHistory.create({
+        data: { mandateId: mandate.id, fromStatus: mandate.status, toStatus: "FILLED", changedById: user.id, notes: "Marked as filled." },
+      });
+    }
+
+    if (data.notifyOthers) {
+      const candidates = await tx.candidateProcess.findMany({
+        where: { mandateId: mandate.id, id: { not: process.id } },
+        include: { candidatePerson: true },
+      });
+      const others = candidates.filter((o) => isCandidateInPlay(o.stage));
+      if (others.length > 0) {
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + 2);
+        await tx.task.createMany({
+          data: others.map((o) => ({
+            workspaceId: user.workspaceId,
+            title: `Let ${o.candidatePerson.firstName} know the ${mandate.title} search has been filled`,
+            type: "FOLLOW_UP",
+            status: "TODO",
+            priority: "NORMAL",
+            assignedUserId: mandate.ownerId,
+            createdById: user.id,
+            dueDate,
+            relatedRecordType: "CANDIDATE_PROCESS",
+            relatedRecordId: o.id,
+          })),
+        });
+      }
+    }
+
+    await tx.auditLog.create({
+      data: { workspaceId: user.workspaceId, actorId: user.id, entityType: "Mandate", entityId: mandate.id, action: "STAGE_CHANGE", changedFields: { toStatus: "FILLED" } },
+    });
+  });
+
+  revalidatePath(`/mandates/${mandate.id}`);
 }

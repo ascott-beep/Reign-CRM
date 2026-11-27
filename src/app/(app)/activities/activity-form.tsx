@@ -37,6 +37,7 @@ export function ActivityForm({
   users,
   currentUserId,
   linkContext,
+  defaultType = "CALL",
 }: {
   users: { id: string; firstName: string; lastName: string }[];
   currentUserId: string;
@@ -49,6 +50,7 @@ export function ActivityForm({
     intelligenceItemId?: string;
     label?: string;
   };
+  defaultType?: string;
 }) {
   const [state, formAction] = useActionState<ActivityFormState, FormData>(createActivityAction, {});
   const [followUpRequired, setFollowUpRequired] = useState(false);
@@ -80,7 +82,7 @@ export function ActivityForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="type">Type</Label>
-          <Select name="type" defaultValue="CALL">
+          <Select name="type" defaultValue={defaultType}>
             <SelectTrigger id="type">
               <SelectValue />
             </SelectTrigger>
@@ -112,7 +114,7 @@ export function ActivityForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="subject">Subject</Label>
-        <Input id="subject" name="subject" />
+        <Input id="subject" name="subject" placeholder="e.g. Call with CFO re: shortlist feedback" />
         {errors.subject ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.subject[0]}</p> : null}
       </div>
 
@@ -123,7 +125,7 @@ export function ActivityForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="durationMinutes">Duration (minutes)</Label>
-          <Input id="durationMinutes" name="durationMinutes" type="number" min={0} />
+          <Input id="durationMinutes" name="durationMinutes" type="number" min={0} placeholder="e.g. 30" />
         </div>
       </div>
 

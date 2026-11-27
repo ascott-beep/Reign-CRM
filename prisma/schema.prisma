@@ -256,6 +256,15 @@ enum MandatePriority {
   LOW
 }
 
+/**
+ * Section 5 rule 4: required when a mandate has no source opportunity (a direct instruction).
+ */
+enum MandateSource {
+  DIRECT_CLIENT
+  FUND_INTRODUCTION
+  REPEAT_BUSINESS
+}
+
 enum EngagementModel {
   RETAINED
   EXCLUSIVE_CONTINGENT
@@ -511,6 +520,7 @@ enum AuditAction {
   UPDATE
   ARCHIVE
   RESTORE
+  DELETE
   STAGE_CHANGE
   CONVERSION
   EXPORT
@@ -579,20 +589,29 @@ enum ImportStatus {
 // =============================================================================
 
 model Workspace {
-  id                            String   @id @default(cuid())
+  id                            String             @id @default(cuid())
   name                          String
-  slug                          String   @unique
-  defaultCurrency               String   @default("GBP") @db.VarChar(3)
-  defaultTimezone               String   @default("Europe/London")
-  brandAccent                   String   @default("#1C2B4A")
-  staleThresholds               Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
+  slug                          String             @unique
+  defaultCurrency               String             @default("GBP") @db.VarChar(3)
+  defaultTimezone               String             @default("Europe/London")
+  brandAccent                   String             @default("#1C2B4A")
+  staleThresholds               Json               @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
   opportunityStageProbabilities Json?
   /// GBP value of 1 unit of each currency code, e.g. {"GBP":1,"USD":0.79}.
-  /// Manually maintained (no live FX feed) — used only to roll monetary
-  /// report totals into a single selected display currency.
+  /// Manually maintained unless updateRatesAutomatically is on — used to
+  /// roll monetary report totals into a single selected display currency.
   exchangeRatesToGbp            Json?
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  updateRatesAutomatically      Boolean            @default(false)
+  exchangeRatesUpdatedAt        DateTime?
+  /// Round 2 section 5/6 — Intelligence AI research agent settings, surfaced in Settings > Connections.
+  intelligenceSweepEnabled      Boolean            @default(false)
+  intelligenceSweepHourUtc      Int                @default(6)
+  /// Empty = every IntelligenceType is in scope.
+  intelligenceSignalTypes       IntelligenceType[] @default([])
+  /// Round 2 section 8 "Admins can switch Ask Atlas off in Settings."
+  askAtlasEnabled               Boolean            @default(true)
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
 
   users                     User[]
   organizations             Organization[]
@@ -602,6 +621,7 @@ model Workspace {
   mandates                  Mandate[]
   candidateProcesses        CandidateProcess[]
   intelligenceItems         IntelligenceItem[]
+  intelligenceRuns          IntelligenceRun[]
   activities                Activity[]
   tasks                     Task[]
   documents                 Document[]
@@ -616,6 +636,7 @@ model Workspace {
   practiceAreas             PracticeArea[]
   functionalSpecialisms     FunctionalSpecialism[]
   importJobs                ImportJob[]
+  askAtlasQueries           AskAtlasQuery[]
 }
 
 model User {
@@ -625,7 +646,7 @@ model User {
   firstName               String
   lastName                String
   email                   String
-  passwordHash            String
+  passwordHash            String?
   role                    UserRole  @default(STANDARD)
   active                  Boolean   @default(true)
   avatarUrl               String?
@@ -637,15 +658,19 @@ model User {
 
   ownedOrganizations      Organization[]                 @relation("OrganizationOwner")
   createdOrganizations    Organization[]                 @relation("OrganizationCreatedBy")
+  archivedOrganizations   Organization[]                 @relation("OrganizationArchivedBy")
   createdOrgRelationships OrganizationRelationship[]     @relation("OrgRelationshipCreatedBy")
   ownedPeople             Person[]                       @relation("PersonOwner")
   createdPeople           Person[]                       @relation("PersonCreatedBy")
+  archivedPeople          Person[]                       @relation("PersonArchivedBy")
   qualifiedCandidates     CandidateProfile[]             @relation("CandidateQualifiedBy")
   ownedOpportunities      Opportunity[]                  @relation("OpportunityOwner")
   createdOpportunities    Opportunity[]                  @relation("OpportunityCreatedBy")
+  archivedOpportunities   Opportunity[]                  @relation("OpportunityArchivedBy")
   opportunityStageChanges OpportunityStageHistory[]      @relation("OppStageChangedBy")
   ownedMandates           Mandate[]                      @relation("MandateOwner")
   createdMandates         Mandate[]                      @relation("MandateCreatedBy")
+  archivedMandates        Mandate[]                      @relation("MandateArchivedBy")
   assignedMandates        MandateAssignedUser[]
   mandateStageChanges     MandateStatusHistory[]         @relation("MandateStatusChangedBy")
   ownedCandidateProcesses CandidateProcess[]             @relation("ProcessOwner")
@@ -668,9 +693,108 @@ model User {
   auditLogEntries         AuditLog[]                     @relation("AuditActor")
   notifications           InAppNotification[]
   importJobs              ImportJob[]                    @relation("ImportCreatedBy")
+  passwordTokens          PasswordToken[]
+  mailboxConnections      MailboxConnection[]
+  neverSyncAddresses      NeverSyncAddress[]
+  askAtlasQueries         AskAtlasQuery[]
 
   @@unique([workspaceId, email])
   @@index([workspaceId])
+}
+
+enum PasswordTokenPurpose {
+  INVITE
+  RESET
+}
+
+/// One-time links for invite (set a password) and forgot-password (reset) emails.
+model PasswordToken {
+  id        String               @id @default(cuid())
+  userId    String
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String               @unique
+  purpose   PasswordTokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([userId])
+}
+
+// =============================================================================
+// ROUND 2 SECTION 7 — EMAIL AND CALENDAR SYNC
+// =============================================================================
+
+enum MailProvider {
+  MICROSOFT
+  GOOGLE
+}
+
+enum MailboxConnectionStatus {
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
+/// One user's own mailbox/calendar connection (Microsoft Graph or Gmail+Google
+/// Calendar), reusing the same app registration as sign-in (section 9.2) with
+/// broader, incrementally-consented scopes. Tokens are encrypted at rest
+/// (lib/mailbox-crypto.ts) — never stored or logged in plain text.
+model MailboxConnection {
+  id                         String                  @id @default(cuid())
+  userId                     String
+  user                       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider                   MailProvider
+  emailAddress               String
+  accessTokenEncrypted       String
+  refreshTokenEncrypted      String?
+  tokenExpiresAt             DateTime?
+  emailSyncEnabled           Boolean                 @default(true)
+  calendarSyncEnabled        Boolean                 @default(true)
+  status                     MailboxConnectionStatus @default(ACTIVE)
+  lastErrorMessage           String?
+  lastEmailSyncAt            DateTime?
+  lastCalendarSyncAt         DateTime?
+  emailSyncCursor            String?
+  calendarSyncCursor         String?
+  graphSubscriptionId        String?
+  graphSubscriptionExpiresAt DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+/// Section 7 "Each user has a 'never sync' list" — addresses this user's
+/// sync should always skip, even if they match a Person in Atlas.
+model NeverSyncAddress {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAddress String
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, emailAddress])
+}
+
+// =============================================================================
+// ROUND 2 SECTION 8 — ASK ATLAS
+// =============================================================================
+
+/// Section 8 "Log every question." — one row per question asked, read-only feature so there's nothing else to audit here.
+model AskAtlasQuery {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id])
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  question      String
+  answer        String
+  usedWebSearch Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
 }
 
 // =============================================================================
@@ -826,11 +950,14 @@ model Organization {
   agencyUsageSummary         String?
   investmentStageOverride    InvestmentStage?
 
-  createdById String
-  createdBy   User      @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  archivedAt  DateTime?
+  createdById   String
+  createdBy     User      @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  archivedAt    DateTime?
+  archivedById  String?
+  archivedBy    User?     @relation("OrganizationArchivedBy", fields: [archivedById], references: [id])
+  archiveReason String?
 
   relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
   relationshipsAsTarget        OrganizationRelationship[]      @relation("OrgRelTarget")
@@ -845,6 +972,7 @@ model Organization {
   mandatesAsRelatedFund        MandateFund[]
   intelligenceItems            IntelligenceItem[]              @relation("IntelligenceOrganization")
   intelligenceAsRelatedFund    IntelligenceItemFund[]
+  intelligenceRuns             IntelligenceRun[]
   activities                   ActivityOrganization[]
   tasks                        TaskOrganization[]
   documents                    DocumentOrganization[]
@@ -956,6 +1084,9 @@ model Person {
   createdAt                     DateTime                 @default(now())
   updatedAt                     DateTime                 @updatedAt
   archivedAt                    DateTime?
+  archivedById                  String?
+  archivedBy                    User?                    @relation("PersonArchivedBy", fields: [archivedById], references: [id])
+  archiveReason                 String?
 
   candidateProfile                   CandidateProfile?
   organizationAssociations           PersonOrganizationAssociation[]
@@ -1207,6 +1338,8 @@ model Opportunity {
   lossReason              OpportunityLossReason?
   lossExplanation         String?
   onHoldReason            String?
+  // d06 "On hold": review date shown on the record and used to create the review task.
+  holdReviewDate          DateTime?
   notes                   String?
   wonMandateId            String?                @unique
   createdById             String
@@ -1215,6 +1348,9 @@ model Opportunity {
   updatedAt               DateTime               @updatedAt
   closedAt                DateTime?
   archivedAt              DateTime?
+  archivedById            String?
+  archivedBy              User?                  @relation("OpportunityArchivedBy", fields: [archivedById], references: [id])
+  archiveReason           String?
 
   wonMandate                Mandate?                  @relation("MandateSourceOpportunity")
   relatedFunds              OpportunityFund[]
@@ -1294,6 +1430,8 @@ model Mandate {
   hiringOrganization      Organization           @relation("MandateHiringOrganization", fields: [hiringOrganizationId], references: [id])
   sourceOpportunityId     String?                @unique
   sourceOpportunity       Opportunity?           @relation("MandateSourceOpportunity", fields: [sourceOpportunityId], references: [id])
+  // Required (enforced in the form) when there is no sourceOpportunity.
+  source                  MandateSource?
   status                  MandateStatus          @default(BRIEF_RECEIVED)
   statusEnteredAt         DateTime               @default(now())
   priority                MandatePriority        @default(NORMAL)
@@ -1359,6 +1497,9 @@ model Mandate {
   createdAt               DateTime               @default(now())
   updatedAt               DateTime               @updatedAt
   archivedAt              DateTime?
+  archivedById            String?
+  archivedBy              User?                  @relation("MandateArchivedBy", fields: [archivedById], references: [id])
+  archiveReason           String?
 
   relatedFunds          MandateFund[]
   functionalSpecialisms MandateSpecialism[]
@@ -1478,6 +1619,8 @@ model CandidateProcess {
   rejectionExplanation          String?
   withdrawalReason              WithdrawalReason?
   withdrawalExplanation         String?
+  // d04 "Take candidate off search": who made the call — client, candidate or Reign.
+  exitDecidedBy                 String?
   primaryNextTaskId             String?                 @unique
   primaryNextTask               Task?                   @relation("ProcessPrimaryNextTask", fields: [primaryNextTaskId], references: [id])
   submittedAt                   DateTime?
@@ -1665,13 +1808,75 @@ model IntelligenceItem {
   updatedAt              DateTime                    @updatedAt
   archivedAt             DateTime?
 
+  /// Round 2 section 5 — agent-found signals start PENDING_REVIEW in the
+  /// review queue; hand-logged signals (the pre-existing "Log signal" flow)
+  /// default straight to ACCEPTED so nothing already in the CRM changes.
+  reviewState   IntelligenceReviewState    @default(ACCEPTED)
+  dismissReason IntelligenceDismissReason?
+  dismissedAt   DateTime?
+  runId         String?
+  run           IntelligenceRun?           @relation(fields: [runId], references: [id])
+
   relatedFunds IntelligenceItemFund[]
   activities   ActivityIntelligenceItem[]
   tasks        TaskIntelligenceItem[]
   documents    DocumentIntelligenceItem[]
   tags         TagOnIntelligenceItem[]
+  sources      IntelligenceSource[]
 
   @@index([workspaceId, type])
+  @@index([organizationId])
+  @@index([workspaceId, reviewState])
+}
+
+enum IntelligenceReviewState {
+  PENDING_REVIEW
+  ACCEPTED
+  DISMISSED
+}
+
+enum IntelligenceDismissReason {
+  NOT_RELEVANT
+  WRONG_COMPANY
+  ALREADY_KNEW
+}
+
+/// Round 2 section 5 — "merge duplicates... into one signal with several sources."
+model IntelligenceSource {
+  id                 String           @id @default(cuid())
+  intelligenceItemId String
+  intelligenceItem   IntelligenceItem @relation(fields: [intelligenceItemId], references: [id], onDelete: Cascade)
+  url                String
+  title              String?
+  createdAt          DateTime         @default(now())
+
+  @@index([intelligenceItemId])
+}
+
+enum IntelligenceRunStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+/// Round 2 section 5 — "Log every run, its sources and its cost."
+model IntelligenceRun {
+  id             String                @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace             @relation(fields: [workspaceId], references: [id])
+  organizationId String?
+  organization   Organization?         @relation(fields: [organizationId], references: [id])
+  provider       String
+  status         IntelligenceRunStatus @default(RUNNING)
+  signalsFound   Int                   @default(0)
+  costUsd        Decimal?              @db.Decimal(10, 4)
+  errorMessage   String?
+  startedAt      DateTime              @default(now())
+  finishedAt     DateTime?
+
+  signals IntelligenceItem[]
+
+  @@index([workspaceId, startedAt])
   @@index([organizationId])
 }
 
@@ -1710,6 +1915,13 @@ model Activity {
   followUpTask     Task?             @relation("ActivityFollowUpTask", fields: [followUpTaskId], references: [id])
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+
+  /// Section 7 "Private flag per email: other users see 'Email with <name>'
+  /// without the content." Only meaningful for type=EMAIL; the owner
+  /// (assignedOwnerId) or creator can toggle it.
+  private           Boolean @default(false)
+  /// The provider's Message-ID, for idempotent re-sync and reply-threading. Unset for hand-logged activities.
+  externalMessageId String? @unique
 
   people                       ActivityPerson[]
   organizations                ActivityOrganization[]

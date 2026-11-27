@@ -74,6 +74,13 @@ export function label(value: string | null | undefined): string {
   return OVERRIDES[value] ?? humanizeEnum(value);
 }
 
+/** Short role label for the Users table and invite dialog (screen 12/d13) — label() above is used elsewhere (sidebar, etc). */
+export const ROLE_SHORT_LABEL: Record<string, string> = {
+  ADMIN: "Admin",
+  STANDARD: "Consultant",
+  READ_ONLY: "Read only",
+};
+
 /** Admin-configurable in Settings > Opportunities; this is the seeded/fallback default. */
 export const OPPORTUNITY_STAGE_PROBABILITY: Record<string, number> = {
   SIGNAL_IDENTIFIED: 5,

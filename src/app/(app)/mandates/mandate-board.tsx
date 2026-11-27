@@ -1,17 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { Users } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { NextActionDot } from "@/components/ui/next-action-dot";
-import { label } from "@/lib/labels";
+import { LIVE_MANDATE_STATUSES, MANDATE_STAGE_BAR_LABELS } from "@/lib/rules";
 import type { NextActionStatus } from "@/lib/next-action-status";
+import { NextActionDot } from "@/components/ui/next-action-dot";
 import { changeMandateStatusAction } from "./actions";
 import { MandateStatusDialog } from "./mandate-status-dialog";
+import { MarkSearchFilledDialog } from "./mark-search-filled-dialog";
 
 export type BoardMandate = {
   id: string;
@@ -19,71 +16,61 @@ export type BoardMandate = {
   title: string;
   status: string;
   organizationName: string;
-  ownerName: string;
-  priority: string;
-  confidentiality: string;
   candidateCount: number;
-  activeCandidateCount: number;
   nextActionStatus: NextActionStatus;
 };
 
-const STATUSES = ["BRIEF_RECEIVED", "SEARCH_ACTIVE", "LONGLISTING", "SHORTLISTING", "INTERVIEWING", "OFFER", "FILLED", "CANCELLED", "ON_HOLD"];
 const REASON_REQUIRED = new Set(["CANCELLED", "ON_HOLD"]);
 
-function Draggable({ m }: { m: BoardMandate }) {
+function Card({ m }: { m: BoardMandate }) {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: m.id });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 20 } : undefined;
 
-  function handleClick(e: React.MouseEvent) {
-    if (isDragging || (e.target as HTMLElement).closest("a")) return;
+  function handleClick() {
+    if (isDragging) return;
     router.push(`/mandates/${m.id}`);
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={isDragging ? "opacity-40" : ""}>
-      <Card
-        onClick={handleClick}
-        className="cursor-grab transition-all hover:-translate-y-0.5 hover:border-[var(--color-accent)] hover:shadow-[var(--shadow-md)] active:cursor-grabbing active:translate-y-0 active:bg-[var(--color-highlight-subtle)]"
-      >
-        <CardContent className="p-3">
-          <div className="flex items-start justify-between gap-2">
-            <Link href={`/mandates/${m.id}`} className="text-sm font-medium text-[var(--color-ink)] hover:text-[var(--color-accent)]" onClick={(e) => isDragging && e.preventDefault()}>
-              {m.reference}
-            </Link>
-            <NextActionDot status={m.nextActionStatus} className="mt-0.5" />
-          </div>
-          <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">{m.title}</p>
-          <p className="text-xs text-[var(--color-ink-subtle)]">{m.organizationName}</p>
-          <div className="mt-2 flex items-center justify-between text-xs">
-            <Badge tone={m.priority === "CRITICAL" ? "danger" : m.priority === "HIGH" ? "warning" : "neutral"}>{label(m.priority)}</Badge>
-            {m.confidentiality !== "OPEN" ? <Badge tone="info">{label(m.confidentiality)}</Badge> : null}
-          </div>
-          <div className="mt-2 flex items-center justify-between border-t border-[var(--color-border)] pt-2">
-            <p className="text-xs text-[var(--color-ink-subtle)]">{m.ownerName}</p>
-            <span className="flex items-center gap-1 text-xs font-medium text-[var(--color-ink)]" title={`${m.candidateCount} total, ${m.activeCandidateCount} active in the pipeline`}>
-              <Users className="h-3 w-3" /> {m.activeCandidateCount}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      onClick={handleClick}
+      className={`box-border flex h-[150px] cursor-grab flex-col gap-2.5 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3 text-[var(--color-ink)] active:cursor-grabbing ${isDragging ? "opacity-40" : ""}`}
+    >
+      <span className="min-w-0">
+        <span className="line-clamp-2 min-h-[38px] text-[14.5px] font-medium leading-tight">{m.title}</span>
+        <span className="mt-1 line-clamp-2 min-h-[34px] text-[13px] leading-tight text-[var(--color-muted)]">{m.organizationName}</span>
+      </span>
+      <span className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--color-line)] pt-2.5">
+        <span className="text-[13.5px] text-[var(--color-ink2)]">
+          {m.candidateCount} candidate{m.candidateCount === 1 ? "" : "s"}
+        </span>
+        <NextActionDot status={m.nextActionStatus} />
+      </span>
     </div>
   );
 }
 
-function Column({ status, items }: { status: string; items: BoardMandate[] }) {
+function Column({ status, items }: { status: (typeof LIVE_MANDATE_STATUSES)[number]; items: BoardMandate[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   return (
-    <div ref={setNodeRef} className={`flex w-64 shrink-0 flex-col rounded-lg border ${isOver ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"} bg-[var(--color-canvas)]`}>
-      <div className="flex items-center justify-between border-b border-[var(--color-border)] px-3 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-ink-muted)]">{label(status)}</span>
-        <span className="text-xs text-[var(--color-ink-subtle)]">{items.length}</span>
+    <div
+      ref={setNodeRef}
+      className={`flex min-w-0 flex-col gap-2 rounded-[6px] border bg-[var(--color-sunk)] p-2 ${isOver ? "border-[var(--color-navy)]" : "border-[var(--color-line)]"}`}
+    >
+      <div className="px-1.5 pb-1 pt-0.5">
+        <div className="text-[14px] font-medium">{MANDATE_STAGE_BAR_LABELS[status]}</div>
+        <div className="mt-1 text-[12.5px] text-[var(--color-muted)]">
+          {items.length === 0 ? "None at this stage" : `${items.length} search${items.length === 1 ? "" : "es"}`}
+        </div>
       </div>
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-2" style={{ minHeight: 120 }}>
-        {items.map((m) => (
-          <Draggable key={m.id} m={m} />
-        ))}
-      </div>
+      {items.map((m) => (
+        <Card key={m.id} m={m} />
+      ))}
     </div>
   );
 }
@@ -91,14 +78,14 @@ function Column({ status, items }: { status: string; items: BoardMandate[] }) {
 export function MandateBoard({ initialMandates }: { initialMandates: BoardMandate[] }) {
   const [items, setItems] = useState(initialMandates);
   const [pendingMove, setPendingMove] = useState<{ id: string; toStatus: string } | null>(null);
+  const [fillMandateId, setFillMandateId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Require a small pointer move before a drag activates, so a plain click
-  // on the reference link opens the mandate instead of being swallowed as a
-  // zero-distance drag.
+  // opens the mandate instead of being swallowed as a zero-distance drag.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const columns = useMemo(() => {
-    const grouped: Record<string, BoardMandate[]> = Object.fromEntries(STATUSES.map((s) => [s, []]));
+    const grouped: Record<string, BoardMandate[]> = Object.fromEntries(LIVE_MANDATE_STATUSES.map((s) => [s, []]));
     for (const item of items) grouped[item.status]?.push(item);
     return grouped;
   }, [items]);
@@ -118,6 +105,10 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
     const toStatus = String(over.id);
     const current = items.find((i) => i.id === id);
     if (!current || current.status === toStatus) return;
+    if (toStatus === "FILLED") {
+      setFillMandateId(id);
+      return;
+    }
     if (REASON_REQUIRED.has(toStatus)) {
       setPendingMove({ id, toStatus });
       return;
@@ -126,11 +117,11 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
   }
 
   return (
-    <div>
-      {error ? <p className="mb-3 text-sm text-[var(--color-status-danger-ink)]">{error}</p> : null}
+    <div className="flex flex-1 flex-col">
+      {error ? <p className="mb-3 text-sm text-[var(--color-warn)]">{error}</p> : null}
       <DndContext id="mandate-board" sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {STATUSES.map((s) => (
+        <div className="grid flex-1 grid-cols-6 gap-2 overflow-x-auto" style={{ minHeight: 420 }}>
+          {LIVE_MANDATE_STATUSES.map((s) => (
             <Column key={s} status={s} items={columns[s] ?? []} />
           ))}
         </div>
@@ -142,6 +133,18 @@ export function MandateBoard({ initialMandates }: { initialMandates: BoardMandat
         onConfirm={(extra) => {
           if (pendingMove) applyMove(pendingMove.id, pendingMove.toStatus, extra);
           setPendingMove(null);
+        }}
+      />
+      <MarkSearchFilledDialog
+        open={fillMandateId !== null}
+        mandateId={fillMandateId}
+        onClose={() => {
+          setItems(initialMandates);
+          setFillMandateId(null);
+        }}
+        onDone={() => {
+          setItems((prev) => prev.map((i) => (i.id === fillMandateId ? { ...i, status: "FILLED" } : i)));
+          setFillMandateId(null);
         }}
       />
     </div>

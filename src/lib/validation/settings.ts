@@ -1,22 +1,32 @@
 import { z } from "zod";
-import { UserRole } from "@prisma/client";
+import { UserRole, IntelligenceType } from "@prisma/client";
 
-export const createUserSchema = z.object({
+export const inviteUserSchema = z.object({
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().min(1),
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
   role: z.nativeEnum(UserRole),
 });
 
 export const workspaceSettingsSchema = z.object({
   name: z.string().trim().min(1),
-  defaultCurrency: z.string().trim().length(3),
   defaultTimezone: z.string().trim().min(1),
   brandAccent: z
     .string()
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, "Enter a hex colour like #1C2B4A"),
+});
+
+export const currencySettingsSchema = z.object({
+  defaultCurrency: z.string().trim().length(3),
+  updateRatesAutomatically: z.coerce.boolean().optional(),
+});
+
+/** Round 2 section 6 — Settings -> Connections "AI research" card. */
+export const aiResearchSettingsSchema = z.object({
+  sweepEnabled: z.coerce.boolean().optional(),
+  sweepHourUtc: z.coerce.number().int().min(0).max(23),
+  signalTypes: z.array(z.nativeEnum(IntelligenceType)).default([]),
 });
 
 export const staleThresholdsSchema = z.object({

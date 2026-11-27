@@ -49,7 +49,7 @@ export function TaskForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="title">Title</Label>
-        <Input id="title" name="title" required />
+        <Input id="title" name="title" placeholder="e.g. Chase Bracken CEO for client-review feedback" required />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
       </div>
 

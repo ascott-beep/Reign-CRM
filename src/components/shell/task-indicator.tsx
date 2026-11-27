@@ -21,7 +21,7 @@ export async function TaskIndicator({ user }: { user: SessionUser }) {
   return (
     <Link
       href="/tasks?filter=overdue"
-      className="relative flex h-9 w-9 items-center justify-center rounded-md text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-canvas)] hover:text-[var(--color-ink)]"
+      className="relative flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-line)] bg-[var(--color-card)] text-[var(--color-ink2)] transition-colors hover:bg-[var(--color-active)]"
       title={`${count} task${count === 1 ? "" : "s"} due today or overdue`}
     >
       <Bell className="h-4 w-4" />

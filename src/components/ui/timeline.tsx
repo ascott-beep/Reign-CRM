@@ -12,11 +12,14 @@ import {
   CheckCircle2,
   Circle,
   ArrowRightCircle,
+  Paperclip,
+  Lock,
   type LucideIcon,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import { cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
+import { ActivityPrivacyToggle } from "@/components/ui/activity-privacy-toggle";
 import type { TimelineItem } from "@/lib/timeline";
 
 const ACTIVITY_ICONS: Record<string, LucideIcon> = {
@@ -60,7 +63,12 @@ function TimelineRow({ item }: { item: TimelineItem }) {
         <IconBubble icon={Icon} tone="highlight" />
         <div className="min-w-0 flex-1 pb-1">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="text-sm font-medium text-[var(--color-ink)]">{item.subject || label(item.activityType)}</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-ink)]">
+              {item.subject || label(item.activityType)}
+              {item.activityType === "EMAIL" && (item.private || item.canTogglePrivacy) ? (
+                item.canTogglePrivacy ? <ActivityPrivacyToggle activityId={item.id} isPrivate={item.private} /> : <Lock className="h-3 w-3 text-[var(--color-ink-subtle)]" />
+              ) : null}
+            </p>
             <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
           </div>
           {item.summary ? <p className="mt-0.5 text-sm text-[var(--color-ink-muted)]">{item.summary}</p> : null}
@@ -85,6 +93,21 @@ function TimelineRow({ item }: { item: TimelineItem }) {
           <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">
             {item.completed ? "Completed" : "Due"} · {item.assigneeName}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (item.kind === "file") {
+    return (
+      <div className="flex gap-3">
+        <IconBubble icon={Paperclip} tone="neutral" />
+        <div className="min-w-0 flex-1 pb-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm font-medium text-[var(--color-ink)]">{item.displayName}</p>
+            <span className="shrink-0 text-xs text-[var(--color-ink-subtle)]">{friendlyDate(item.date)}</span>
+          </div>
+          <p className="mt-0.5 text-xs text-[var(--color-ink-subtle)]">File · {label(item.category)}</p>
         </div>
       </div>
     );

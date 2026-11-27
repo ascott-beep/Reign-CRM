@@ -1,25 +1,32 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Pencil, ArrowRightCircle } from "lucide-react";
+import { Pencil, ArchiveRestore } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canViewAuditLog } from "@/lib/permissions";
 import { PageHeader } from "@/components/shell/page-header";
 import { EmptyState } from "@/components/shell/states";
 import { Button } from "@/components/ui/button";
+import { MoreMenu } from "@/components/shell/more-menu";
+import { restoreRecordAction } from "@/lib/delete-actions";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { MoreDetails } from "@/components/ui/more-details";
+import { StageProgressBar } from "@/components/ui/stage-progress-bar";
+import { PersonHoverCard, OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
 import { NextActionCard } from "@/components/ui/next-action-card";
-import { Timeline } from "@/components/ui/timeline";
+import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getOpportunityTimeline } from "@/lib/timeline";
+import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityStageBarStep, daysPerStage } from "@/lib/rules";
 import { format } from "date-fns";
-import { convertOpportunityToMandateAction } from "../actions";
 import { UploadDocumentDialog } from "../../documents/upload-document-dialog";
-import { LogActivityDialog } from "../../activities/log-activity-dialog";
+import { Composer } from "../../activities/composer";
 import { StageSelect } from "../stage-select";
+import { ConvertToMandateButton } from "../convert-to-mandate-button";
+import { AskAtlasButton } from "@/components/shell/ask-atlas/ask-atlas-button";
 
 export default async function OpportunityDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
@@ -41,16 +48,26 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   });
   if (!opportunity) notFound();
 
-  const [timeline, documents, auditLogs, users] = await Promise.all([
-    getOpportunityTimeline(opportunity.id),
+  const [timeline, documents, auditLogs, stageHistory, mailboxConnection] = await Promise.all([
+    getOpportunityTimeline(opportunity.id, user.id),
     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Opportunity", entityId: opportunity.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
-    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.opportunityStageHistory.findMany({ where: { opportunityId: opportunity.id }, orderBy: { changedAt: "asc" } }),
+    prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
   ]);
 
-  const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
+  const barStep = opportunityStageBarStep(opportunity.stage, stageHistory);
+  const days = daysPerStage(stageHistory.map((h) => ({ stage: h.toStage, at: h.changedAt })));
+
+  // Section 4 composer "With" picker — the record's contacts.
+  const composerPeople = [
+    ...(opportunity.leadContactPerson ? [{ id: opportunity.leadContactPerson.id, name: `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` }] : []),
+    ...opportunity.stakeholders
+      .filter((s) => s.personId !== opportunity.leadContactPerson?.id)
+      .map((s) => ({ id: s.personId, name: `${s.person.firstName} ${s.person.lastName}` })),
+  ];
 
   return (
     <div>
@@ -63,42 +80,55 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         }
         description={
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link href={`/organisations/${opportunity.hiringOrganizationId}`} className="text-[var(--color-accent)]">
-              {opportunity.hiringOrganization.name}
-            </Link>
-            <span>Probability: {probability}%</span>
-            <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
-            <span>Owner: {opportunity.owner.firstName} {opportunity.owner.lastName}</span>
+            <OrganizationHoverCard organizationId={opportunity.hiringOrganizationId} name={opportunity.hiringOrganization.name} typeLabel={label(opportunity.hiringOrganization.type)}>
+              <Link href={`/organisations/${opportunity.hiringOrganizationId}`} className="text-[var(--color-accent)]">
+                {opportunity.hiringOrganization.name}
+              </Link>
+            </OrganizationHoverCard>
+            {opportunity.wonMandate ? (
+              <Link href={`/mandates/${opportunity.wonMandate.id}`} className="text-[var(--color-accent)]">
+                Now a live search: {label(opportunity.wonMandate.status)} →
+              </Link>
+            ) : (
+              <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
+            )}
           </div>
         }
         actions={
           <>
-            <StageSelect opportunityId={opportunity.id} currentStage={opportunity.stage} />
-            {opportunity.stage === "WON" && !opportunity.wonMandateId ? (
-              <form action={convertOpportunityToMandateAction.bind(null, opportunity.id)}>
-                <Button type="submit">
-                  <ArrowRightCircle className="h-4 w-4" /> Convert to Mandate
-                </Button>
-              </form>
-            ) : null}
-            {opportunity.wonMandateId ? (
-              <Button variant="secondary" asChild>
-                <Link href={`/mandates/${opportunity.wonMandateId}`}>View Mandate</Link>
-              </Button>
-            ) : null}
-            <LogActivityDialog
-              users={users}
-              currentUserId={user.id}
-              linkContext={{ opportunityId: opportunity.id, label: opportunity.name }}
+            <AskAtlasButton recordType="opportunity" recordName={opportunity.name} />
+            <StageSelect
+              opportunityId={opportunity.id}
+              currentStage={opportunity.stage}
+              context={`${opportunity.potentialRoleTitle ?? opportunity.name} · ${opportunity.hiringOrganization.name}${opportunity.estimatedFeeAmount ? ` · ${formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}` : ""}`}
             />
+            {opportunity.stage === "WON" && !opportunity.wonMandateId ? <ConvertToMandateButton opportunityId={opportunity.id} /> : null}
             <Button variant="secondary" size="sm" asChild>
               <Link href={`/opportunities/${opportunity.id}/edit`}>
                 <Pencil className="h-4 w-4" /> Edit
               </Link>
             </Button>
+            {user.role === "ADMIN" && opportunity.archivedAt ? (
+              <form action={() => restoreRecordAction("OPPORTUNITY", opportunity.id)}>
+                <Button type="submit" variant="secondary" size="sm">
+                  <ArchiveRestore className="h-4 w-4" /> Restore
+                </Button>
+              </form>
+            ) : null}
+            {user.role === "ADMIN" ? <MoreMenu type="OPPORTUNITY" id={opportunity.id} listHref="/opportunities" /> : null}
           </>
         }
       />
+
+      {!["LOST"].includes(opportunity.stage) ? (
+        <div className="mb-4 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
+          <StageProgressBar
+            steps={OPPORTUNITY_STAGE_BAR_STEPS.map((s) => ({ key: s, label: OPPORTUNITY_STAGE_BAR_LABELS[s] }))}
+            currentIndex={barStep - 1}
+            days={days}
+          />
+        </div>
+      ) : null}
 
       <Tabs defaultValue="overview">
         <TabsList>
@@ -108,8 +138,120 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="flex flex-col gap-4 lg:col-span-2">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+            {/* Left sidebar — key facts only (section 3); everything else under More details. */}
+            <Card>
+              <CardContent className="flex flex-col gap-3 pt-4">
+                <h3 className="text-sm font-semibold">Key facts</h3>
+                <dl className="grid grid-cols-1 gap-2 text-sm">
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--color-ink-subtle)]">Company</dt>
+                    <dd className="truncate text-right">
+                      <OrganizationHoverCard organizationId={opportunity.hiringOrganizationId} name={opportunity.hiringOrganization.name} typeLabel={label(opportunity.hiringOrganization.type)}>
+                        <Link href={`/organisations/${opportunity.hiringOrganizationId}`} className="text-[var(--color-accent)]">
+                          {opportunity.hiringOrganization.name}
+                        </Link>
+                      </OrganizationHoverCard>
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--color-ink-subtle)]">Contact</dt>
+                    <dd className="truncate text-right">
+                      {opportunity.leadContactPerson ? (
+                        <PersonHoverCard personId={opportunity.leadContactPerson.id} firstName={opportunity.leadContactPerson.firstName} lastName={opportunity.leadContactPerson.lastName}>
+                          <Link href={`/people/${opportunity.leadContactPerson.id}`} className="text-[var(--color-accent)]">
+                            {opportunity.leadContactPerson.firstName} {opportunity.leadContactPerson.lastName}
+                          </Link>
+                        </PersonHoverCard>
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--color-ink-subtle)]">Fee</dt>
+                    <dd>{formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--color-ink-subtle)]">Owner</dt>
+                    <dd className="truncate text-right">
+                      <UserHoverCard firstName={opportunity.owner.firstName} lastName={opportunity.owner.lastName}>
+                        <span>{opportunity.owner.firstName} {opportunity.owner.lastName}</span>
+                      </UserHoverCard>
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <dt className="text-[var(--color-ink-subtle)]">Expected close</dt>
+                    <dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd>
+                  </div>
+                </dl>
+
+                <MoreDetails>
+                  <dl className="grid grid-cols-1 gap-2 text-sm">
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd className="truncate text-right">{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
+                  </dl>
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Stakeholders ({opportunity.stakeholders.length})</h4>
+                    {opportunity.stakeholders.length === 0 ? (
+                      <p className="text-sm text-[var(--color-ink-subtle)]">None recorded.</p>
+                    ) : (
+                      <ul className="flex flex-col gap-2">
+                        {opportunity.stakeholders.map((s) => (
+                          <li key={s.id} className="flex items-center justify-between text-sm">
+                            <PersonHoverCard personId={s.personId} firstName={s.person.firstName} lastName={s.person.lastName}>
+                              <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
+                                {s.person.firstName} {s.person.lastName}
+                              </Link>
+                            </PersonHoverCard>
+                            <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Next step</h4>
+                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
+                  </div>
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Notes</h4>
+                    <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
+                  </div>
+                  {opportunity.stage === "LOST" ? (
+                    <div>
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">Loss reason</h4>
+                      <p className="text-sm text-[var(--color-ink-muted)]">
+                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
+                      </p>
+                    </div>
+                  ) : null}
+                  {opportunity.stage === "ON_HOLD" ? (
+                    <div>
+                      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-muted)]">On hold</h4>
+                      {opportunity.onHoldReason ? <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p> : null}
+                      {opportunity.holdReviewDate ? (
+                        <p className="mt-1 text-xs text-[var(--color-ink-subtle)]">Review on {format(opportunity.holdReviewDate, "d MMM yyyy")}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </MoreDetails>
+              </CardContent>
+            </Card>
+
+            {/* Main column — composer, then Focus, then History (section 4). */}
+            <div className="flex flex-col gap-4">
+              <Composer
+                linkContext={{ opportunityId: opportunity.id, organizationId: opportunity.hiringOrganizationId }}
+                currentUserId={user.id}
+                people={composerPeople}
+                documentLinkField="opportunityId"
+                hasMailboxConnection={Boolean(mailboxConnection)}
+              />
+
               <NextActionCard
                 task={
                   opportunity.primaryNextTask
@@ -127,68 +269,8 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
               <Card>
                 <CardContent className="pt-4">
-                  <h3 className="mb-3.5 text-sm font-semibold">Activity</h3>
-                  <Timeline items={timeline} emptyLabel="Nothing logged yet — use “Log activity” above to record a call, email, or note." />
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Details</h3>
-                  <dl className="grid grid-cols-1 gap-2 text-sm">
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Type</dt><dd>{label(opportunity.type)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Role</dt><dd>{opportunity.potentialRoleTitle || "—"}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Source</dt><dd>{label(opportunity.source)}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Lead contact</dt><dd>{opportunity.leadContactPerson ? `${opportunity.leadContactPerson.firstName} ${opportunity.leadContactPerson.lastName}` : "—"}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Related funds</dt><dd>{opportunity.relatedFunds.map((f) => f.organization.name).join(", ") || "—"}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Expected decision</dt><dd>{opportunity.expectedDecisionDate ? format(opportunity.expectedDecisionDate, "d MMM yyyy") : "—"}</dd></div>
-                    <div className="flex justify-between"><dt className="text-[var(--color-ink-subtle)]">Created by</dt><dd>{opportunity.createdBy.firstName} {opportunity.createdBy.lastName}</dd></div>
-                  </dl>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Stakeholders ({opportunity.stakeholders.length})</h3>
-                  {opportunity.stakeholders.length === 0 ? (
-                    <p className="text-sm text-[var(--color-ink-subtle)]">No stakeholders recorded.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {opportunity.stakeholders.map((s) => (
-                        <li key={s.id} className="flex items-center justify-between text-sm">
-                          <Link href={`/people/${s.personId}`} className="text-[var(--color-accent)] hover:underline">
-                            {s.person.firstName} {s.person.lastName}
-                          </Link>
-                          <span className="text-xs text-[var(--color-ink-subtle)]">{label(s.role)}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-4">
-                  <h3 className="mb-2 text-sm font-semibold">Next step</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.nextStepSummary || "—"}</p>
-                  <h3 className="mb-2 mt-4 text-sm font-semibold">Notes</h3>
-                  <p className="whitespace-pre-wrap text-sm text-[var(--color-ink-muted)]">{opportunity.notes || "—"}</p>
-                  {opportunity.stage === "LOST" ? (
-                    <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">Loss reason</h3>
-                      <p className="text-sm text-[var(--color-ink-muted)]">
-                        {label(opportunity.lossReason)} {opportunity.lossExplanation ? `— ${opportunity.lossExplanation}` : ""}
-                      </p>
-                    </>
-                  ) : null}
-                  {opportunity.stage === "ON_HOLD" && opportunity.onHoldReason ? (
-                    <>
-                      <h3 className="mb-2 mt-4 text-sm font-semibold">On-hold reason</h3>
-                      <p className="text-sm text-[var(--color-ink-muted)]">{opportunity.onHoldReason}</p>
-                    </>
-                  ) : null}
+                  <h3 className="mb-3.5 text-sm font-semibold">History</h3>
+                  <HistoryWithFilters items={timeline} emptyLabel="Nothing logged yet — use the composer above to log a call, note, email or file." />
                 </CardContent>
               </Card>
             </div>

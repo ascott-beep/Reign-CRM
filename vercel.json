@@ -1,0 +1,8 @@
+{
+  "crons": [
+    { "path": "/api/cron/purge-archived", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/update-exchange-rates", "schedule": "0 4 * * *" },
+    { "path": "/api/cron/intelligence-sweep", "schedule": "0 * * * *" },
+    { "path": "/api/cron/mailbox-sync", "schedule": "*/5 * * * *" }
+  ]
+}

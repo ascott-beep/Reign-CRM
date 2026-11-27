@@ -27,6 +27,10 @@ export const addCandidateToMandateSchema = z.object({
   newCandidateLastName: z.preprocess(emptyToUndefined, z.string().trim().optional()),
   newCandidateEmail: z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email().optional()),
   source: z.string().default("OTHER"),
+  // d02 "Add a candidate to this search"
+  startAt: z.enum(["SOURCED", "CONTACT_REQUIRED"]).default("SOURCED"),
+  fit: z.preprocess(emptyToUndefined, z.string().optional()),
+  note: z.preprocess(emptyToUndefined, z.string().trim().max(1000).optional()),
 });
 
 export const processStageChangeSchema = z.object({
@@ -36,7 +40,20 @@ export const processStageChangeSchema = z.object({
   rejectionExplanation: z.preprocess(emptyToUndefined, z.string().trim().max(1000).optional()),
   withdrawalReason: z.preprocess(emptyToUndefined, z.string().optional()),
   withdrawalExplanation: z.preprocess(emptyToUndefined, z.string().trim().max(1000).optional()),
+  // d04 "Take candidate off search" — who made the call (Client / Candidate / Reign).
+  exitDecidedBy: z.preprocess(emptyToUndefined, z.string().optional()),
   notes: z.preprocess(emptyToUndefined, z.string().trim().max(1000).optional()),
+});
+
+/** d03 "Mark search as filled". */
+export const markSearchFilledSchema = z.object({
+  mandateId: z.string().min(1),
+  candidateProcessId: z.string().min(1),
+  placementDate: z.coerce.date(),
+  startDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  agreedBaseAmount: z.coerce.number().min(0).optional().nullable(),
+  agreedBaseCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  notifyOthers: z.preprocess((v) => v === "true" || v === "on" || v === true, z.boolean()).default(true),
 });
 
 export const processAssessmentSchema = z.object({

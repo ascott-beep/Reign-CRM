@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireUser, canMutate, canArchiveRecord, canRestoreArchived, canMergeRecords, PermissionError } from "@/lib/permissions";
+import { requireUser, canMutate, canMergeRecords, PermissionError } from "@/lib/permissions";
 import { personFormSchema, employmentHistorySchema, candidateProfileSchema } from "@/lib/validation/person";
 import { findPersonDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
@@ -134,27 +134,6 @@ export async function updatePersonAction(personId: string, _prev: PersonFormStat
   redirect(`/people/${personId}`);
 }
 
-export async function archivePersonAction(personId: string) {
-  const user = await requireUser();
-  const person = await prisma.person.findUniqueOrThrow({ where: { id: personId } });
-  if (!canArchiveRecord(user, { relationshipOwnerId: person.relationshipOwnerId, createdById: person.createdById })) {
-    throw new PermissionError("You can only archive people you own or created.");
-  }
-  await prisma.person.update({ where: { id: personId }, data: { archivedAt: new Date() } });
-  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Person", entityId: personId, action: "ARCHIVE" });
-  revalidatePath("/people");
-  revalidatePath(`/people/${personId}`);
-}
-
-export async function restorePersonAction(personId: string) {
-  const user = await requireUser();
-  if (!canRestoreArchived(user.role)) throw new PermissionError("Only administrators can restore archived records.");
-  await prisma.person.update({ where: { id: personId }, data: { archivedAt: null } });
-  await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "Person", entityId: personId, action: "RESTORE" });
-  revalidatePath("/people");
-  revalidatePath(`/people/${personId}`);
-}
-
 export async function addEmploymentHistoryAction(formData: FormData) {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
@@ -268,12 +247,24 @@ export async function upsertCandidateProfileAction(formData: FormData) {
  * tags/associations, preserve every process/activity/task/document record,
  * then archive the duplicate. Admin-only, single transaction.
  */
-export async function mergePersonAction(survivorId: string, duplicateId: string) {
+export async function mergePersonAction(
+  survivorId: string,
+  duplicateId: string,
+  survivorFieldOverrides?: { firstName?: string; lastName?: string; headlineOverride?: string | null; relationshipStatus?: string; relationshipOwnerId?: string | null; rating?: string },
+) {
   const user = await requireUser();
   if (!canMergeRecords(user.role)) throw new PermissionError("Only administrators can merge records.");
   if (survivorId === duplicateId) throw new Error("Cannot merge a person with themselves.");
 
   await prisma.$transaction(async (tx) => {
+    if (survivorFieldOverrides) {
+      const { rating, ...personFields } = survivorFieldOverrides;
+      await tx.person.update({ where: { id: survivorId }, data: personFields as any });
+      if (rating) {
+        await tx.candidateProfile.updateMany({ where: { personId: survivorId }, data: { rating: rating as any } });
+      }
+    }
+
     await tx.employmentHistory.updateMany({ where: { personId: duplicateId }, data: { personId: survivorId } });
     await tx.personOrganizationAssociation.updateMany({ where: { personId: duplicateId }, data: { personId: survivorId } });
     await tx.candidateProcess.updateMany({ where: { candidatePersonId: duplicateId }, data: { candidatePersonId: survivorId } });
@@ -286,10 +277,19 @@ export async function mergePersonAction(survivorId: string, duplicateId: string)
 
     // Join tables with composite uniqueness: reassign only where the survivor
     // doesn't already have the same link, then drop the now-redundant rows.
-    for (const model of [tx.activityPerson, tx.taskPerson, tx.documentPerson, tx.tagOnPerson] as const) {
+    for (const model of [tx.activityPerson, tx.taskPerson, tx.documentPerson, tx.tagOnPerson, tx.personPracticeArea] as const) {
       const rows = await (model as any).findMany({ where: { personId: duplicateId } });
       for (const row of rows) {
-        const key = model === tx.activityPerson ? "activityId" : model === tx.taskPerson ? "taskId" : model === tx.documentPerson ? "documentId" : "tagId";
+        const key =
+          model === tx.activityPerson
+            ? "activityId"
+            : model === tx.taskPerson
+              ? "taskId"
+              : model === tx.documentPerson
+                ? "documentId"
+                : model === tx.tagOnPerson
+                  ? "tagId"
+                  : "practiceAreaId";
         const existing = await (model as any).findFirst({ where: { personId: survivorId, [key]: row[key] } });
         if (existing) {
           await (model as any).delete({ where: { id: row.id } });

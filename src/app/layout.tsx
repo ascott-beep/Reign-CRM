@@ -1,12 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter_Tight } from "next/font/google";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { THEME_COOKIE } from "@/lib/theme";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const interTight = Inter_Tight({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-inter-tight",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "Reign Partners CRM",
+  title: { default: "Atlas", template: "%s · Atlas" },
   description: "Private equity executive recruitment CRM",
 };
 
@@ -21,9 +28,16 @@ async function getWorkspaceBrand() {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const brandAccent = await getWorkspaceBrand();
+  const cookieStore = await cookies();
+  const theme = cookieStore.get(THEME_COOKIE)?.value;
 
   return (
-    <html lang="en" className={inter.variable} style={{ "--brand-accent": brandAccent } as React.CSSProperties}>
+    <html
+      lang="en"
+      data-theme={theme === "light" || theme === "dark" ? theme : undefined}
+      className={interTight.variable}
+      style={{ "--brand-accent": brandAccent } as React.CSSProperties}
+    >
       <body className="antialiased">{children}</body>
     </html>
   );

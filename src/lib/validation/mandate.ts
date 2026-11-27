@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { MandatePriority, MandateConfidentiality, EngagementModel, FeeType, EmploymentType, WorkArrangement, Seniority } from "@prisma/client";
+import { MandatePriority, MandateConfidentiality, EngagementModel, FeeType, EmploymentType, WorkArrangement, Seniority, MandateSource } from "@prisma/client";
 
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
 export const mandateFormSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   hiringOrganizationId: z.string().min(1, "Hiring organisation is required"),
+  // Section 5 rule 4: required when creating a mandate directly (no source opportunity) —
+  // enforced in createMandateAction, not here, since editing a mandate that already has a
+  // source opportunity should not be forced to pick one of these instead.
+  source: z.preprocess(emptyToUndefined, z.nativeEnum(MandateSource).optional()),
   priority: z.nativeEnum(MandatePriority).default("NORMAL"),
   confidentiality: z.nativeEnum(MandateConfidentiality).default("OPEN"),
   ownerId: z.string().min(1),

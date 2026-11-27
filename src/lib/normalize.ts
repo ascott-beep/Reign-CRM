@@ -6,7 +6,7 @@ export function normalizeName(name: string): string {
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .replace(/[.,'"()]/g, "")
-    .replace(/\b(ltd|limited|inc|incorporated|llc|llp|plc|gmbh|sa|nv|bv|corp|corporation|co)\b/g, "")
+    .replace(/\b(ltd|limited|inc|incorporated|llc|llp|plc|gmbh|sa|nv|bv|corp|corporation|co|grp|group)\b/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
