@@ -31,20 +31,11 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Organisations",
         href: "/organisations",
         icon: Building2,
-        children: [
-          { label: "Funds", href: "/organisations?tab=funds" },
-          { label: "Portfolio Companies", href: "/organisations?tab=portfolio" },
-          { label: "Other Organisations", href: "/organisations?tab=other" },
-        ],
       },
       {
         label: "People",
         href: "/people",
         icon: Users,
-        children: [
-          { label: "All People", href: "/people" },
-          { label: "Candidates", href: "/people?tab=candidates" },
-        ],
       },
       { label: "Opportunities", href: "/opportunities", icon: TrendingUp, countKey: "opportunities" },
       { label: "Mandates", href: "/mandates", icon: Briefcase, countKey: "mandates" },
