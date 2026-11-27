@@ -96,7 +96,6 @@ export default async function OpportunitiesPage({
     name: o.name,
     organizationName: o.hiringOrganization.name,
     stage: o.stage,
-    probability: o.isProbabilityOverridden ? (o.probabilityOverride ?? 0) : o.stageProbabilityDefault,
     estimatedFeeAmount: o.estimatedFeeAmount?.toString() ?? null,
     estimatedFeeCurrency: o.estimatedFeeCurrency,
     weightedValue: weightedOpportunityValue(o),
@@ -112,8 +111,7 @@ export default async function OpportunitiesPage({
         title="Opportunities"
         description={
           <>
-            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatConvertedMoney(totalWeighted, totalApprox, displayCurrency)}</span> weighted · business development
-            pipeline
+            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatConvertedMoney(totalWeighted, totalApprox, displayCurrency)}</span> in likely fees
           </>
         }
         user={user}

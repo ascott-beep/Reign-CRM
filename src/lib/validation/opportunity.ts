@@ -5,7 +5,9 @@ import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
 export const opportunityFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(300),
+  // Round 2 section 9 "Short create forms": name isn't one of the three fields on the
+  // short form (company, role, fee) — left blank, the action derives "<role> · <company>".
+  name: z.preprocess(emptyToUndefined, z.string().trim().max(300).optional()),
   hiringOrganizationId: z.string().min(1, "Hiring organisation is required"),
   type: z.nativeEnum(OpportunityType).default("UNKNOWN"),
   potentialRoleTitle: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),

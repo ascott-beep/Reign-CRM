@@ -9,7 +9,6 @@ export type OpportunityListRow = {
   name: string;
   organizationName: string;
   stage: string;
-  probability: number;
   estimatedFeeAmount: string | null;
   estimatedFeeCurrency: string | null;
   weightedValue: number;
@@ -34,9 +33,9 @@ export function OpportunitiesTable({ rows }: { rows: OpportunityListRow[] }) {
     <div className="overflow-x-auto rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6">
       <div className={cn(GRID, "h-10 min-w-[980px] text-[12px] text-[var(--color-muted)]")}>
         <span>Opportunity</span>
-        <span>Stage · %</span>
+        <span>Stage</span>
         <span>Value</span>
-        <span>Weighted</span>
+        <span>Likely fee</span>
         <span>Days at this stage</span>
         <span>Owner</span>
         <span>Next step</span>
@@ -53,7 +52,6 @@ export function OpportunitiesTable({ rows }: { rows: OpportunityListRow[] }) {
           </span>
           <span>
             <StatusBadge value={r.stage} />
-            <span className="ml-1.5 text-xs text-[var(--color-muted)]">{r.probability}%</span>
           </span>
           <span className="text-[13.5px] text-[var(--color-ink2)]">{formatMoney(r.estimatedFeeAmount, r.estimatedFeeCurrency)}</span>
           <span className="text-[13.5px] text-[var(--color-ink2)]">{formatMoney(r.weightedValue, r.estimatedFeeCurrency ?? "GBP")}</span>

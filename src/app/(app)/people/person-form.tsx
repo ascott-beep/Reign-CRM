@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MoreDetails } from "@/components/ui/more-details";
 import { label } from "@/lib/labels";
 import { COUNTRIES } from "@/lib/iso";
 import type { PersonFormState } from "./actions";
@@ -90,95 +91,18 @@ export function PersonForm({
           {errors.lastName ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.lastName[0]}</p> : null}
         </div>
 
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label>Person types</Label>
-          <div className="flex flex-wrap gap-3">
-            {PERSON_TYPES.map((t) => (
-              <label key={t} className="flex items-center gap-1.5 text-sm">
-                <Checkbox
-                  name="personTypes"
-                  value={t}
-                  checked={selectedTypes.includes(t)}
-                  onCheckedChange={() => toggleType(t)}
-                />
-                {label(t)}
-              </label>
-            ))}
-          </div>
-          {errors.personTypes ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.personTypes[0]}</p> : null}
-        </div>
-
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="primaryEmail">Primary email</Label>
+          <Label htmlFor="primaryEmail">Email</Label>
           <Input id="primaryEmail" name="primaryEmail" type="email" placeholder="e.g. jamie@acme.com" defaultValue={values.primaryEmail} />
           {errors.primaryEmail ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.primaryEmail[0]}</p> : null}
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="primaryPhone">Primary phone</Label>
+          <Label htmlFor="primaryPhone">Phone</Label>
           <Input id="primaryPhone" name="primaryPhone" placeholder="e.g. +44 7700 900000" defaultValue={values.primaryPhone} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
-          <Input id="linkedinUrl" name="linkedinUrl" placeholder="https://linkedin.com/in/…" defaultValue={values.linkedinUrl} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="headlineOverride">Headline / current title</Label>
-          <Input id="headlineOverride" name="headlineOverride" placeholder="e.g. CFO, Acme Ltd" defaultValue={values.headlineOverride} />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="city">City</Label>
-          <Input id="city" name="city" placeholder="e.g. London" defaultValue={values.city} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="countryCode">Country</Label>
-          <Select name="countryCode" defaultValue={values.countryCode}>
-            <SelectTrigger id="countryCode">
-              <SelectValue placeholder="Select country" />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="relationshipStatus">Relationship status</Label>
-          <Select name="relationshipStatus" defaultValue={values.relationshipStatus ?? "RESEARCH_ONLY"}>
-            <SelectTrigger id="relationshipStatus">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RELATIONSHIP_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {label(s)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="relationshipOwnerId">Relationship owner</Label>
-          <Select name="relationshipOwnerId" defaultValue={values.relationshipOwnerId}>
-            <SelectTrigger id="relationshipOwnerId">
-              <SelectValue placeholder="Unassigned" />
-            </SelectTrigger>
-            <SelectContent>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.firstName} {u.lastName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="currentOrganizationOverrideId">Current organisation</Label>
+          <Label htmlFor="currentOrganizationOverrideId">Current company</Label>
           <Select name="currentOrganizationOverrideId" defaultValue={values.currentOrganizationOverrideId ?? presetOrganizationId}>
             <SelectTrigger id="currentOrganizationOverrideId">
               <SelectValue placeholder="None" />
@@ -193,34 +117,115 @@ export function PersonForm({
           </Select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="source">Source</Label>
-          <Input id="source" name="source" placeholder="e.g. Met at an industry conference" defaultValue={values.source} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sourceUrl">Source URL</Label>
-          <Input id="sourceUrl" name="sourceUrl" placeholder="https://…" defaultValue={values.sourceUrl} />
-        </div>
+        <div className="sm:col-span-2">
+          <MoreDetails defaultOpen={Boolean(errors.personTypes)}>
+            <div className="flex flex-col gap-1.5">
+              <Label>Person types</Label>
+              <div className="flex flex-wrap gap-3">
+                {PERSON_TYPES.map((t) => (
+                  <label key={t} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      name="personTypes"
+                      value={t}
+                      checked={selectedTypes.includes(t)}
+                      onCheckedChange={() => toggleType(t)}
+                    />
+                    {label(t)}
+                  </label>
+                ))}
+              </div>
+              {errors.personTypes ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.personTypes[0]}</p> : null}
+            </div>
 
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="summary">Summary</Label>
-          <Textarea id="summary" name="summary" rows={3} placeholder="e.g. Experienced CFO looking for a new challenge in PE-backed businesses." defaultValue={values.summary} />
-        </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+                <Input id="linkedinUrl" name="linkedinUrl" placeholder="https://linkedin.com/in/…" defaultValue={values.linkedinUrl} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="headlineOverride">Headline / current title</Label>
+                <Input id="headlineOverride" name="headlineOverride" placeholder="e.g. CFO, Acme Ltd" defaultValue={values.headlineOverride} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="city">City</Label>
+                <Input id="city" name="city" placeholder="e.g. London" defaultValue={values.city} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="countryCode">Country</Label>
+                <Select name="countryCode" defaultValue={values.countryCode}>
+                  <SelectTrigger id="countryCode">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COUNTRIES.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="relationshipStatus">Relationship status</Label>
+                <Select name="relationshipStatus" defaultValue={values.relationshipStatus ?? "RESEARCH_ONLY"}>
+                  <SelectTrigger id="relationshipStatus">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RELATIONSHIP_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {label(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="relationshipOwnerId">Relationship owner</Label>
+                <Select name="relationshipOwnerId" defaultValue={values.relationshipOwnerId}>
+                  <SelectTrigger id="relationshipOwnerId">
+                    <SelectValue placeholder="Unassigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.firstName} {u.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="source">Source</Label>
+                <Input id="source" name="source" placeholder="e.g. Met at an industry conference" defaultValue={values.source} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sourceUrl">Source URL</Label>
+                <Input id="sourceUrl" name="sourceUrl" placeholder="https://…" defaultValue={values.sourceUrl} />
+              </div>
+            </div>
 
-        <div className="flex flex-col gap-2 sm:col-span-2">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox name="doNotContact" value="true" defaultChecked={values.doNotContact === "true" || values.doNotContact === true} />
-            Do not contact
-          </label>
-          <Input name="doNotContactReason" placeholder="Reason (if applicable)" defaultValue={values.doNotContactReason} />
-        </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="summary">Summary</Label>
+              <Textarea id="summary" name="summary" rows={3} placeholder="e.g. Experienced CFO looking for a new challenge in PE-backed businesses." defaultValue={values.summary} />
+            </div>
 
-        {!defaultValues ? (
-          <label className="flex items-center gap-2 text-sm sm:col-span-2">
-            <Checkbox name="createCandidateProfile" value="true" />
-            Also create a candidate profile for this person
-          </label>
-        ) : null}
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox name="doNotContact" value="true" defaultChecked={values.doNotContact === "true" || values.doNotContact === true} />
+                Do not contact
+              </label>
+              <Input name="doNotContactReason" placeholder="Reason (if applicable)" defaultValue={values.doNotContactReason} />
+            </div>
+
+            {!defaultValues ? (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox name="createCandidateProfile" value="true" />
+                Also create a candidate profile for this person
+              </label>
+            ) : null}
+          </MoreDetails>
+        </div>
       </section>
 
       <div className="flex justify-end gap-2">

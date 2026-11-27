@@ -15,6 +15,13 @@ async function getWorkspaceStageProbabilities(workspaceId: string): Promise<Reco
   return (workspace?.opportunityStageProbabilities as Record<string, number> | null) ?? null;
 }
 
+/** Round 2 section 9 — the short create form doesn't ask for a name; derive one from role + company when it's left blank. */
+async function resolveOpportunityName(name: string | undefined, hiringOrganizationId: string, potentialRoleTitle: string | undefined) {
+  if (name) return name;
+  const org = await prisma.organization.findUniqueOrThrow({ where: { id: hiringOrganizationId }, select: { name: true } });
+  return potentialRoleTitle ? `${potentialRoleTitle} · ${org.name}` : org.name;
+}
+
 export async function createOpportunityAction(_prev: OpportunityFormState, formData: FormData): Promise<OpportunityFormState> {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
@@ -24,11 +31,12 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
   if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: raw };
   const data = parsed.data;
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
+  const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle);
 
   const opportunity = await prisma.opportunity.create({
     data: {
       workspaceId: user.workspaceId,
-      name: data.name,
+      name,
       hiringOrganizationId: data.hiringOrganizationId,
       type: data.type,
       stage: "SIGNAL_IDENTIFIED",
@@ -64,10 +72,11 @@ export async function updateOpportunityAction(opportunityId: string, _prev: Oppo
   const data = parsed.data;
 
   const before = await prisma.opportunity.findUniqueOrThrow({ where: { id: opportunityId } });
+  const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle);
   const updated = await prisma.opportunity.update({
     where: { id: opportunityId },
     data: {
-      name: data.name,
+      name,
       hiringOrganizationId: data.hiringOrganizationId,
       type: data.type,
       potentialRoleTitle: data.potentialRoleTitle ?? null,

@@ -17,7 +17,7 @@ import { NextActionCard } from "@/components/ui/next-action-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { label } from "@/lib/labels";
 import { formatMoney } from "@/lib/utils";
 import { getOpportunityTimeline } from "@/lib/timeline";
 import { OPPORTUNITY_STAGE_BAR_STEPS, OPPORTUNITY_STAGE_BAR_LABELS, opportunityStageBarStep, daysPerStage } from "@/lib/rules";
@@ -58,7 +58,6 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
     prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
   ]);
 
-  const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
   const barStep = opportunityStageBarStep(opportunity.stage, stageHistory);
   const days = daysPerStage(stageHistory.map((h) => ({ stage: h.toStage, at: h.changedAt })));
 
@@ -91,10 +90,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 Now a live search: {label(opportunity.wonMandate.status)} →
               </Link>
             ) : (
-              <>
-                <span>Probability: {probability}%</span>
-                <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
-              </>
+              <span>Estimated value: {formatMoney(opportunity.estimatedFeeAmount, opportunity.estimatedFeeCurrency)}</span>
             )}
           </div>
         }

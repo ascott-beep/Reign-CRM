@@ -11,7 +11,7 @@ import { QuickCreate } from "@/components/shell/quick-create";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
 import { formatConvertedMoney, cn } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
-import { label, OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { label } from "@/lib/labels";
 import {
   OPEN_OPPORTUNITY_STAGES,
   OPPORTUNITY_STAGE_SHORT_LABEL,
@@ -316,7 +316,6 @@ export default async function DashboardPage() {
     .map((stage) => ({
       stage,
       label: OPPORTUNITY_STAGE_SHORT_LABEL[stage] ?? label(stage),
-      probability: OPPORTUNITY_STAGE_PROBABILITY[stage] ?? 0,
       value: stageTotals.get(stage) ?? 0,
       approx: stageApprox.get(stage) ?? false,
       widthPct: maxStageWeighted > 0 ? ((stageTotals.get(stage) ?? 0) / maxStageWeighted) * 100 : 0,
@@ -457,9 +456,9 @@ export default async function DashboardPage() {
         <div className="flex min-w-0 flex-[7_1_460px] flex-col rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] pb-4 pt-[18px]">
           <div className="flex items-baseline justify-between gap-4">
             <div>
-              <h2 className="m-0 text-[15px] font-medium">Weighted pipeline</h2>
+              <h2 className="m-0 text-[15px] font-medium">Likely fees</h2>
               <div className="mt-0.5 text-[12.5px] text-[var(--color-muted)]">
-                {openOpportunities.length} open opportunit{openOpportunities.length === 1 ? "y" : "ies"} · value × stage probability
+                {openOpportunities.length} open opportunit{openOpportunities.length === 1 ? "y" : "ies"}
               </div>
             </div>
             <span className="text-[26px] font-light leading-none tracking-[-0.03em]">{formatConvertedMoney(weightedTotal, pipelineApprox, displayCurrency)}</span>
@@ -467,10 +466,7 @@ export default async function DashboardPage() {
           <div className="mt-2 flex flex-1 flex-col justify-around">
             {pipelineRows.map((row) => (
               <div key={row.stage} className="grid grid-cols-[210px_minmax(0,1fr)_70px] items-center gap-4 text-[13px]">
-                <span className="text-[var(--color-ink2)]">
-                  {row.label}
-                  <span className="text-[var(--color-muted)]"> · {row.probability}% likely</span>
-                </span>
+                <span className="text-[var(--color-ink2)]">{row.label}</span>
                 <span className="block h-1.5 rounded-full bg-[var(--color-track)]">
                   <span
                     className={cn("block h-1.5 rounded-full", row.isMax ? "bg-[var(--color-dot)]" : "bg-[var(--color-bar)]")}

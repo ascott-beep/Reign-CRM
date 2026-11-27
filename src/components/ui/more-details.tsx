@@ -4,9 +4,9 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/** Section 9 "More details": secondary fields, closed by default. */
-export function MoreDetails({ children, label = "More details" }: { children: React.ReactNode; label?: string }) {
-  const [open, setOpen] = useState(false);
+/** Section 9 "More details": secondary fields, closed by default — unless a field inside it already has a validation error to show. */
+export function MoreDetails({ children, label = "More details", defaultOpen = false }: { children: React.ReactNode; label?: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="border-t border-[var(--color-line)] pt-3">
       <button

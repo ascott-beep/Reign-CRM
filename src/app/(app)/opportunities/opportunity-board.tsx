@@ -6,7 +6,6 @@ import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSe
 import { NextActionDot } from "@/components/ui/next-action-dot";
 import { formatMoney, formatConvertedMoney, cn } from "@/lib/utils";
 import { convertedTotal } from "@/lib/currency";
-import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
 import { OPEN_OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_SHORT_LABEL } from "@/lib/rules";
 import type { NextActionStatus } from "@/lib/next-action-status";
 import { changeOpportunityStageAction } from "./actions";
@@ -219,7 +218,6 @@ function ColumnShell({
   onMarkWon: (id: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
-  const probability = OPPORTUNITY_STAGE_PROBABILITY[stage] ?? 0;
 
   return (
     <div
@@ -229,7 +227,7 @@ function ColumnShell({
       <div className="px-1.5 pb-1 pt-0.5">
         <div className="text-[14px] font-medium">{OPPORTUNITY_STAGE_SHORT_LABEL[stage]}</div>
         <div className="mt-1.5 flex justify-between gap-2 text-[13px]">
-          <span className="text-[var(--color-muted)]">{probability}% likely</span>
+          <span className="text-[var(--color-muted)]">Likely fees</span>
           <span>{formatConvertedMoney(weighted, approx, displayCurrency)}</span>
         </div>
         <div className="mt-2.5 h-1 rounded-full bg-[var(--color-track)]">
