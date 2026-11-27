@@ -47,13 +47,14 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   });
   if (!opportunity) notFound();
 
-  const [timeline, documents, auditLogs, stageHistory] = await Promise.all([
-    getOpportunityTimeline(opportunity.id),
+  const [timeline, documents, auditLogs, stageHistory, mailboxConnection] = await Promise.all([
+    getOpportunityTimeline(opportunity.id, user.id),
     prisma.documentOpportunity.findMany({ where: { opportunityId: opportunity.id }, include: { document: true } }),
     canViewAuditLog(user.role)
       ? prisma.auditLog.findMany({ where: { entityType: "Opportunity", entityId: opportunity.id }, include: { actor: true }, orderBy: { timestamp: "desc" } })
       : Promise.resolve([]),
     prisma.opportunityStageHistory.findMany({ where: { opportunityId: opportunity.id }, orderBy: { changedAt: "asc" } }),
+    prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
   ]);
 
   const probability = opportunity.isProbabilityOverridden ? (opportunity.probabilityOverride ?? 0) : (OPPORTUNITY_STAGE_PROBABILITY[opportunity.stage] ?? 0);
@@ -250,6 +251,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                 currentUserId={user.id}
                 people={composerPeople}
                 documentLinkField="opportunityId"
+                hasMailboxConnection={Boolean(mailboxConnection)}
               />
 
               <NextActionCard

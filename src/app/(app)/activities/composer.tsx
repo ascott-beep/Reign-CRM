@@ -38,12 +38,15 @@ export function Composer({
   currentUserId,
   people,
   documentLinkField,
+  hasMailboxConnection = false,
 }: {
   linkContext: ComposerLinkContext;
   currentUserId: string;
   /** The record's contacts, and on mandates its candidates — section 4's "With" picker. */
   people: { id: string; name: string }[];
   documentLinkField?: "organizationId" | "personId" | "opportunityId" | "mandateId" | "candidateProcessId" | "intelligenceItemId";
+  /** Round 2 section 7 — whether the current user has an active, email-sync-enabled mailbox connection, so the Email tab can say whether it will really send. */
+  hasMailboxConnection?: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<ComposerTab>("activity");
@@ -242,7 +245,13 @@ export function Composer({
               </div>
             ) : null}
 
-            {tab === "email" ? <p className="text-xs text-[var(--color-muted)]">Connect your mailbox in Settings → Connections to send for real — for now this logs the email.</p> : null}
+            {tab === "email" ? (
+              <p className="text-xs text-[var(--color-muted)]">
+                {hasMailboxConnection
+                  ? "Sends through your connected mailbox and lands in your Sent folder."
+                  : "Connect your mailbox in Settings → Connections to send for real — for now this logs the email."}
+              </p>
+            ) : null}
 
             <div className="flex justify-end">
               <Button

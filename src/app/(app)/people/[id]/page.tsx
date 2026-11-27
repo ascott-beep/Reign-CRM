@@ -60,7 +60,7 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
   if (!person) notFound();
 
   const [timeline, processes, documents, auditLogs, organizations, duplicates, allPracticeAreas, users, liveMandatesRaw] = await Promise.all([
-    getPersonTimeline(person.id),
+    getPersonTimeline(person.id, user.id),
     prisma.candidateProcess.findMany({
       where: { candidatePersonId: person.id },
       include: { mandate: { include: { hiringOrganization: true } }, primaryNextTask: true },

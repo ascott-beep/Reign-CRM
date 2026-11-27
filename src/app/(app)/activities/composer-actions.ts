@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { syncPrimaryNextTask } from "@/lib/next-task";
+import * as graph from "@/lib/graph-client";
+import * as gmail from "@/lib/gmail-client";
 import type { ActivityType, ActivityOutcome, TaskType, RelatedRecordType } from "@prisma/client";
 
 export type ComposerLinkContext = {
@@ -49,6 +51,32 @@ function revalidateLinked(link: ComposerLinkContext) {
   if (link.organizationId) revalidatePath(`/organisations/${link.organizationId}`);
 }
 
+/**
+ * Round 2 section 7 "the composer's Email tab sends through the user's own
+ * mailbox, so it lands in their Sent folder." Falls back to logging only
+ * (the pre-section-7 behaviour) when the assigned user has no connected,
+ * enabled mailbox, or the send itself fails — the Activity is always
+ * created either way, just without a real send behind it.
+ */
+async function trySendComposerEmail(assignedUserId: string, personId: string | null | undefined, subject: string, body: string): Promise<string | null> {
+  if (!personId || !body) return null;
+  const [connection, person] = await Promise.all([
+    prisma.mailboxConnection.findFirst({ where: { userId: assignedUserId, emailSyncEnabled: true, status: "ACTIVE" } }),
+    prisma.person.findUnique({ where: { id: personId }, select: { primaryEmail: true } }),
+  ]);
+  if (!connection || !person?.primaryEmail) return null;
+
+  try {
+    const messageId =
+      connection.provider === "MICROSOFT"
+        ? await graph.sendMail(connection, { to: person.primaryEmail, subject, body })
+        : await gmail.sendMail(connection, { to: person.primaryEmail, subject, body });
+    return messageId || null;
+  } catch {
+    return null;
+  }
+}
+
 export async function submitComposerAction(input: {
   kind: ComposerKind;
   markAsDone: boolean;
@@ -66,6 +94,7 @@ export async function submitComposerAction(input: {
 
   const activityType = ACTIVITY_TYPE_FOR[input.kind];
   if (input.markAsDone && activityType) {
+    const externalMessageId = activityType === "EMAIL" ? await trySendComposerEmail(input.assignedUserId, input.personId, input.subject, input.notes ?? "") : null;
     await prisma.activity.create({
       data: {
         workspaceId: user.workspaceId,
@@ -76,6 +105,7 @@ export async function submitComposerAction(input: {
         occurredAt: new Date(input.when),
         durationMinutes: input.durationMinutes ?? null,
         summary: input.notes ?? null,
+        externalMessageId: externalMessageId ?? undefined,
         createdById: user.id,
         assignedOwnerId: input.assignedUserId,
         ...linkInclude(input.link, input.personId),
@@ -101,6 +131,32 @@ export async function submitComposerAction(input: {
   }
 
   revalidateLinked(input.link);
+}
+
+/** Round 2 section 7 "Private flag per email" — only the email's owner or creator can toggle it. */
+export async function toggleActivityPrivateAction(activityId: string) {
+  const user = await requireUser();
+  const activity = await prisma.activity.findUniqueOrThrow({
+    where: { id: activityId },
+    select: {
+      type: true,
+      private: true,
+      assignedOwnerId: true,
+      createdById: true,
+      people: { select: { personId: true } },
+      organizations: { select: { organizationId: true } },
+      opportunities: { select: { opportunityId: true } },
+      mandates: { select: { mandateId: true } },
+    },
+  });
+  if (activity.type !== "EMAIL") throw new Error("Only emails can be marked private.");
+  if (activity.assignedOwnerId !== user.id && activity.createdById !== user.id) throw new PermissionError();
+
+  await prisma.activity.update({ where: { id: activityId }, data: { private: !activity.private } });
+  activity.people.forEach((p) => revalidatePath(`/people/${p.personId}`));
+  activity.organizations.forEach((o) => revalidatePath(`/organisations/${o.organizationId}`));
+  activity.opportunities.forEach((o) => revalidatePath(`/opportunities/${o.opportunityId}`));
+  activity.mandates.forEach((m) => revalidatePath(`/mandates/${m.mandateId}`));
 }
 
 export async function submitComposerNoteAction(input: { notes: string; assignedUserId: string; link: ComposerLinkContext }) {

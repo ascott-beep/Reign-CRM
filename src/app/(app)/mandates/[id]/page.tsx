@@ -76,8 +76,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   });
   if (!mandate) notFound();
 
-  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory] = await Promise.all([
-    getMandateTimeline(mandate.id),
+  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory, mailboxConnection] = await Promise.all([
+    getMandateTimeline(mandate.id, user.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
       include: { candidateProcess: { include: { candidatePerson: true } } },
@@ -93,6 +93,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       orderBy: { lastName: "asc" },
     }),
     prisma.mandateStatusHistory.findMany({ where: { mandateId: mandate.id }, orderBy: { changedAt: "asc" } }),
+    prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
   ]);
 
   const existingStageByPerson = new Map(mandate.candidateProcesses.map((p) => [p.candidatePersonId, p.stage]));
@@ -306,6 +307,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               currentUserId={user.id}
               people={composerPeople}
               documentLinkField="mandateId"
+              hasMailboxConnection={Boolean(mailboxConnection)}
             />
 
             <NextActionCard

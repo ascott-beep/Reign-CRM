@@ -256,7 +256,9 @@ enum MandatePriority {
   LOW
 }
 
-/** Section 5 rule 4: required when a mandate has no source opportunity (a direct instruction). */
+/**
+ * Section 5 rule 4: required when a mandate has no source opportunity (a direct instruction).
+ */
 enum MandateSource {
   DIRECT_CLIENT
   FUND_INTRODUCTION
@@ -587,27 +589,27 @@ enum ImportStatus {
 // =============================================================================
 
 model Workspace {
-  id                            String   @id @default(cuid())
+  id                            String             @id @default(cuid())
   name                          String
-  slug                          String   @unique
-  defaultCurrency               String   @default("GBP") @db.VarChar(3)
-  defaultTimezone               String   @default("Europe/London")
-  brandAccent                   String   @default("#1C2B4A")
-  staleThresholds               Json     @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
+  slug                          String             @unique
+  defaultCurrency               String             @default("GBP") @db.VarChar(3)
+  defaultTimezone               String             @default("Europe/London")
+  brandAccent                   String             @default("#1C2B4A")
+  staleThresholds               Json               @default("{\"personDays\":60,\"priorityOrgDays\":60,\"opportunityDays\":14,\"candidateProcessDays\":7}")
   opportunityStageProbabilities Json?
   /// GBP value of 1 unit of each currency code, e.g. {"GBP":1,"USD":0.79}.
   /// Manually maintained unless updateRatesAutomatically is on — used to
   /// roll monetary report totals into a single selected display currency.
   exchangeRatesToGbp            Json?
-  updateRatesAutomatically      Boolean  @default(false)
+  updateRatesAutomatically      Boolean            @default(false)
   exchangeRatesUpdatedAt        DateTime?
   /// Round 2 section 5/6 — Intelligence AI research agent settings, surfaced in Settings > Connections.
-  intelligenceSweepEnabled      Boolean  @default(false)
-  intelligenceSweepHourUtc      Int      @default(6)
+  intelligenceSweepEnabled      Boolean            @default(false)
+  intelligenceSweepHourUtc      Int                @default(6)
   /// Empty = every IntelligenceType is in scope.
   intelligenceSignalTypes       IntelligenceType[] @default([])
-  createdAt                     DateTime @default(now())
-  updatedAt                     DateTime @updatedAt
+  createdAt                     DateTime           @default(now())
+  updatedAt                     DateTime           @updatedAt
 
   users                     User[]
   organizations             Organization[]
@@ -689,6 +691,8 @@ model User {
   notifications           InAppNotification[]
   importJobs              ImportJob[]                    @relation("ImportCreatedBy")
   passwordTokens          PasswordToken[]
+  mailboxConnections      MailboxConnection[]
+  neverSyncAddresses      NeverSyncAddress[]
 
   @@unique([workspaceId, email])
   @@index([workspaceId])
@@ -711,6 +715,63 @@ model PasswordToken {
   createdAt DateTime             @default(now())
 
   @@index([userId])
+}
+
+// =============================================================================
+// ROUND 2 SECTION 7 — EMAIL AND CALENDAR SYNC
+// =============================================================================
+
+enum MailProvider {
+  MICROSOFT
+  GOOGLE
+}
+
+enum MailboxConnectionStatus {
+  ACTIVE
+  ERROR
+  DISCONNECTED
+}
+
+/// One user's own mailbox/calendar connection (Microsoft Graph or Gmail+Google
+/// Calendar), reusing the same app registration as sign-in (section 9.2) with
+/// broader, incrementally-consented scopes. Tokens are encrypted at rest
+/// (lib/mailbox-crypto.ts) — never stored or logged in plain text.
+model MailboxConnection {
+  id                         String                  @id @default(cuid())
+  userId                     String
+  user                       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider                   MailProvider
+  emailAddress               String
+  accessTokenEncrypted       String
+  refreshTokenEncrypted      String?
+  tokenExpiresAt             DateTime?
+  emailSyncEnabled           Boolean                 @default(true)
+  calendarSyncEnabled        Boolean                 @default(true)
+  status                     MailboxConnectionStatus @default(ACTIVE)
+  lastErrorMessage           String?
+  lastEmailSyncAt            DateTime?
+  lastCalendarSyncAt         DateTime?
+  emailSyncCursor            String?
+  calendarSyncCursor         String?
+  graphSubscriptionId        String?
+  graphSubscriptionExpiresAt DateTime?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
+}
+
+/// Section 7 "Each user has a 'never sync' list" — addresses this user's
+/// sync should always skip, even if they match a Person in Atlas.
+model NeverSyncAddress {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAddress String
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, emailAddress])
 }
 
 // =============================================================================
@@ -866,14 +927,14 @@ model Organization {
   agencyUsageSummary         String?
   investmentStageOverride    InvestmentStage?
 
-  createdById String
-  createdBy   User      @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  archivedAt  DateTime?
-  archivedById   String?
-  archivedBy     User?     @relation("OrganizationArchivedBy", fields: [archivedById], references: [id])
-  archiveReason  String?
+  createdById   String
+  createdBy     User      @relation("OrganizationCreatedBy", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  archivedAt    DateTime?
+  archivedById  String?
+  archivedBy    User?     @relation("OrganizationArchivedBy", fields: [archivedById], references: [id])
+  archiveReason String?
 
   relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
   relationshipsAsTarget        OrganizationRelationship[]      @relation("OrgRelTarget")
@@ -1265,7 +1326,7 @@ model Opportunity {
   closedAt                DateTime?
   archivedAt              DateTime?
   archivedById            String?
-  archivedBy              User?                     @relation("OpportunityArchivedBy", fields: [archivedById], references: [id])
+  archivedBy              User?                  @relation("OpportunityArchivedBy", fields: [archivedById], references: [id])
   archiveReason           String?
 
   wonMandate                Mandate?                  @relation("MandateSourceOpportunity")
@@ -1831,6 +1892,13 @@ model Activity {
   followUpTask     Task?             @relation("ActivityFollowUpTask", fields: [followUpTaskId], references: [id])
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+
+  /// Section 7 "Private flag per email: other users see 'Email with <name>'
+  /// without the content." Only meaningful for type=EMAIL; the owner
+  /// (assignedOwnerId) or creator can toggle it.
+  private           Boolean @default(false)
+  /// The provider's Message-ID, for idempotent re-sync and reply-threading. Unset for hand-logged activities.
+  externalMessageId String? @unique
 
   people                       ActivityPerson[]
   organizations                ActivityOrganization[]

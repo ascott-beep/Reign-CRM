@@ -70,7 +70,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   const investorFundIds = org.relationshipsAsTarget.map((r) => r.sourceOrganizationId);
 
   const [timeline, opportunities, mandates, intelligence, documents, auditLogs, allOrgsForRelationship, users, siblingRelationships, placementFees] = await Promise.all([
-    getOrganizationTimeline(org.id),
+    getOrganizationTimeline(org.id, user.id),
     prisma.opportunity.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.mandate.findMany({ where: { hiringOrganizationId: org.id, archivedAt: null }, orderBy: { updatedAt: "desc" } }),
     prisma.intelligenceItem.findMany({ where: { organizationId: org.id, archivedAt: null, reviewState: "ACCEPTED" }, orderBy: { dateReceived: "desc" } }),
