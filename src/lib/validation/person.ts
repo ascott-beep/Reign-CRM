@@ -16,10 +16,10 @@ export const personFormSchema = z.object({
   city: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),
   region: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),
   countryCode: z.preprocess(emptyToUndefined, z.string().trim().length(2).optional()),
-  personTypes: z.preprocess(
-    (v) => (Array.isArray(v) ? v : v ? [v] : []),
-    z.array(z.nativeEnum(PersonType)).min(1, "Select at least one person type"),
-  ),
+  // Round 5 Part D: the create form now submits personCategory instead (below),
+  // which createPersonAction derives this from -- optional here so it no
+  // longer blocks a submit that only sends personCategory.
+  personTypes: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.nativeEnum(PersonType))).optional().default([]),
   relationshipStatus: z.nativeEnum(PersonRelationshipStatus).default("RESEARCH_ONLY"),
   relationshipOwnerId: z.preprocess(emptyToUndefined, z.string().optional()),
   headlineOverride: z.preprocess((v) => emptyToUndefined(cleanDashes(v)), z.string().trim().max(200).optional()),
@@ -31,6 +31,35 @@ export const personFormSchema = z.object({
   doNotContactReason: z.preprocess(emptyToUndefined, z.string().trim().max(500).optional()),
   createCandidateProfile: z.coerce.boolean().optional(),
   confirmNotDuplicate: z.coerce.boolean().optional(),
+
+  // Round 5 Part D — "Who are they" single choice, plus the fields each branch shows.
+  personCategory: z.preprocess(emptyToUndefined, z.enum(["CANDIDATE", "CLIENT_CONTACT", "OTHER"]).optional()),
+  practiceAreaIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  currentTitle: z.preprocess((v) => emptyToUndefined(cleanDashes(v)), z.string().trim().max(200).optional()),
+  seniority: z.preprocess(emptyToUndefined, z.string().optional()),
+
+  // Candidate-only
+  peBackedRolesCount: z.coerce.number().int().min(0).optional().nullable(),
+  exitsDelivered: z.coerce.number().int().min(0).optional().nullable(),
+  yearsInRole: z.coerce.number().int().min(0).optional().nullable(),
+  dealExperience: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  candidateSectorIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  currentBaseAmount: z.coerce.number().min(0).optional().nullable(),
+  currentBaseCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  currentBonusPercentage: z.coerce.number().min(0).max(1000).optional().nullable(),
+  equityType: z.preprocess(emptyToUndefined, z.string().optional()),
+  noticePeriodValue: z.coerce.number().int().min(0).optional().nullable(),
+  noticePeriodUnit: z.preprocess(emptyToUndefined, z.string().trim().max(40).optional()),
+  openTo: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  lookingStatus: z.preprocess(emptyToUndefined, z.string().optional()),
+  preferredCountries: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  languages: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+
+  // Client contact-only
+  roleAtFirm: z.preprocess(emptyToUndefined, z.string().optional()),
+  coveredPortfolioCompanyIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  contactRelationship: z.preprocess(emptyToUndefined, z.string().optional()),
+  decisionRole: z.preprocess(emptyToUndefined, z.string().optional()),
 });
 
 export type PersonFormValues = z.infer<typeof personFormSchema>;

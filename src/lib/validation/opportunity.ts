@@ -17,6 +17,7 @@ export const opportunityFormSchema = z.object({
   // the portfolio company the role actually sits at, when that's a distinct organisation.
   portfolioCompanyId: z.preprocess(emptyToUndefined, z.string().optional()),
   type: z.nativeEnum(OpportunityType).default("UNKNOWN"),
+  practiceAreaId: z.preprocess(emptyToUndefined, z.string().optional()),
   potentialRoleTitle: z.preprocess(cleanAndEmpty, z.string().trim().max(200).optional()),
   employmentType: z.preprocess(emptyToUndefined, z.nativeEnum(EmploymentType).optional()),
   source: z.nativeEnum(OpportunitySource).default("OTHER"),

@@ -7,6 +7,7 @@ import { requireUser, canMutate, canMergeRecords, PermissionError } from "@/lib/
 import { personFormSchema, employmentHistorySchema, candidateProfileSchema } from "@/lib/validation/person";
 import { findPersonDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
+import { areaNameForPractice, PRACTICES, type Practice } from "@/lib/practices";
 
 export type PersonFormState = {
   errors?: Record<string, string[]>;
@@ -14,12 +15,37 @@ export type PersonFormState = {
   formValues?: Record<string, unknown>;
 };
 
+/** Object.fromEntries would silently keep only the last value for a repeated name (an array field's several hidden inputs) -- getAll per key keeps every one. */
+function readForm(formData: FormData) {
+  const raw: Record<string, unknown> = {};
+  for (const key of new Set(formData.keys())) {
+    const all = formData.getAll(key);
+    raw[key] = all.length > 1 ? all : all[0];
+  }
+  return raw;
+}
+
+async function practiceAreaIdsForPractices(workspaceId: string, practices: string[]): Promise<string[]> {
+  const names = practices.filter((p): p is Practice => (PRACTICES as readonly string[]).includes(p)).map(areaNameForPractice);
+  if (names.length === 0) return [];
+  const rows = await prisma.practiceArea.findMany({ where: { workspaceId, name: { in: names } }, select: { id: true } });
+  return rows.map((r) => r.id);
+}
+
+async function syncPersonPracticeAreas(personId: string, workspaceId: string, practiceKeys: string[] | undefined) {
+  if (!practiceKeys) return;
+  const practiceAreaIds = await practiceAreaIdsForPractices(workspaceId, practiceKeys);
+  await prisma.personPracticeArea.deleteMany({ where: { personId } });
+  if (practiceAreaIds.length > 0) {
+    await prisma.personPracticeArea.createMany({ data: practiceAreaIds.map((practiceAreaId) => ({ personId, practiceAreaId })) });
+  }
+}
+
 export async function createPersonAction(_prev: PersonFormState, formData: FormData): Promise<PersonFormState> {
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
 
-  const raw = Object.fromEntries(formData.entries());
-  const rawWithArrays = { ...raw, personTypes: formData.getAll("personTypes") };
+  const rawWithArrays = readForm(formData);
   const parsed = personFormSchema.safeParse(rawWithArrays);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: rawWithArrays };
@@ -30,6 +56,18 @@ export async function createPersonAction(_prev: PersonFormState, formData: FormD
   // (checked as you type via /api/people/duplicate-check) -- it never blocks
   // saving, so the create itself no longer gates on a server-side duplicate
   // check the way earlier rounds did.
+
+  // Round 5 Part D: personCategory is now the primary "Who are they" choice,
+  // but personTypes (the older multi-select) is kept in sync too so existing
+  // list-page tab counts and filters built on it keep working.
+  const personTypes = data.personCategory
+    ? data.personCategory === "OTHER"
+      ? ["OTHER" as const]
+      : [data.personCategory]
+    : data.personTypes;
+
+  const isCandidate = data.personCategory === "CANDIDATE" || (!data.personCategory && data.personTypes.includes("CANDIDATE"));
+  const isClientContact = data.personCategory === "CLIENT_CONTACT" || (!data.personCategory && data.personTypes.includes("CLIENT_CONTACT"));
 
   const person = await prisma.person.create({
     data: {
@@ -45,10 +83,12 @@ export async function createPersonAction(_prev: PersonFormState, formData: FormD
       city: data.city ?? null,
       region: data.region ?? null,
       countryCode: data.countryCode ?? null,
-      personTypes: data.personTypes,
+      languages: data.languages ?? [],
+      personTypes,
+      personCategory: data.personCategory ?? null,
       relationshipStatus: data.relationshipStatus,
       relationshipOwnerId: data.relationshipOwnerId ?? null,
-      headlineOverride: data.headlineOverride ?? null,
+      headlineOverride: data.currentTitle ?? data.headlineOverride ?? null,
       currentOrganizationOverrideId: data.currentOrganizationOverrideId ?? null,
       source: data.source ?? null,
       sourceUrl: data.sourceUrl ?? null,
@@ -57,11 +97,50 @@ export async function createPersonAction(_prev: PersonFormState, formData: FormD
       doNotContactReason: data.doNotContactReason ?? null,
       createdById: user.id,
       candidateProfile:
-        data.createCandidateProfile || data.personTypes.includes("CANDIDATE")
-          ? { create: { status: "PROSPECT", rating: "NOT_RATED", consentStatus: "NOT_REQUESTED", legalBasis: "NOT_SET" } }
+        data.createCandidateProfile || isCandidate
+          ? {
+              create: {
+                status: "PROSPECT",
+                rating: "NOT_RATED",
+                consentStatus: "NOT_REQUESTED",
+                legalBasis: "NOT_SET",
+                peBackedRolesCount: data.peBackedRolesCount ?? null,
+                exitsDelivered: data.exitsDelivered ?? null,
+                totalYearsExperience: data.yearsInRole ?? null,
+                dealExperience: (data.dealExperience as never) ?? [],
+                equityType: (data.equityType as never) ?? null,
+                openTo: (data.openTo as never) ?? [],
+                lookingStatus: (data.lookingStatus as never) ?? null,
+                currentBaseAmount: data.currentBaseAmount ?? null,
+                currentBaseCurrency: data.currentBaseCurrency ?? null,
+                currentBonusPercentage: data.currentBonusPercentage ?? null,
+                noticePeriodValue: data.noticePeriodValue ?? null,
+                noticePeriodUnit: data.noticePeriodUnit ?? null,
+                preferredCountries: data.preferredCountries ?? [],
+                sectorExperience:
+                  data.candidateSectorIds && data.candidateSectorIds.length > 0
+                    ? { create: data.candidateSectorIds.map((sectorId) => ({ sectorId })) }
+                    : undefined,
+              },
+            }
           : undefined,
+      clientContactProfile: isClientContact
+        ? {
+            create: {
+              roleAtFirm: (data.roleAtFirm as never) ?? null,
+              relationship: (data.contactRelationship as never) ?? null,
+              decisionRole: (data.decisionRole as never) ?? null,
+              coveredPortfolioCompanies:
+                data.coveredPortfolioCompanyIds && data.coveredPortfolioCompanyIds.length > 0
+                  ? { create: data.coveredPortfolioCompanyIds.map((organizationId) => ({ organizationId })) }
+                  : undefined,
+            },
+          }
+        : undefined,
     },
   });
+
+  await syncPersonPracticeAreas(person.id, user.workspaceId, data.practiceAreaIds);
 
   await writeAuditLog({
     workspaceId: user.workspaceId,
@@ -83,8 +162,7 @@ export async function updatePersonAction(personId: string, _prev: PersonFormStat
   const user = await requireUser();
   if (!canMutate(user.role)) throw new PermissionError();
 
-  const raw = Object.fromEntries(formData.entries());
-  const rawWithArrays = { ...raw, personTypes: formData.getAll("personTypes") };
+  const rawWithArrays = readForm(formData);
   const parsed = personFormSchema.safeParse(rawWithArrays);
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors as Record<string, string[]>, formValues: rawWithArrays };

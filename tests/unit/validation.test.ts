@@ -28,9 +28,9 @@ describe("organizationFormSchema", () => {
 });
 
 describe("personFormSchema", () => {
-  it("requires at least one person type", () => {
-    const result = personFormSchema.safeParse({ firstName: "Jane", lastName: "Doe", personTypes: [] });
-    expect(result.success).toBe(false);
+  it("accepts no person type when personCategory is set instead (Round 5 Part D's 'Who are they')", () => {
+    const result = personFormSchema.safeParse({ firstName: "Jane", lastName: "Doe", personTypes: [], personCategory: "CANDIDATE" });
+    expect(result.success).toBe(true);
   });
 
   it("rejects an invalid email", () => {

@@ -37,11 +37,39 @@ export const organizationFormSchema = z.object({
   fundVintageOrCurrentFundName: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   aumAmount: z.coerce.number().min(0).optional().nullable(),
   aumCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  // Round 5 Part D — separate from the combined field above.
+  currentFundName: z.preprocess(cleanDashes, z.string().trim().max(200).optional()),
+  fundSizeAmount: z.coerce.number().min(0).optional().nullable(),
+  fundSizeCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  // An empty string coerces to 0 via z.coerce.number(), which would then fail
+  // min(1950) -- unlike the min(0) numeric fields nearby, so this one needs
+  // emptyToUndefined first to actually be optional.
+  fundVintageYear: z.preprocess(emptyToUndefined, z.coerce.number().int().min(1950).max(2100).optional().nullable()),
+  typicalMinEquityChequeAmount: z.coerce.number().min(0).optional().nullable(),
+  typicalMinEquityChequeCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  typicalMaxEquityChequeAmount: z.coerce.number().min(0).optional().nullable(),
+  typicalMaxEquityChequeCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  investmentRegions: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  countriesOfOperation: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  investorStrategyIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
+  hiringPracticeAreaIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
 
   // Portfolio-company-only
   portfolioClassification: z.preprocess(emptyToUndefined, z.nativeEnum(PortfolioClassification).optional()),
   businessModelSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
   investmentThesisSummary: z.preprocess(emptyToUndefined, z.string().trim().max(4000).optional()),
+  ebitdaAmount: z.coerce.number().min(0).optional().nullable(),
+  ebitdaCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  revenueAmount: z.coerce.number().min(0).optional().nullable(),
+  revenueCurrency: z.preprocess(emptyToUndefined, z.string().trim().length(3).optional()),
+  likelyExitWindow: z.preprocess(emptyToUndefined, z.string().trim().max(60).optional()),
+  // Round 5 Part D — ownership, recorded as an OrganizationRelationship to the owning fund.
+  ownedByOrganizationId: z.preprocess(emptyToUndefined, z.string().optional()),
+  fundVehicleName: z.preprocess(cleanDashes, z.string().trim().max(200).optional()),
+  dealType: z.preprocess(emptyToUndefined, z.string().optional()),
+  ownershipLevel: z.preprocess(emptyToUndefined, z.string().optional()),
+  investedDate: z.preprocess(emptyToUndefined, z.coerce.date().optional()),
+  coInvestorOrganizationIds: z.preprocess((v) => (Array.isArray(v) ? v : v ? [v] : []), z.array(z.string())).optional(),
 
   confirmNotDuplicate: z.coerce.boolean().optional(),
 });

@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
-import { PageHeader } from "@/components/shell/page-header";
 import { PersonForm } from "../../person-form";
 import { updatePersonAction } from "../../actions";
 
@@ -9,9 +8,10 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
   const user = await requireUser();
   const { id } = await params;
 
-  const [person, users] = await Promise.all([
+  const [person, users, sectors] = await Promise.all([
     prisma.person.findFirst({ where: { id, workspaceId: user.workspaceId }, include: { currentOrganizationOverride: { select: { name: true } } } }),
     prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true } }),
+    prisma.sector.findMany({ where: { workspaceId: user.workspaceId, active: true }, orderBy: { displayOrder: "asc" } }),
   ]);
   if (!person) notFound();
 
@@ -19,10 +19,10 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
 
   return (
     <div>
-      <PageHeader title={`Edit ${person.firstName} ${person.lastName}`} />
       <PersonForm
         action={boundAction}
         users={users}
+        sectors={sectors}
         presetOrganizationName={person.currentOrganizationOverride?.name}
         cancelHref={`/people/${person.id}`}
         submitLabel="Save changes"
@@ -39,6 +39,7 @@ export default async function EditPersonPage({ params }: { params: Promise<{ id:
           region: person.region ?? "",
           countryCode: person.countryCode ?? "",
           personTypes: person.personTypes,
+          personCategory: person.personCategory ?? "",
           relationshipStatus: person.relationshipStatus,
           relationshipOwnerId: person.relationshipOwnerId ?? "",
           headlineOverride: person.headlineOverride ?? "",
