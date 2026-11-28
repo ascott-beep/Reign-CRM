@@ -52,29 +52,21 @@ export function OpportunityHeaderActions({
   const isLost = currentStage === "LOST";
   const isWonUnconverted = currentStage === "WON" && !locked;
   const isOpen = !isLost && !isWonUnconverted && !locked;
-
-  /**
-   * Round 4 Part A item 3: Won only opens the pop-up — nothing changes until
-   * the dialog is confirmed. The stage change to WON happens inside
-   * convertOpportunityToMandateAction itself, atomically with the mandate
-   * it creates, so Cancel/Esc here leaves the opportunity exactly as it was.
-   */
-  function handleWon() {
-    setPendingWon(true);
-  }
+  // Round 5 screen 08: "Convert to mandate" becomes the main action once the opportunity
+  // reaches the last open stage (or has already reached Won without converting), a plain
+  // secondary button before that, so it stays visible without being the pushy default choice.
+  const isConvertPrimary = currentStage === "PROPOSAL_OR_TERMS" || isWonUnconverted;
 
   return (
     <>
-      {isWonUnconverted ? (
-        <Button onClick={() => setPendingWon(true)}>Convert to mandate</Button>
-      ) : isOpen ? (
-        <Button className="text-[var(--color-pos)]" variant="secondary" onClick={handleWon}>
-          Won
+      {isWonUnconverted || isOpen ? (
+        <Button variant={isConvertPrimary ? "default" : "secondary"} onClick={() => setPendingWon(true)}>
+          Convert to mandate
         </Button>
       ) : null}
       {isOpen ? (
-        <Button variant="secondary" className="text-[var(--color-warn)]" onClick={() => setPendingLost(true)}>
-          Lost
+        <Button variant="secondary" onClick={() => setPendingLost(true)}>
+          Mark lost
         </Button>
       ) : null}
 

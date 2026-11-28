@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { NextActionDot } from "@/components/ui/next-action-dot";
 import { formatMoney, formatConvertedMoney, convertedLabel, cn } from "@/lib/utils";
 import { convertedTotal } from "@/lib/currency";
 import { OPEN_OPPORTUNITY_STAGES, OPPORTUNITY_STAGE_SHORT_LABEL } from "@/lib/rules";
@@ -12,6 +12,8 @@ import { changeOpportunityStageAction } from "./actions";
 import { LostReasonDialog, type LostReasonResult } from "./lost-reason-dialog";
 import { OnHoldDialog, type OnHoldResult } from "./on-hold-dialog";
 import { CreateMandateDialog } from "./create-mandate-dialog";
+
+const CONVERT_COLUMN_ID = "WON";
 
 export type BoardOpportunity = {
   id: string;
@@ -23,9 +25,12 @@ export type BoardOpportunity = {
   estimatedFeeCurrency: string | null;
   /** value × probability, pre-computed server-side (lib/rules.ts weightedOpportunityValue). */
   weightedValue: number;
+  contactName: string | null;
+  contactRole: string | null;
   nextActionStatus: NextActionStatus;
 };
 
+/** Round 5 screen 07: title, client, the client contact and their role, and the fee. Nothing else. */
 function Card({ opp }: { opp: BoardOpportunity }) {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: opp.id });
@@ -44,30 +49,29 @@ function Card({ opp }: { opp: BoardOpportunity }) {
       {...attributes}
       onClick={handleClick}
       className={cn(
-        "box-border flex h-[150px] cursor-default flex-col gap-2.5 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3 text-[var(--color-ink)]",
-        isDragging && "opacity-40",
+        "box-border flex cursor-default flex-col gap-2 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3 text-[var(--color-ink)]",
+        isDragging && "shadow-[0_10px_28px_rgba(0,0,0,0.18)]",
       )}
     >
-      <span className="min-w-0">
-        <span className="line-clamp-2 min-h-[38px] text-[14.5px] font-medium leading-tight">{opp.potentialRoleTitle ?? opp.name}</span>
-        <span className="mt-1 line-clamp-2 min-h-[34px] text-[13px] leading-tight text-[var(--color-muted)]">{opp.organizationName}</span>
-      </span>
-      <span className="mt-auto flex items-center justify-between gap-2 border-t border-[var(--color-line)] pt-2.5">
-        <span className="text-sm">{formatMoney(opp.estimatedFeeAmount, opp.estimatedFeeCurrency)}</span>
-        <NextActionDot status={opp.nextActionStatus} />
-      </span>
+      <span className="line-clamp-2 text-[14.5px] font-medium leading-tight">{opp.potentialRoleTitle ?? opp.name}</span>
+      <span className="truncate text-[13px] leading-tight text-[var(--color-muted)]">{opp.organizationName}</span>
+      {opp.contactName ? (
+        <span className="truncate text-[13px] leading-tight text-[var(--color-muted)]">
+          {opp.contactName}
+          {opp.contactRole ? ` · ${opp.contactRole}` : ""}
+        </span>
+      ) : null}
+      <span className="text-sm">{formatMoney(opp.estimatedFeeAmount, opp.estimatedFeeCurrency)}</span>
     </div>
   );
 }
 
 export function OpportunityBoard({
   initialOpportunities,
-  maxOpenWeighted,
   displayCurrency,
   ratesToGbp,
 }: {
   initialOpportunities: BoardOpportunity[];
-  maxOpenWeighted: number;
   displayCurrency: string;
   ratesToGbp: Record<string, number>;
 }) {
@@ -120,13 +124,11 @@ export function OpportunityBoard({
   const pendingLostOpp = items.find((i) => i.id === pendingLost);
   const pendingHoldOpp = items.find((i) => i.id === pendingHold);
 
-  const pct = (w: number) => (maxOpenWeighted > 0 ? Math.min(100, (w / maxOpenWeighted) * 100) : 0);
-
   return (
     <div className="flex flex-1 flex-col">
       {error ? <p className="mb-3 text-sm text-[var(--color-warn)]">{error}</p> : null}
       <DndContext id="opportunity-board" sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="grid flex-1 grid-cols-6 gap-2 overflow-x-auto" style={{ minHeight: 420 }}>
+        <div className="flex flex-1 items-stretch gap-2 overflow-x-auto" style={{ minHeight: 420 }}>
           {OPEN_OPPORTUNITY_STAGES.map((stage) => {
             const stageItems = columns[stage] ?? [];
             const { amount: weighted, approx } = convertedTotal(
@@ -135,18 +137,10 @@ export function OpportunityBoard({
               ratesToGbp,
             );
             return (
-              <div key={stage} className="contents">
-                <ColumnShell
-                  stage={stage}
-                  items={stageItems}
-                  weighted={weighted}
-                  approx={approx}
-                  displayCurrency={displayCurrency}
-                  widthPct={pct(weighted)}
-                />
-              </div>
+              <ColumnShell key={stage} stage={stage} items={stageItems} weighted={weighted} approx={approx} displayCurrency={displayCurrency} />
             );
           })}
+          <ConvertColumn />
         </div>
       </DndContext>
 
@@ -190,35 +184,50 @@ function ColumnShell({
   weighted,
   approx,
   displayCurrency,
-  widthPct,
 }: {
   stage: (typeof OPEN_OPPORTUNITY_STAGES)[number];
   items: BoardOpportunity[];
   weighted: number;
   approx: boolean;
   displayCurrency: string;
-  widthPct: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
   return (
     <div
       ref={setNodeRef}
-      className={cn("flex min-w-0 flex-col gap-2 rounded-[6px] border bg-[var(--color-sunk)] p-2", isOver ? "border-[var(--color-navy)]" : "border-[var(--color-line)]")}
+      className={cn(
+        "flex w-[220px] shrink-0 flex-col gap-2 rounded-[6px] border bg-[var(--color-sunk)] p-2",
+        isOver ? "border-[var(--color-navy)]" : "border-[var(--color-line)]",
+      )}
     >
-      <div className="px-1.5 pb-1 pt-0.5">
-        <div className="text-[14px] font-medium">{OPPORTUNITY_STAGE_SHORT_LABEL[stage]}</div>
-        <div className="mt-1.5 flex justify-between gap-2 text-[13px]">
-          <span className="text-[var(--color-muted)]">{convertedLabel("Likely fees", approx, displayCurrency)}</span>
-          <span>{formatConvertedMoney(weighted, approx, displayCurrency)}</span>
-        </div>
-        <div className="mt-2.5 h-1 rounded-full bg-[var(--color-track)]">
-          <div className="h-1 rounded-full bg-[var(--color-bar)]" style={{ width: `${widthPct}%` }} />
-        </div>
+      <div className="flex items-baseline justify-between gap-2 px-1.5 pb-1 pt-0.5">
+        <span className="text-[14px] font-medium">{OPPORTUNITY_STAGE_SHORT_LABEL[stage]}</span>
+        <span title={convertedLabel("Likely fees", approx, displayCurrency)} className="text-[13px] text-[var(--color-muted)]">
+          {formatConvertedMoney(weighted, approx, displayCurrency)}
+        </span>
       </div>
       {items.map((o) => (
         <Card key={o.id} opp={o} />
       ))}
+    </div>
+  );
+}
+
+/** Round 5 screen 07: the pipeline's last column is a drop target, not a stage with cards of its own. */
+function ConvertColumn() {
+  const { setNodeRef, isOver } = useDroppable({ id: CONVERT_COLUMN_ID });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex w-[220px] shrink-0 flex-col items-center justify-center gap-2 rounded-[6px] border border-dashed p-2 text-center text-[13px] text-[var(--color-muted)]",
+        isOver ? "border-[var(--color-navy)] text-[var(--color-ink)]" : "border-[var(--color-line)]",
+      )}
+    >
+      <ArrowRight className="h-4 w-4" />
+      <span>Convert to mandate</span>
     </div>
   );
 }
