@@ -24,31 +24,27 @@ export function SuggestedTasksPanel({ suggestions }: { suggestions: Suggestion[]
   }
 
   const visible = suggestions.filter((s) => !added.has(s.id));
+  if (visible.length === 0) return null;
 
   return (
-    <aside className="flex w-[320px] shrink-0 flex-col gap-1 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-[18px]">
-      <h2 className="m-0 text-base font-medium">Suggested from your pipeline</h2>
-      <p className="mt-1 text-[13px] text-[var(--color-muted)]">Generated from stage rules. Add one to make it a task.</p>
-      {visible.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--color-muted)]">Nothing suggested right now.</p>
-      ) : (
-        <div className="mt-3 flex flex-col">
-          {visible.map((s, i) => (
-            <div key={s.id} className={`flex items-start justify-between gap-3 py-3 ${i > 0 ? "border-t border-[var(--color-line)]" : ""}`}>
-              <div className="min-w-0">
-                <div className="text-[13.5px]">{s.title}</div>
-                <div className="mt-0.5 text-xs text-[var(--color-muted)]">{s.subtitle}</div>
-              </div>
-              <Button size="sm" variant="secondary" disabled={pending} onClick={() => add(s)} className="shrink-0">
-                Add
-              </Button>
+    <div className="overflow-hidden rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
+      <div className="flex items-baseline gap-2 px-5 pt-4 text-sm font-medium">
+        <span>Suggested from your pipeline</span>
+        <span className="text-[var(--color-muted)]">{visible.length}</span>
+      </div>
+      <div className="mt-1 pb-1">
+        {visible.map((s) => (
+          <div key={s.id} className="flex items-center gap-4 border-t border-[var(--color-line)] px-5 py-3 text-[13.5px]">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[var(--color-ink)]">{s.title}</div>
+              <div className="mt-0.5 truncate text-xs text-[var(--color-muted)]">{s.subtitle}</div>
             </div>
-          ))}
-        </div>
-      )}
-      <p className="mt-3 border-t border-[var(--color-line)] pt-3 text-xs text-[var(--color-muted)]">
-        Rules live in Settings › Stale thresholds
-      </p>
-    </aside>
+            <Button size="sm" variant="secondary" disabled={pending} onClick={() => add(s)} className="shrink-0">
+              Add
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
