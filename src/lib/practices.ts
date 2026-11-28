@@ -3,7 +3,11 @@
  * practice's role titles grouped exactly as on its practice page. Kept in
  * one file so a later Settings screen can edit the lists without touching
  * code elsewhere. Stored on people (can be more than one), opportunities
- * and mandates (one each) once Part C adds the database columns.
+ * and mandates (one each) via the existing PracticeArea table (Part C found
+ * it already wired up from an earlier round) — PRACTICE_LABEL's values are
+ * exactly the four PracticeArea.name rows seeded for every workspace, so
+ * practiceFromAreaName/areaNameForPractice below are the only bridge code
+ * needed between a selected PracticeArea and this file's role-title groups.
  */
 export const PRACTICES = ["FINANCE", "COMMERCIAL", "TECHNOLOGY_DATA", "TRANSFORMATION"] as const;
 export type Practice = (typeof PRACTICES)[number];
@@ -14,6 +18,16 @@ export const PRACTICE_LABEL: Record<Practice, string> = {
   TECHNOLOGY_DATA: "Technology & Data",
   TRANSFORMATION: "Transformation",
 };
+
+/** The PracticeArea.name for a given practice — identical to PRACTICE_LABEL today, kept as its own name so call sites read as intent, not a label lookup. */
+export function areaNameForPractice(practice: Practice): string {
+  return PRACTICE_LABEL[practice];
+}
+
+/** The practice matching a PracticeArea's name, if it's one of the four (not "Other" or a custom one). */
+export function practiceFromAreaName(areaName: string): Practice | undefined {
+  return PRACTICES.find((practice) => PRACTICE_LABEL[practice] === areaName);
+}
 
 export type RoleGroup = { group: string; titles: string[] };
 

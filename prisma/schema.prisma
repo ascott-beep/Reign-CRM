@@ -172,6 +172,109 @@ enum CandidateRating {
   NOT_RATED
 }
 
+// =============================================================================
+// ROUND 5 PART C ADDITIONS
+// =============================================================================
+
+/**
+ * Replaces the Candidate/Client contact/Investor/... multi-select with a single choice.
+ * Kept alongside the existing personTypes array rather than replacing it (additive only).
+ */
+enum PersonCategory {
+  CANDIDATE
+  CLIENT_CONTACT
+  OTHER
+}
+
+enum RoleAtFirm {
+  MANAGING_PARTNER
+  PARTNER
+  OPERATING_PARTNER
+  PRINCIPAL
+  INVESTMENT_DIRECTOR
+  ASSOCIATE
+  HEAD_OF_TALENT
+  HEAD_OF_PORTFOLIO
+  PORTFOLIO_CEO
+  PORTFOLIO_CFO
+  CHAIR
+  NON_EXEC
+  OTHER
+}
+
+enum ContactRelationship {
+  COLD
+  WARM
+  STRONG
+  CLIENT
+}
+
+enum DecisionRole {
+  HIRING_DECISION_MAKER
+  INFLUENCER
+  GATEKEEPER
+  REFERRER
+}
+
+enum InvestmentRegion {
+  UNITED_KINGDOM
+  DACH
+  BENELUX
+  NORDICS
+  MIDDLE_EAST
+}
+
+enum DealType {
+  PRIMARY_BUYOUT
+  SECONDARY_BUYOUT
+  CARVE_OUT
+  GROWTH_INVESTMENT
+  TAKE_PRIVATE
+  BUY_AND_BUILD_ADD_ON
+}
+
+enum OwnershipLevel {
+  MAJORITY
+  MINORITY
+  CO_CONTROL
+}
+
+enum DealExperience {
+  BUY_AND_BUILD
+  CARVE_OUT
+  REFINANCING
+  EXIT_OR_SALE
+  IPO
+  TURNAROUND
+  INTEGRATION
+}
+
+enum EquityType {
+  NONE
+  SWEET_EQUITY
+  OPTIONS
+  CO_INVEST
+}
+
+/**
+ * What the candidate is open to, distinct from EmploymentType (a role's own employment type).
+ */
+enum OpenToOption {
+  PERMANENT
+  INTERIM
+  NON_EXEC
+}
+
+/**
+ * How actively a candidate is looking, distinct from the existing operational CandidateStatus pipeline.
+ */
+enum CandidateLookingStatus {
+  ACTIVELY_LOOKING
+  OPEN_TO_OFFERS
+  NOT_LOOKING
+  PLACED_BY_US
+}
+
 enum ConsentStatus {
   NOT_REQUESTED
   REQUESTED
@@ -862,6 +965,7 @@ model PracticeArea {
   opportunities       Opportunity[]
   mandates            Mandate[]
   people              PersonPracticeArea[]
+  organizations       OrganizationPracticeArea[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -927,16 +1031,26 @@ model Organization {
   lastVerifiedAt           DateTime?
 
   // Fund-only extension fields
-  aumAmount                      Decimal? @db.Decimal(18, 2)
-  aumCurrency                    String?  @db.VarChar(3)
-  typicalMinEquityChequeAmount   Decimal? @db.Decimal(16, 2)
-  typicalMinEquityChequeCurrency String?  @db.VarChar(3)
-  typicalMaxEquityChequeAmount   Decimal? @db.Decimal(16, 2)
-  typicalMaxEquityChequeCurrency String?  @db.VarChar(3)
+  aumAmount                      Decimal?           @db.Decimal(18, 2)
+  aumCurrency                    String?            @db.VarChar(3)
+  typicalMinEquityChequeAmount   Decimal?           @db.Decimal(16, 2)
+  typicalMinEquityChequeCurrency String?            @db.VarChar(3)
+  typicalMaxEquityChequeAmount   Decimal?           @db.Decimal(16, 2)
+  typicalMaxEquityChequeCurrency String?            @db.VarChar(3)
   typicalMinCompanySize          Int?
   typicalMaxCompanySize          Int?
   fundVintageOrCurrentFundName   String?
   fundNotes                      String?
+  // Round 5 Part C — kept separate from the combined field above rather than
+  // replacing it (additive only): a distinct current fund name, size and
+  // vintage year, plus the regions the fund invests in.
+  currentFundName                String?
+  fundSizeAmount                 Decimal?           @db.Decimal(18, 2)
+  fundSizeCurrency               String?            @db.VarChar(3)
+  fundVintageYear                Int?
+  investmentRegions              InvestmentRegion[]
+  ebitdaAmount                   Decimal?           @db.Decimal(16, 2)
+  ebitdaCurrency                 String?            @db.VarChar(3)
 
   // Portfolio-company-only extension fields
   portfolioClassification    PortfolioClassification?
@@ -959,20 +1073,20 @@ model Organization {
   archivedBy    User?     @relation("OrganizationArchivedBy", fields: [archivedById], references: [id])
   archiveReason String?
 
-  relationshipsAsSource        OrganizationRelationship[]      @relation("OrgRelSource")
-  relationshipsAsTarget        OrganizationRelationship[]      @relation("OrgRelTarget")
+  relationshipsAsSource        OrganizationRelationship[]         @relation("OrgRelSource")
+  relationshipsAsTarget        OrganizationRelationship[]         @relation("OrgRelTarget")
   investorStrategies           OrganizationInvestorStrategy[]
   sectors                      OrganizationSector[]
   personAssociations           PersonOrganizationAssociation[]
   employmentHistories          EmploymentHistory[]
   employmentHistoryInvestorFor EmploymentHistoryInvestor[]
-  opportunitiesAsHiringOrg     Opportunity[]                   @relation("OpportunityHiringOrganization")
+  opportunitiesAsHiringOrg     Opportunity[]                      @relation("OpportunityHiringOrganization")
   opportunitiesAsRelatedFund   OpportunityFund[]
-  opportunitiesAsPortfolioCo   Opportunity[]                   @relation("OpportunityPortfolioCompany")
-  mandatesAsHiringOrg          Mandate[]                       @relation("MandateHiringOrganization")
+  opportunitiesAsPortfolioCo   Opportunity[]                      @relation("OpportunityPortfolioCompany")
+  mandatesAsHiringOrg          Mandate[]                          @relation("MandateHiringOrganization")
   mandatesAsRelatedFund        MandateFund[]
-  mandatesAsPortfolioCo        Mandate[]                       @relation("MandatePortfolioCompany")
-  intelligenceItems            IntelligenceItem[]              @relation("IntelligenceOrganization")
+  mandatesAsPortfolioCo        Mandate[]                          @relation("MandatePortfolioCompany")
+  intelligenceItems            IntelligenceItem[]                 @relation("IntelligenceOrganization")
   intelligenceAsRelatedFund    IntelligenceItemFund[]
   intelligenceRuns             IntelligenceRun[]
   activities                   ActivityOrganization[]
@@ -981,13 +1095,28 @@ model Organization {
   tags                         TagOnOrganization[]
   offLimitsRestrictions        OffLimitsRestriction[]
   placements                   Placement[]
-  customFieldValues            CustomFieldValue[]              @relation("CustomFieldValueOrganization")
+  customFieldValues            CustomFieldValue[]                 @relation("CustomFieldValueOrganization")
   people                       Person[]
+  hiringPracticeAreas          OrganizationPracticeArea[]
+  coveredByClientContacts      ClientContactCoveredOrganization[]
 
   @@index([workspaceId, type])
   @@index([workspaceId, status])
   @@index([normalizedWebsiteDomain])
   @@index([normalizedName])
+}
+
+/**
+ * Round 5 Part C — "practices they hire" on a fund organisation.
+ */
+model OrganizationPracticeArea {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  practiceAreaId String
+  practiceArea   PracticeArea @relation(fields: [practiceAreaId], references: [id])
+
+  @@unique([organizationId, practiceAreaId])
 }
 
 model OrganizationInvestorStrategy {
@@ -1032,6 +1161,11 @@ model OrganizationRelationship {
   investmentThesis     String?
   valueCreationThemes  String[]
   notes                String?
+  // Round 5 Part C — the fund vehicle (such as "Fund III") and deal details
+  // for a portfolio company's ownership relationship.
+  fundVehicleName      String?
+  dealType             DealType?
+  ownershipLevel       OwnershipLevel?
   createdById          String
   createdBy            User                         @relation("OrgRelationshipCreatedBy", fields: [createdById], references: [id])
   createdAt            DateTime                     @default(now())
@@ -1066,6 +1200,10 @@ model Person {
   countryCode                   String?                  @db.VarChar(2)
   languages                     String[]
   personTypes                   PersonType[]
+  // Round 5 Part C — single-choice replacement for the personTypes multi-select
+  // above (kept, not dropped). Investor/Operating partner/Talent become
+  // RoleAtFirm values on a ClientContactProfile; Referrer becomes a Source.
+  personCategory                PersonCategory?
   relationshipStatus            PersonRelationshipStatus @default(RESEARCH_ONLY)
   relationshipOwnerId           String?
   relationshipOwner             User?                    @relation("PersonOwner", fields: [relationshipOwnerId], references: [id])
@@ -1091,6 +1229,7 @@ model Person {
   archiveReason                 String?
 
   candidateProfile                   CandidateProfile?
+  clientContactProfile               ClientContactProfile?
   organizationAssociations           PersonOrganizationAssociation[]
   employmentHistories                EmploymentHistory[]
   opportunitiesAsLeadContact         Opportunity[]                   @relation("OpportunityLeadContact")
@@ -1209,28 +1348,28 @@ model EmploymentHistoryInvestor {
 }
 
 model CandidateProfile {
-  id                         String            @id @default(cuid())
-  personId                   String            @unique
-  person                     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
-  status                     CandidateStatus   @default(PROSPECT)
-  rating                     CandidateRating   @default(NOT_RATED)
+  id                         String                  @id @default(cuid())
+  personId                   String                  @unique
+  person                     Person                  @relation(fields: [personId], references: [id], onDelete: Cascade)
+  status                     CandidateStatus         @default(PROSPECT)
+  rating                     CandidateRating         @default(NOT_RATED)
   seniorityValues            Seniority[]
   peBackedExperienceSummary  String?
   totalYearsExperience       Int?
-  currentBaseAmount          Decimal?          @db.Decimal(14, 2)
-  currentBaseCurrency        String?           @db.VarChar(3)
-  currentBonusAmount         Decimal?          @db.Decimal(14, 2)
-  currentBonusPercentage     Decimal?          @db.Decimal(5, 2)
-  currentTotalCashAmount     Decimal?          @db.Decimal(14, 2)
-  currentTotalCashCurrency   String?           @db.VarChar(3)
-  expectedBaseAmount         Decimal?          @db.Decimal(14, 2)
-  expectedBaseCurrency       String?           @db.VarChar(3)
-  expectedTotalCashAmount    Decimal?          @db.Decimal(14, 2)
-  expectedTotalCashCurrency  String?           @db.VarChar(3)
-  currentDayRateAmount       Decimal?          @db.Decimal(10, 2)
-  currentDayRateCurrency     String?           @db.VarChar(3)
-  expectedDayRateAmount      Decimal?          @db.Decimal(10, 2)
-  expectedDayRateCurrency    String?           @db.VarChar(3)
+  currentBaseAmount          Decimal?                @db.Decimal(14, 2)
+  currentBaseCurrency        String?                 @db.VarChar(3)
+  currentBonusAmount         Decimal?                @db.Decimal(14, 2)
+  currentBonusPercentage     Decimal?                @db.Decimal(5, 2)
+  currentTotalCashAmount     Decimal?                @db.Decimal(14, 2)
+  currentTotalCashCurrency   String?                 @db.VarChar(3)
+  expectedBaseAmount         Decimal?                @db.Decimal(14, 2)
+  expectedBaseCurrency       String?                 @db.VarChar(3)
+  expectedTotalCashAmount    Decimal?                @db.Decimal(14, 2)
+  expectedTotalCashCurrency  String?                 @db.VarChar(3)
+  currentDayRateAmount       Decimal?                @db.Decimal(10, 2)
+  currentDayRateCurrency     String?                 @db.VarChar(3)
+  expectedDayRateAmount      Decimal?                @db.Decimal(10, 2)
+  expectedDayRateCurrency    String?                 @db.VarChar(3)
   employmentPreferences      EmploymentType[]
   noticePeriodValue          Int?
   noticePeriodUnit           String?
@@ -1251,16 +1390,23 @@ model CandidateProfile {
   excludedCompanies          String?
   lastQualifiedAt            DateTime?
   qualifiedById              String?
-  qualifiedBy                User?             @relation("CandidateQualifiedBy", fields: [qualifiedById], references: [id])
-  consentStatus              ConsentStatus     @default(NOT_REQUESTED)
-  legalBasis                 LegalBasis        @default(NOT_SET)
+  qualifiedBy                User?                   @relation("CandidateQualifiedBy", fields: [qualifiedById], references: [id])
+  consentStatus              ConsentStatus           @default(NOT_REQUESTED)
+  legalBasis                 LegalBasis              @default(NOT_SET)
   consentRequestedDate       DateTime?
   consentGrantedDate         DateTime?
   consentExpiryDate          DateTime?
   retentionReviewDate        DateTime?
   privacyNotes               String?
-  createdAt                  DateTime          @default(now())
-  updatedAt                  DateTime          @updatedAt
+  // Round 5 Part C additions — the fields PE clients ask about first.
+  peBackedRolesCount         Int?
+  exitsDelivered             Int?
+  dealExperience             DealExperience[]
+  equityType                 EquityType?
+  openTo                     OpenToOption[]
+  lookingStatus              CandidateLookingStatus?
+  createdAt                  DateTime                @default(now())
+  updatedAt                  DateTime                @updatedAt
 
   practiceAreas         CandidateProfilePracticeArea[]
   functionalSpecialisms CandidateProfileSpecialism[]
@@ -1299,6 +1445,35 @@ model CandidateSectorExperience {
   sector             Sector           @relation(fields: [sectorId], references: [id])
 
   @@unique([candidateProfileId, sectorId])
+}
+
+/**
+ * Round 5 Part C — client-contact-specific fields, mirroring CandidateProfile's pattern.
+ */
+model ClientContactProfile {
+  id           String               @id @default(cuid())
+  personId     String               @unique
+  person       Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  roleAtFirm   RoleAtFirm?
+  relationship ContactRelationship?
+  decisionRole DecisionRole?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  coveredPortfolioCompanies ClientContactCoveredOrganization[]
+}
+
+/**
+ * Portfolio companies a client contact covers, so a new signal on a company points to the right person.
+ */
+model ClientContactCoveredOrganization {
+  id                     String               @id @default(cuid())
+  clientContactProfileId String
+  clientContactProfile   ClientContactProfile @relation(fields: [clientContactProfileId], references: [id], onDelete: Cascade)
+  organizationId         String
+  organization           Organization         @relation(fields: [organizationId], references: [id])
+
+  @@unique([clientContactProfileId, organizationId])
 }
 
 // =============================================================================

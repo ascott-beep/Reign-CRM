@@ -163,7 +163,7 @@ async function main() {
   const PRACTICE_AREA_COLORS: Record<string, string> = {
     Finance: "#CFE0F7",
     Commercial: "#C9D9D3",
-    "Technology and Data": "#D7EED9",
+    "Technology & Data": "#D7EED9",
     Transformation: "#E1D9F4",
     Other: "#E4E2DD",
   };
@@ -171,9 +171,10 @@ async function main() {
     prisma.practiceArea,
     "workspaceId_name",
     [
+      // Round 5 Part B: these four match reign.partners exactly.
       { name: "Finance" },
       { name: "Commercial" },
-      { name: "Technology and Data" },
+      { name: "Technology & Data" },
       { name: "Transformation" },
       { name: "Other" },
     ],

@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { PRACTICES, PRACTICE_LABEL, roleGroupsForPractice, allRoleTitles, BOARD_AND_CEO_GROUP } from "@/lib/practices";
+import {
+  PRACTICES,
+  PRACTICE_LABEL,
+  roleGroupsForPractice,
+  allRoleTitles,
+  BOARD_AND_CEO_GROUP,
+  areaNameForPractice,
+  practiceFromAreaName,
+} from "@/lib/practices";
 
 describe("practices", () => {
   it("has a label for every practice", () => {
@@ -23,5 +31,13 @@ describe("practices", () => {
     const titles = allRoleTitles();
     expect(titles.length).toBeGreaterThan(20);
     expect(new Set(titles).size).toBe(titles.length);
+  });
+
+  it("round-trips between a practice and its PracticeArea name", () => {
+    for (const practice of PRACTICES) {
+      expect(practiceFromAreaName(areaNameForPractice(practice))).toBe(practice);
+    }
+    expect(practiceFromAreaName("Other")).toBeUndefined();
+    expect(practiceFromAreaName("Some custom area")).toBeUndefined();
   });
 });
