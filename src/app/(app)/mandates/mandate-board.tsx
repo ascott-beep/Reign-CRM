@@ -39,7 +39,7 @@ function Card({ m }: { m: BoardMandate }) {
       {...listeners}
       {...attributes}
       onClick={handleClick}
-      className={`box-border flex h-[150px] cursor-grab flex-col gap-2.5 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3 text-[var(--color-ink)] active:cursor-grabbing ${isDragging ? "opacity-40" : ""}`}
+      className={`box-border flex h-[150px] cursor-default flex-col gap-2.5 rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] p-3 text-[var(--color-ink)] ${isDragging ? "opacity-40" : ""}`}
     >
       <span className="min-w-0">
         <span className="line-clamp-2 min-h-[38px] text-[14.5px] font-medium leading-tight">{m.title}</span>

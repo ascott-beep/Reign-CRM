@@ -64,7 +64,7 @@ export async function askAtlas(
   if (!workspace.askAtlasEnabled) throw new Error("Ask Atlas is switched off for this workspace.");
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set, Ask Atlas is not configured yet.");
+  if (!apiKey) throw new Error("Ask AI needs the AI connection set up first. An admin can add it in Settings.");
 
   const client = new Anthropic({ apiKey });
   const userPrompt = recordContext ? `${recordContext}\n\nQuestion: ${question}` : question;

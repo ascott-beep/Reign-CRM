@@ -139,7 +139,7 @@ export function OrganizationForm({
 
   return (
     <>
-      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4 pb-20">
+      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4">
         <div className="mx-auto w-full max-w-[760px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-card)] p-6">
           <h2 className="mb-3.5 text-base font-medium">The organisation</h2>
 
@@ -148,7 +148,7 @@ export function OrganizationForm({
               Name <span className="font-normal text-[var(--color-ink-subtle)]">(required)</span>
             </Label>
             <div className="flex gap-2">
-              <Input id="name" name="name" placeholder="e.g. Bracken Software Solutions" value={name} onChange={(e) => setName(e.target.value)} required />
+              <Input id="name" name="name" value={name} onChange={(e) => setName(e.target.value)} required />
               <Button
                 type="button"
                 onClick={runResearch}
@@ -180,7 +180,7 @@ export function OrganizationForm({
               <Label htmlFor="website">
                 Website {aiFilled.has("website") ? <FilledByAi /> : null}
               </Label>
-              <Input id="website" name="website" placeholder="https://…" value={website} onChange={(e) => setWebsite(e.target.value)} />
+              <Input id="website" name="website" value={website} onChange={(e) => setWebsite(e.target.value)} />
               {errors.website ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.website[0]}</p> : null}
             </div>
             <div className="flex flex-col gap-1.5">
@@ -207,13 +207,13 @@ export function OrganizationForm({
               <div className="flex gap-2">
                 <Input id="hqCity" name="hqCity" placeholder="City" value={hqCity} onChange={(e) => setHqCity(e.target.value)} className="flex-1" />
                 <Select value={hqCountryCode} onValueChange={setHqCountryCode}>
-                  <SelectTrigger className="w-28">
+                  <SelectTrigger className="w-44">
                     <SelectValue placeholder="Country" />
                   </SelectTrigger>
                   <SelectContent>
                     {COUNTRIES.map((c) => (
                       <SelectItem key={c.code} value={c.code}>
-                        {c.code}
+                        {c.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -239,7 +239,7 @@ export function OrganizationForm({
                   </SelectContent>
                 </Select>
                 <input type="hidden" name="aumCurrency" value={aumCurrency} />
-                <MoneyInput key={`aum-${aumAmount}`} name="aumAmount" currency={aumCurrency} defaultValue={aumAmount} placeholder="e.g. £500,000,000" className="flex-1" />
+                <MoneyInput key={`aum-${aumAmount}`} name="aumAmount" currency={aumCurrency} defaultValue={aumAmount} className="flex-1" />
               </div>
             </div>
 
@@ -284,7 +284,7 @@ export function OrganizationForm({
               <Label htmlFor="description">
                 About {aiFilled.has("about") ? <FilledByAi /> : null}
               </Label>
-              <Textarea id="description" name="description" rows={3} placeholder="e.g. A mid-market logistics provider serving UK retailers." value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Textarea id="description" name="description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
           </section>
 
@@ -331,15 +331,15 @@ export function OrganizationForm({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="hqRegion">HQ region</Label>
-                  <Input id="hqRegion" name="hqRegion" placeholder="e.g. Greater London" defaultValue={values.hqRegion} />
+                  <Input id="hqRegion" name="hqRegion" defaultValue={values.hqRegion} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="employeeCountMin">Employees (min)</Label>
-                  <Input id="employeeCountMin" name="employeeCountMin" type="number" min={0} placeholder="e.g. 50" defaultValue={values.employeeCountMin} />
+                  <Input id="employeeCountMin" name="employeeCountMin" type="number" min={0} defaultValue={values.employeeCountMin} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="employeeCountMax">Employees (max)</Label>
-                  <Input id="employeeCountMax" name="employeeCountMax" type="number" min={0} placeholder="e.g. 200" defaultValue={values.employeeCountMax} />
+                  <Input id="employeeCountMax" name="employeeCountMax" type="number" min={0} defaultValue={values.employeeCountMax} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ownershipTypeId">Ownership</Label>
@@ -373,7 +373,7 @@ export function OrganizationForm({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="source">Source</Label>
-                  <Input id="source" name="source" placeholder="e.g. Introduced by a portfolio company CFO" defaultValue={values.source} />
+                  <Input id="source" name="source" defaultValue={values.source} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="sourceUrl">Source URL</Label>
@@ -381,7 +381,7 @@ export function OrganizationForm({
                 </div>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
                   <Label htmlFor="internalSummary">Internal summary</Label>
-                  <Textarea id="internalSummary" name="internalSummary" rows={3} placeholder="e.g. Strong management team; worth a follow-up call next quarter." defaultValue={values.internalSummary} />
+                  <Textarea id="internalSummary" name="internalSummary" rows={3} defaultValue={values.internalSummary} />
                 </div>
               </div>
 
@@ -391,7 +391,7 @@ export function OrganizationForm({
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-1.5">
                       <Label htmlFor="fundVintageOrCurrentFundName">Current fund name / vintage</Label>
-                      <Input id="fundVintageOrCurrentFundName" name="fundVintageOrCurrentFundName" placeholder="e.g. Fund III (2021)" defaultValue={values.fundVintageOrCurrentFundName} />
+                      <Input id="fundVintageOrCurrentFundName" name="fundVintageOrCurrentFundName" defaultValue={values.fundVintageOrCurrentFundName} />
                     </div>
                   </div>
                 </div>
@@ -418,11 +418,11 @@ export function OrganizationForm({
                     </div>
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                       <Label htmlFor="businessModelSummary">Business model summary</Label>
-                      <Textarea id="businessModelSummary" name="businessModelSummary" rows={2} placeholder="e.g. B2B SaaS, subscription-based" defaultValue={values.businessModelSummary} />
+                      <Textarea id="businessModelSummary" name="businessModelSummary" rows={2} defaultValue={values.businessModelSummary} />
                     </div>
                     <div className="flex flex-col gap-1.5 sm:col-span-2">
                       <Label htmlFor="investmentThesisSummary">Investment thesis summary</Label>
-                      <Textarea id="investmentThesisSummary" name="investmentThesisSummary" rows={2} placeholder="e.g. Consolidation play in a fragmented market" defaultValue={values.investmentThesisSummary} />
+                      <Textarea id="investmentThesisSummary" name="investmentThesisSummary" rows={2} defaultValue={values.investmentThesisSummary} />
                     </div>
                   </div>
                 </div>
@@ -431,24 +431,22 @@ export function OrganizationForm({
           </div>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-card)] px-6 py-3 shadow-[var(--shadow-overlay)] md:left-[228px]">
-          <p className="truncate text-[13px] text-[var(--color-ink-subtle)]">
-            {aiSources.length > 0 ? (
-              <>
-                Sources:{" "}
-                {aiSources.map((s, i) => (
-                  <span key={s.url}>
-                    {i > 0 ? ", " : ""}
-                    <a href={s.url} target="_blank" rel="noreferrer" className="text-[var(--color-accent)] hover:underline">
-                      {s.title}
-                    </a>
-                  </span>
-                ))}
-              </>
-            ) : (
-              "Type a name and press Research to fill the rest from the web."
-            )}
-          </p>
+        <div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-2">
+          {aiSources.length > 0 ? (
+            <p className="truncate text-[13px] text-[var(--color-ink-subtle)]">
+              Sources:{" "}
+              {aiSources.map((s, i) => (
+                <span key={s.url}>
+                  {i > 0 ? ", " : ""}
+                  <a href={s.url} target="_blank" rel="noreferrer" className="text-[var(--color-accent)] hover:underline">
+                    {s.title}
+                  </a>
+                </span>
+              ))}
+            </p>
+          ) : (
+            <span />
+          )}
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" variant="secondary" onClick={() => (dirty ? setConfirmDiscard(true) : router.push(cancelHref))}>
               Cancel

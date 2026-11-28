@@ -107,7 +107,7 @@ export function PersonForm({
 
   return (
     <>
-      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4 pb-20">
+      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4">
         <div className="mx-auto w-full max-w-[760px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-card)] p-6">
           <h2 className="mb-3.5 text-base font-medium">About them</h2>
 
@@ -135,7 +135,7 @@ export function PersonForm({
               <Input
                 id="firstName"
                 name="firstName"
-                placeholder="e.g. Jamie"
+
                 defaultValue={values.firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 required
@@ -149,7 +149,7 @@ export function PersonForm({
               <Input
                 id="lastName"
                 name="lastName"
-                placeholder="e.g. Okafor"
+
                 defaultValue={values.lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 required
@@ -159,7 +159,7 @@ export function PersonForm({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="headlineOverride">Job title</Label>
-              <Input id="headlineOverride" name="headlineOverride" placeholder="e.g. Operating Partner" defaultValue={values.headlineOverride} />
+              <Input id="headlineOverride" name="headlineOverride" defaultValue={values.headlineOverride} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="currentOrganizationOverrideId">Organisation</Label>
@@ -230,7 +230,7 @@ export function PersonForm({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="region">Region</Label>
-                  <Input id="region" name="region" placeholder="e.g. Greater London" defaultValue={values.region} />
+                  <Input id="region" name="region" defaultValue={values.region} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="countryCode">Country</Label>
@@ -279,7 +279,7 @@ export function PersonForm({
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="source">Source</Label>
-                  <Input id="source" name="source" placeholder="e.g. Met at an industry conference" defaultValue={values.source} />
+                  <Input id="source" name="source" defaultValue={values.source} />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="sourceUrl">Source URL</Label>
@@ -289,7 +289,7 @@ export function PersonForm({
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="summary">Notes</Label>
-                <Textarea id="summary" name="summary" rows={3} placeholder="e.g. Experienced CFO looking for a new challenge in PE-backed businesses." defaultValue={values.summary} />
+                <Textarea id="summary" name="summary" rows={3} defaultValue={values.summary} />
               </div>
 
               <div className="flex flex-col gap-2">
@@ -310,15 +310,12 @@ export function PersonForm({
           </div>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-card)] px-6 py-3 shadow-[var(--shadow-overlay)] md:left-[228px]">
-          <p className="text-[13px] text-[var(--color-ink-subtle)]">Only the name is needed. Add the rest now or later.</p>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" onClick={() => (dirty ? setConfirmDiscard(true) : router.push(cancelHref))}>
-              Cancel
-            </Button>
-            {!defaultValues ? <SubmitButton name="intent" value="another" text="Save and add another" /> : null}
-            <SubmitButton name="intent" value="single" text={submitLabel} />
-          </div>
+        <div className="mx-auto flex w-full max-w-[760px] items-center justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => (dirty ? setConfirmDiscard(true) : router.push(cancelHref))}>
+            Cancel
+          </Button>
+          {!defaultValues ? <SubmitButton name="intent" value="another" text="Save and add another" /> : null}
+          <SubmitButton name="intent" value="single" text={submitLabel} />
         </div>
       </form>
 

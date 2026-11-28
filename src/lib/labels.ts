@@ -34,9 +34,15 @@ const OVERRIDES: Record<string, string> = {
   // PersonType
   TALENT_OR_HR: "Talent / HR",
 
-  // Opportunity stages
-  SIGNAL_IDENTIFIED: "Signal Identified",
-  PROPOSAL_OR_TERMS: "Proposal / Terms",
+  // Round 5 Part A item 13: casing fixes for activity type / source values
+  FOLLOW_UP: "Follow-up",
+  LINKEDIN: "LinkedIn",
+
+  // Opportunity stages (Round 5 Part A item 12: sentence case, no slashes)
+  SIGNAL_IDENTIFIED: "Signal identified",
+  CONTACT_IDENTIFIED: "Contact identified",
+  DISCOVERY_ARRANGED: "Discovery arranged",
+  PROPOSAL_OR_TERMS: "Proposal and terms",
 
   // Fee / engagement
   PERCENTAGE_OF_BASE: "% of Base Salary",

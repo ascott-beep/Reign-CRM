@@ -19,7 +19,7 @@ export function DeskPicker({ options, initialValue }: { options: DeskOption[]; i
   const [value, setValue] = useState(initialValue);
   const [, startTransition] = useTransition();
 
-  const current = value === "" ? "All desks" : value === "me" ? "My desk" : (options.find((o) => o.id === value)?.label ?? "All desks");
+  const current = value === "" ? "Everyone" : value === "me" ? "Me" : (options.find((o) => o.id === value)?.label ?? "Everyone");
 
   function choose(id: string) {
     setValue(id);
@@ -53,7 +53,7 @@ export function DeskPicker({ options, initialValue }: { options: DeskOption[]; i
               value === "" ? "bg-[var(--color-active)] text-[var(--color-ink)]" : "text-[var(--color-ink2)] hover:bg-[var(--color-active)]",
             )}
           >
-            All desks
+            Everyone
           </DropdownMenu.Item>
           <DropdownMenu.Item
             onSelect={() => choose("me")}
@@ -62,7 +62,7 @@ export function DeskPicker({ options, initialValue }: { options: DeskOption[]; i
               value === "me" ? "bg-[var(--color-active)] text-[var(--color-ink)]" : "text-[var(--color-ink2)] hover:bg-[var(--color-active)]",
             )}
           >
-            My desk
+            Me
           </DropdownMenu.Item>
           <div className="my-1 h-px bg-[var(--color-line)]" />
           {options.map((option) => (

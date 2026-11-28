@@ -1,13 +1,22 @@
 import { z } from "zod";
 import { OrganizationType, OrganizationStatus, PortfolioClassification, AccountPriority } from "@prisma/client";
+import { cleanDashes } from "@/lib/validation/clean-text";
 
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
+/** Round 5 Part A item 16 — accepts a bare domain like "halcyonpartners.com"; adds https:// ourselves. */
+function addProtocol(v: unknown): unknown {
+  const value = emptyToUndefined(v);
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
 export const organizationFormSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(300),
+  name: z.preprocess(cleanDashes, z.string().trim().min(1, "Name is required").max(300)),
   type: z.nativeEnum(OrganizationType),
   status: z.nativeEnum(OrganizationStatus).default("RESEARCH"),
-  website: z.preprocess(emptyToUndefined, z.string().trim().url("Enter a valid URL").optional()),
+  website: z.preprocess(addProtocol, z.string().trim().url("Enter a valid website").optional()),
   linkedinUrl: z.preprocess(emptyToUndefined, z.string().trim().url("Enter a valid URL").optional()),
   hqCity: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),
   hqRegion: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),

@@ -87,7 +87,7 @@ export function InteractiveStageBar({
               <Textarea
                 id="stage-change-note"
                 rows={2}
-                placeholder="e.g. Client wants first interviews next week"
+
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
               />

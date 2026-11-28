@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { label } from "@/lib/labels";
 import { countryName } from "@/lib/iso";
-import { formatMoney, formatConvertedMoney, initials } from "@/lib/utils";
+import { formatMoney, formatConvertedMoney, convertedLabel, initials } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { getOrganizationTimeline } from "@/lib/timeline";
 import { formatDate, formatShortDate, formatMonthYear, formatDateTime } from "@/lib/datetime";
@@ -146,7 +146,7 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
       detail: liveMandates[0] ? `${liveMandates[0].title} · ${label(liveMandates[0].status)}` : "None open",
     },
     {
-      label: "Fees with this client",
+      label: convertedLabel("Fees with this client", feesWithClient.approx, displayCurrency),
       value: formatConvertedMoney(feesWithClient.amount, feesWithClient.approx, displayCurrency),
       detail: feesWithClient.amount > 0 ? null : "No placements yet",
     },

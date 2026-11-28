@@ -33,7 +33,7 @@ firm, not an operating company. Output only the JSON object, no other text.`;
 /** Round 4 screen 27 "New organisation, filled by AI" -- a different job from the Intelligence research agent (which finds news signals, not profile fields). */
 export async function researchNewOrganization(name: string): Promise<OrganizationResearchResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set, AI research is not configured yet.");
+  if (!apiKey) throw new Error("Research needs the AI connection set up first. An admin can add it in Settings.");
 
   const client = new Anthropic({ apiKey });
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: `Research the company "${name}".` }];

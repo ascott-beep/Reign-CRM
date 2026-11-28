@@ -4,7 +4,7 @@ import { opportunityViewWhere } from "@/lib/saved-views";
 import { PageHeader } from "@/components/shell/page-header";
 import { FixBanner } from "@/components/shell/fix-banner";
 import { nextActionStatus } from "@/lib/next-action-status";
-import { formatConvertedMoney } from "@/lib/utils";
+import { formatConvertedMoney, convertedLabel } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { OPEN_OPPORTUNITY_STAGES, CLOSED_OPPORTUNITY_STAGES, weightedOpportunityValue, daysAtStage } from "@/lib/rules";
 import { OpportunitiesView } from "./opportunities-view";
@@ -127,7 +127,8 @@ export default async function OpportunitiesPage({
         title="Opportunities"
         description={
           <>
-            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatConvertedMoney(totalWeighted, totalApprox, displayCurrency)}</span> in likely fees
+            {openOpportunitiesRaw.length} open · <span className="text-[var(--color-ink)]">{formatConvertedMoney(totalWeighted, totalApprox, displayCurrency)}</span>{" "}
+            {convertedLabel("in likely fees", totalApprox, displayCurrency)}
           </>
         }
         user={user}

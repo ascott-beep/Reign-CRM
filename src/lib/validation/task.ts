@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { TaskType, TaskStatus, TaskPriority } from "@prisma/client";
+import { cleanDashes } from "@/lib/validation/clean-text";
 
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
 export const taskFormSchema = z.object({
-  title: z.string().trim().min(1, "Title is required").max(200),
+  title: z.preprocess(cleanDashes, z.string().trim().min(1, "Title is required").max(200)),
   description: z.preprocess(emptyToUndefined, z.string().trim().max(2000).optional()),
   type: z.nativeEnum(TaskType).default("OTHER"),
   status: z.nativeEnum(TaskStatus).default("TODO"),

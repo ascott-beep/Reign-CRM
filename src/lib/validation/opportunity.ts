@@ -1,21 +1,23 @@
 import { z } from "zod";
 import { OpportunityType, OpportunityStage, OpportunitySource, EmploymentType } from "@prisma/client";
 import { OPPORTUNITY_STAGE_PROBABILITY } from "@/lib/labels";
+import { cleanDashes } from "@/lib/validation/clean-text";
 
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
+const cleanAndEmpty = (v: unknown) => emptyToUndefined(cleanDashes(v));
 
 export const CHANCE_OF_WINNING = { LOW: 25, MEDIUM: 50, HIGH: 75 } as const;
 
 export const opportunityFormSchema = z.object({
   // Round 2 section 9 "Short create forms": name isn't one of the three fields on the
   // short form (company, role, fee) — left blank, the action derives "<role> · <company>".
-  name: z.preprocess(emptyToUndefined, z.string().trim().max(300).optional()),
+  name: z.preprocess(cleanAndEmpty, z.string().trim().max(300).optional()),
   hiringOrganizationId: z.string().min(1, "Hiring organisation is required"),
   // Separate from the hiring organisation (the fund/client commissioning the search):
   // the portfolio company the role actually sits at, when that's a distinct organisation.
   portfolioCompanyId: z.preprocess(emptyToUndefined, z.string().optional()),
   type: z.nativeEnum(OpportunityType).default("UNKNOWN"),
-  potentialRoleTitle: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
+  potentialRoleTitle: z.preprocess(cleanAndEmpty, z.string().trim().max(200).optional()),
   employmentType: z.preprocess(emptyToUndefined, z.nativeEnum(EmploymentType).optional()),
   source: z.nativeEnum(OpportunitySource).default("OTHER"),
   leadContactPersonId: z.preprocess(emptyToUndefined, z.string().optional()),

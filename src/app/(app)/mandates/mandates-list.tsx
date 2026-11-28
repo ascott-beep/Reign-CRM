@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { NextActionDot } from "@/components/ui/next-action-dot";
 import type { NextActionStatus } from "@/lib/next-action-status";
 import { cn } from "@/lib/utils";
@@ -50,7 +49,6 @@ export function MandatesList({ rows }: { rows: MandateListRow[] }) {
               <span className="block truncate text-sm">{r.title}</span>
               <span className="block truncate text-xs text-[var(--color-muted)]">{r.organizationName}</span>
             </span>
-            {r.isCritical ? <Badge tone="warning">Critical</Badge> : null}
           </span>
           <span>
             <span className="block text-[13.5px]">{r.stageLabel}</span>

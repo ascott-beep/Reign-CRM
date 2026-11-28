@@ -52,7 +52,7 @@ export function OfferDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="baseAmount">Base amount</Label>
-              <MoneyInput id="baseAmount" name="baseAmount" currency={baseCurrency} placeholder="e.g. £90,000" />
+              <MoneyInput id="baseAmount" name="baseAmount" currency={baseCurrency} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="baseCurrency">Currency</Label>

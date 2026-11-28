@@ -115,7 +115,7 @@ export function PlaceCandidateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="agreedBaseAmount">Agreed base</Label>
-              <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} placeholder="e.g. £90,000" />
+              <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="agreedBaseCurrency">Currency</Label>
@@ -136,7 +136,7 @@ export function PlaceCandidateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="feeAmount">Fee amount</Label>
-              <MoneyInput id="feeAmount" name="feeAmount" currency={agreedBaseCurrency} placeholder="e.g. £18,000" />
+              <MoneyInput id="feeAmount" name="feeAmount" currency={agreedBaseCurrency} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="guaranteeMonths">Guarantee (months)</Label>

@@ -74,7 +74,7 @@ export function ForgotPasswordForm() {
           <form action={formAction} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" autoComplete="username" required placeholder="e.g. jamie@reign.partners" />
+              <Input id="email" name="email" type="email" autoComplete="username" required />
             </div>
             {state.error ? (
               <p className="rounded-md bg-[var(--color-status-danger-bg)] px-3 py-2 text-sm text-[var(--color-status-danger-ink)]">{state.error}</p>

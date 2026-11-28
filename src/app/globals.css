@@ -184,7 +184,10 @@
     --color-ink: #e9eef4;
     --color-ink2: #b9c5d3;
     --color-muted: #8796a8;
-    --color-navy: #bae1ff;
+    /* Round 5 Part A item 18: main/primary near-white with dark text in
+       dark mode; light blue (#bae1ff, same as --color-ai-icon) is reserved
+       for AI-labelled features only. */
+    --color-navy: #eef2f6;
     --color-navy-ink: #0c2139;
     --color-track: #1a2839;
     --color-fill: #1f4469;
@@ -225,7 +228,7 @@
       --color-ink: #e9eef4;
       --color-ink2: #b9c5d3;
       --color-muted: #8796a8;
-      --color-navy: #bae1ff;
+      --color-navy: #eef2f6;
       --color-navy-ink: #0c2139;
       --color-track: #1a2839;
       --color-fill: #1f4469;

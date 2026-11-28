@@ -115,12 +115,12 @@ export function LogSignalDialog({
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="details">Summary</Label>
-            <Textarea id="details" name="details" rows={3} placeholder="e.g. CFO understood to be leaving after the refinancing" />
+            <Textarea id="details" name="details" rows={3} />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="sourceUrl">Source link</Label>
-            <Input id="sourceUrl" name="sourceUrl" placeholder="e.g. https://www.ft.com/..." />
+            <Input id="sourceUrl" name="sourceUrl" />
             <p className="text-xs text-[var(--color-ink-subtle)]">Optional. Add more sources after saving.</p>
             {errors.sourceUrl ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.sourceUrl[0]}</p> : null}
           </div>

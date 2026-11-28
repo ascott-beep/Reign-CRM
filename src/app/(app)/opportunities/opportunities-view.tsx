@@ -68,17 +68,6 @@ export function OpportunitiesView({
         </div>
       </div>
 
-      <div className="-mt-2 flex flex-wrap justify-end gap-[18px] text-[13px] text-[var(--color-muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-alert)]" /> Next action overdue
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-pos)]" /> Next action due today or later
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-muted)] opacity-55" /> No next action
-        </span>
-      </div>
 
       {closedOpen ? (
         <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">

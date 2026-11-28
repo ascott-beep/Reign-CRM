@@ -357,14 +357,6 @@ export function AskAtlasProvider({ children, suggestedQuestions }: { children: R
               />
             )}
 
-            {view !== "answer" ? (
-              <div className="flex items-center gap-4 border-t border-[var(--color-line)] px-3.5 py-2 text-[11.5px] text-[var(--color-ink-subtle)]">
-                <span>↵ {view === "empty" ? "Ask" : "Open"}</span>
-                <span>↑↓ Move</span>
-                {view === "results" ? <span>tab Filter by type</span> : null}
-                <span className="ml-auto">esc Close</span>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}

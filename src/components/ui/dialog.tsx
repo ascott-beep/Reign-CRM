@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { skipAutoFocusAfterPointer } from "@/lib/input-modality";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -34,6 +35,10 @@ const DialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={(e) => {
+        skipAutoFocusAfterPointer(e);
+        props.onCloseAutoFocus?.(e);
+      }}
     >
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none">

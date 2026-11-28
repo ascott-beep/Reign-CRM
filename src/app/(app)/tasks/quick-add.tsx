@@ -84,7 +84,7 @@ export function QuickAddTask({ currentUserId }: { currentUserId: string }) {
           if (e.key === "Enter") submit();
         }}
         disabled={pending}
-        placeholder='Add a task, e.g. "Call Rebecca Nash about the Vantage offer tomorrow"'
+        placeholder="Add a task"
         className="flex-1 border-0 bg-transparent text-sm text-[var(--color-ink)] outline-none placeholder:text-[var(--color-muted)]"
       />
       <CornerDownLeft className="h-4 w-4 shrink-0 text-[var(--color-muted)]" />

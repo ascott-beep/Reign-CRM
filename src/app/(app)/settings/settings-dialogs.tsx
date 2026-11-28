@@ -50,16 +50,16 @@ export function InviteUserDialog() {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="firstName">First name</Label>
-              <Input id="firstName" name="firstName" placeholder="e.g. Jamie" required />
+              <Input id="firstName" name="firstName" required />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="lastName">Last name</Label>
-              <Input id="lastName" name="lastName" placeholder="e.g. Okafor" required />
+              <Input id="lastName" name="lastName" required />
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Work email</Label>
-            <Input id="email" name="email" type="email" placeholder="e.g. jamie@reign.partners" required />
+            <Input id="email" name="email" type="email" required />
             <p className="text-xs text-[var(--color-ink-subtle)]">We&apos;ll email them a link to set a password. It lasts 7 days.</p>
             {errors.email ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.email[0]}</p> : null}
           </div>
@@ -114,7 +114,7 @@ export function CreateLookupItemDialog({ kind, label: dialogLabel }: { kind: Loo
           <DialogTitle>Add {dialogLabel}</DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="flex flex-col gap-4">
-          <Input name="name" placeholder="e.g. Private Equity" required autoFocus />
+          <Input name="name" required autoFocus />
           <DialogFooter>
             <Button type="submit">Add</Button>
           </DialogFooter>
@@ -142,7 +142,7 @@ export function CreateTagDialog() {
           <DialogTitle>Add tag</DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="flex flex-col gap-4">
-          <Input name="name" placeholder="e.g. Urgent" required />
+          <Input name="name" required />
           <Select name="colorToken" defaultValue="neutral">
             <SelectTrigger>
               <SelectValue />
@@ -185,7 +185,7 @@ export function CreateCustomFieldDialog() {
           <DialogTitle>Add custom field</DialogTitle>
         </DialogHeader>
         <form action={handleSubmit} className="flex flex-col gap-4">
-          <Input name="label" placeholder="e.g. LinkedIn URL" required />
+          <Input name="label" required />
           <div className="grid grid-cols-2 gap-4">
             <Select name="entityType" defaultValue="ORGANIZATION">
               <SelectTrigger>

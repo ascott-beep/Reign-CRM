@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { PersonType, PersonRelationshipStatus } from "@prisma/client";
+import { cleanDashes } from "@/lib/validation/clean-text";
 
 const emptyToUndefined = (v: unknown) => (v === "" ? undefined : v);
 
 export const personFormSchema = z.object({
-  firstName: z.string().trim().min(1, "First name is required").max(120),
-  lastName: z.string().trim().min(1, "Last name is required").max(120),
+  firstName: z.preprocess(cleanDashes, z.string().trim().min(1, "First name is required").max(120)),
+  lastName: z.preprocess(cleanDashes, z.string().trim().min(1, "Last name is required").max(120)),
   preferredName: z.preprocess(emptyToUndefined, z.string().trim().max(120).optional()),
   pronouns: z.preprocess(emptyToUndefined, z.string().trim().max(60).optional()),
   primaryEmail: z.preprocess(emptyToUndefined, z.string().trim().toLowerCase().email("Enter a valid email").optional()),
@@ -21,7 +22,7 @@ export const personFormSchema = z.object({
   ),
   relationshipStatus: z.nativeEnum(PersonRelationshipStatus).default("RESEARCH_ONLY"),
   relationshipOwnerId: z.preprocess(emptyToUndefined, z.string().optional()),
-  headlineOverride: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
+  headlineOverride: z.preprocess((v) => emptyToUndefined(cleanDashes(v)), z.string().trim().max(200).optional()),
   currentOrganizationOverrideId: z.preprocess(emptyToUndefined, z.string().optional()),
   source: z.preprocess(emptyToUndefined, z.string().trim().max(200).optional()),
   sourceUrl: z.preprocess(emptyToUndefined, z.string().trim().url("Enter a valid URL").optional()),

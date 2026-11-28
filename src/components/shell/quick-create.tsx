@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-/** d08 "Quick create" — order, icons and single-letter shortcuts match the reference exactly. */
+/** d08 "Quick create" — order and icons match the reference exactly. Round 5 Part A item 9: titles only, no visible letter shortcuts. */
 const QUICK_CREATE_LINKS = [
   { label: "Task", href: "/tasks/new", icon: SquareCheck, key: "t" },
   { label: "Log activity", href: "/activities/new", icon: PencilLine, key: "a" },
@@ -62,7 +62,6 @@ export function QuickCreate({ collapsed = false }: { collapsed?: boolean }) {
             <Link href={link.href} className="flex items-center gap-2.5">
               <link.icon className="h-[15px] w-[15px] text-[var(--color-ink2)]" />
               <span className="flex-1">{link.label}</span>
-              <span className="rounded-[4px] border border-[var(--color-line)] px-1.5 py-0.5 text-[11px] text-[var(--color-muted)]">{link.key.toUpperCase()}</span>
             </Link>
           </DropdownMenuItem>
         ))}

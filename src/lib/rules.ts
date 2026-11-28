@@ -286,7 +286,7 @@ export const OPPORTUNITY_STAGE_SHORT_LABEL: Partial<Record<OpportunityStage, str
   CONTACTED: "Contacted",
   DISCOVERY_ARRANGED: "Discovery",
   QUALIFIED: "Qualified",
-  PROPOSAL_OR_TERMS: "Proposal / Terms",
+  PROPOSAL_OR_TERMS: "Proposal and terms",
 };
 
 // ---------------------------------------------------------------------------

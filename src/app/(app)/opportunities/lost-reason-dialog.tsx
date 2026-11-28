@@ -87,7 +87,7 @@ export function LostReasonDialog({
             <Label>
               Which firm won it? <span className="text-[var(--color-muted)]">(optional)</span>
             </Label>
-            <Input placeholder="e.g. another search firm" value={competitor} onChange={(e) => setCompetitor(e.target.value)} />
+            <Input value={competitor} onChange={(e) => setCompetitor(e.target.value)} />
           </div>
           <div>
             <Label>

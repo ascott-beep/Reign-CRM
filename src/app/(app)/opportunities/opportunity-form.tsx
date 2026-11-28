@@ -122,7 +122,7 @@ export function OpportunityForm({
 
   return (
     <>
-      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4 pb-20 lg:flex-row lg:items-start">
+      <form action={formAction} onChange={() => setDirty(true)} className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="mx-auto w-full max-w-[760px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-card)] p-6">
           <h2 className="mb-3.5 text-base font-medium">The opportunity</h2>
           <div className="flex flex-col gap-1.5">
@@ -138,9 +138,8 @@ export function OpportunityForm({
                 setNameEdited(true);
               }}
               required
-              placeholder="e.g. Oakfield Professional Services · Group FD"
+
             />
-            <p className="text-xs text-[var(--color-ink-subtle)]">We suggest &ldquo;Client · Role&rdquo;. Change it if you like.</p>
             {errors.name ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.name[0]}</p> : null}
           </div>
 
@@ -163,7 +162,7 @@ export function OpportunityForm({
               <Input
                 id="potentialRoleTitle"
                 name="potentialRoleTitle"
-                placeholder="e.g. Group Finance Director"
+
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               />
@@ -191,7 +190,6 @@ export function OpportunityForm({
                 defaultName={presetPortfolioCompanyName}
                 placeholder="If different from the client"
               />
-              <p className="text-xs text-[var(--color-ink-subtle)]">Only if the role sits at a portfolio company rather than the client itself.</p>
             </div>
           </section>
 
@@ -244,7 +242,7 @@ export function OpportunityForm({
                   id="estimatedFeeAmount"
                   name="estimatedFeeAmount"
                   currency={estimatedFeeCurrency}
-                  placeholder="e.g. £30,000"
+
                   defaultValue={estimatedFeeAmount}
                   onValueChange={setEstimatedFeeAmount}
                 />
@@ -291,7 +289,7 @@ export function OpportunityForm({
               <div className="flex gap-2">
                 <Input
                   name="firstNextStepTitle"
-                  placeholder="e.g. Send proposal to the client contact"
+
                   value={nextStepTitle}
                   onChange={(e) => setNextStepTitle(e.target.value)}
                   required
@@ -384,7 +382,7 @@ export function OpportunityForm({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="notes">Notes</Label>
-                <Textarea id="notes" name="notes" rows={3} placeholder="e.g. CFO keen to move quickly; board sign-off expected next week." defaultValue={values.notes} />
+                <Textarea id="notes" name="notes" rows={3} defaultValue={values.notes} />
               </div>
             </MoreDetails>
           </div>
@@ -398,14 +396,11 @@ export function OpportunityForm({
           </p>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-card)] px-6 py-3 shadow-[var(--shadow-overlay)] md:left-[228px]">
-          <p className="text-[13px] text-[var(--color-ink-subtle)]">Only the name and client are needed.</p>
-          <div className="flex items-center gap-2">
-            <Button type="button" variant="secondary" onClick={() => (dirty ? setConfirmDiscard(true) : router.push(cancelHref))}>
-              Cancel
-            </Button>
-            <SubmitButton text={submitLabel} />
-          </div>
+        <div className="mx-auto flex w-full max-w-[760px] items-center justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={() => (dirty ? setConfirmDiscard(true) : router.push(cancelHref))}>
+            Cancel
+          </Button>
+          <SubmitButton text={submitLabel} />
         </div>
       </form>
 
