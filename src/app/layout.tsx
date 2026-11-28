@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
-import { Inter_Tight } from "next/font/google";
+import localFont from "next/font/local";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { THEME_COOKIE } from "@/lib/theme";
 import "./globals.css";
 
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600"],
+// Self-hosted so the build never depends on reaching Google Fonts (Vercel's
+// build once failed outright when it couldn't fetch this). Inter Tight ships
+// from Google as a single variable file regardless of which static weight is
+// requested, so one file covers the same 300 to 600 range as before.
+const interTight = localFont({
+  src: "./fonts/InterTight-Variable.woff2",
+  weight: "300 600",
   variable: "--font-inter-tight",
   display: "swap",
 });
