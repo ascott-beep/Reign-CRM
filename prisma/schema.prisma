@@ -9,7 +9,14 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
+  // Runtime queries go through Neon's pooled (PgBouncer) endpoint. Prisma
+  // Migrate needs a direct, unpooled connection instead: migrate deploy's
+  // advisory lock requires one session held across statements, which a
+  // transaction-mode pooler can't guarantee, so migrate deploy was timing
+  // out on production (P1002). directUrl is used by Migrate only — the
+  // Client at runtime still only ever uses `url`.
   url        = env("DATABASE_URL")
+  directUrl  = env("DATABASE_URL_UNPOOLED")
   extensions = [pgTrgm(map: "pg_trgm")]
 }
 
