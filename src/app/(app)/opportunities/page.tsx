@@ -31,8 +31,10 @@ export default async function OpportunitiesPage({
   const display = sp.display === "table" ? "table" : "board";
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
 
-  const activeView = viewId ? await prisma.savedView.findUnique({ where: { id: viewId } }) : null;
-  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
+  const [activeView, workspace] = await Promise.all([
+    viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
+    prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } }),
+  ]);
   const displayCurrency = workspace.defaultCurrency;
   const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 
@@ -48,7 +50,17 @@ export default async function OpportunitiesPage({
   const opportunities = await prisma.opportunity.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      stage: true,
+      stageEnteredAt: true,
+      potentialRoleTitle: true,
+      estimatedFeeAmount: true,
+      estimatedFeeCurrency: true,
+      probabilityOverride: true,
+      isProbabilityOverridden: true,
+      wonMandateId: true,
       hiringOrganization: { select: { name: true } },
       portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },

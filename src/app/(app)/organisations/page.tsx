@@ -66,12 +66,35 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
     where.OR = [{ name: { contains: q, mode: "insensitive" } }, { normalizedWebsiteDomain: { contains: q.toLowerCase(), mode: "insensitive" } }];
   }
 
-  const [allForCounts, duplicates] = await Promise.all([
+  const [allForCounts, duplicates, organizations] = await Promise.all([
     prisma.organization.findMany({
       where: { workspaceId: user.workspaceId, archivedAt: null },
       select: { id: true, type: true, status: true, lastVerifiedAt: true, investmentStageOverride: true, relationshipsAsTarget: { select: { investmentDate: true }, where: { investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } }, take: 1, orderBy: { investmentDate: "asc" } } },
     }),
     findAllOrganizationDuplicatePairs(user.workspaceId),
+    // Hold and Verified are calculated, not columns — filtered in JS below, after fetch.
+    prisma.organization.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: take + 1,
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        status: true,
+        website: true,
+        lastVerifiedAt: true,
+        investmentStageOverride: true,
+        relationshipOwner: { select: { firstName: true, lastName: true } },
+        sectors: { select: { sector: { select: { name: true } } }, take: 1 },
+        relationshipsAsTarget: {
+          where: { investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } },
+          select: { investmentDate: true, sourceOrganization: { select: { name: true } } },
+          orderBy: { investmentDate: "asc" },
+        },
+        _count: { select: { relationshipsAsSource: { where: { archivedAt: null } } } },
+      },
+    }),
   ]);
 
   function holdOf(o: (typeof allForCounts)[number]) {
@@ -98,19 +121,6 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
     else if (Date.now() - o.lastVerifiedAt.getTime() > STALE_MS) staleCount++;
     else upToDateCount++;
   }
-
-  // Hold and Verified are calculated, not columns — filtered in JS below, after fetch.
-  const organizations = await prisma.organization.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: take + 1,
-    include: {
-      relationshipOwner: true,
-      sectors: { include: { sector: true }, take: 1 },
-      relationshipsAsTarget: { where: { investmentStatus: { in: ["CURRENT", "ANNOUNCED", "PARTIALLY_EXITED"] } }, include: { sourceOrganization: { select: { name: true } } }, orderBy: { investmentDate: "asc" } },
-      relationshipsAsSource: { where: { archivedAt: null } },
-    },
-  });
 
   let rows = organizations.slice(0, take).map((org) => {
     const hold = org.investmentStageOverride ?? (org.relationshipsAsTarget[0]?.investmentDate ? holdStageFromAcquisitionDate(org.relationshipsAsTarget[0].investmentDate) : null);
@@ -260,7 +270,7 @@ export default async function OrganisationsPage({ searchParams }: { searchParams
                 </Link>
                 <span>{dup ? <OrganizationDuplicateTag organizationId={org.id} survivorId={dup.survivorId} survivorName={dup.survivorName} /> : <StatusBadge value={org.status} />}</span>
                 <span className="truncate text-[var(--color-ink2)]">
-                  {org.type === "PE_FUND" ? `${org.relationshipsAsSource.length} portfolio co${org.relationshipsAsSource.length === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? ""}
+                  {org.type === "PE_FUND" ? `${org._count.relationshipsAsSource} portfolio co${org._count.relationshipsAsSource === 1 ? "" : "s"}` : org.sectors[0]?.sector.name ?? ""}
                 </span>
                 <span className="truncate text-[var(--color-ink2)]">{org.relationshipsAsTarget.length > 0 ? org.relationshipsAsTarget.map((r) => r.sourceOrganization.name).join(", ") : ""}</span>
                 <span>{hold ? <Badge tone={hold === "NEWLY_ACQUIRED" ? "info" : "neutral"}>{HOLD_STAGE_LABEL[hold]}</Badge> : ""}</span>
