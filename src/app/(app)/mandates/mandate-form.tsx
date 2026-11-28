@@ -183,7 +183,6 @@ export function MandateForm({
           defaultName={presetPortfolioCompanyName}
           placeholder="If different from the client"
         />
-        <p className="text-xs text-[var(--color-ink-subtle)]">Only if the role sits at a portfolio company rather than the client itself.</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
