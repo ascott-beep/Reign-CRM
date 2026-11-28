@@ -9,6 +9,7 @@ import { getWatchlistSummary } from "@/lib/intelligence-sweep";
 import { SignalCardList, DismissedList } from "./review-queue";
 import { LogSignalButton } from "./log-signal-button";
 import { ResearchCompanyCard, WatchingCard } from "./research-company-card";
+import { AiNotConnectedCard } from "./ai-not-connected-card";
 import { subDays } from "date-fns";
 import type { Prisma } from "@prisma/client";
 import type { Metadata } from "next";
@@ -32,6 +33,29 @@ const queueSelect = {
 
 export default async function IntelligencePage() {
   const user = await requireUser();
+  const aiConnected = Boolean(process.env.ANTHROPIC_API_KEY);
+
+  // Log signal still works with no AI key -- a manual signal needs nowhere near it -- so
+  // the organisation list for its picker is fetched either way.
+  if (!aiConnected) {
+    const organizations = await prisma.organization.findMany({ where: { workspaceId: user.workspaceId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
+    return (
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Intelligence"
+          actions={
+            <>
+              <Button asChild variant="secondary">
+                <Link href="/intelligence/log">Signal log</Link>
+              </Button>
+              <LogSignalButton organizations={organizations} currentUserId={user.id} />
+            </>
+          }
+        />
+        <AiNotConnectedCard />
+      </div>
+    );
+  }
 
   const [pendingReview, accepted, dismissedRecently, organizations, workspace, watchlist] = await Promise.all([
     prisma.intelligenceItem.findMany({

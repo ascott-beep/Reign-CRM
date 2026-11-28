@@ -10,7 +10,7 @@ import { generateMandateReference } from "@/lib/mandate-reference";
 import { areaNameForPractice, PRACTICES, type Practice } from "@/lib/practices";
 
 /** The opportunity form submits a practice KEY (e.g. "FINANCE"), not a PracticeArea row id -- resolved here against the workspace's seeded rows. */
-async function practiceAreaIdForPracticeKey(workspaceId: string, practiceKey: string | undefined): Promise<string | null> {
+export async function practiceAreaIdForPracticeKey(workspaceId: string, practiceKey: string | undefined): Promise<string | null> {
   if (!practiceKey || !(PRACTICES as readonly string[]).includes(practiceKey)) return null;
   const row = await prisma.practiceArea.findFirst({ where: { workspaceId, name: areaNameForPractice(practiceKey as Practice) }, select: { id: true } });
   return row?.id ?? null;
