@@ -61,12 +61,37 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     ];
   }
 
-  const [allForCounts, duplicates] = await Promise.all([
+  if (statusFilter.length > 0) where.relationshipStatus = { in: statusFilter as Prisma.PersonWhereInput["relationshipStatus"] extends { in?: infer T } | undefined ? T : never };
+  if (fitFilter.length > 0) where.candidateProfile = { rating: { in: fitFilter as Prisma.CandidateProfileWhereInput["rating"] extends { in?: infer T } | undefined ? T : never } };
+
+  const [allForCounts, duplicates, people] = await Promise.all([
     prisma.person.findMany({
       where: { workspaceId: user.workspaceId, archivedAt: null },
       select: { id: true, personTypes: true, relationshipStatus: true, candidateProfile: { select: { rating: true } } },
     }),
     findAllPersonDuplicatePairs(user.workspaceId),
+    prisma.person.findMany({
+      where,
+      orderBy: { updatedAt: "desc" },
+      take: take + 1,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        personTypes: true,
+        relationshipStatus: true,
+        headlineOverride: true,
+        relationshipOwner: { select: { firstName: true, lastName: true } },
+        currentOrganizationOverride: { select: { name: true } },
+        candidateProfile: { select: { rating: true } },
+        employmentHistories: { where: { isCurrent: true }, select: { jobTitle: true, employerNameFallback: true, organization: { select: { name: true } } }, take: 1 },
+        organizationAssociations: { where: { isCurrent: true }, select: { stakeholderRoles: true, organization: { select: { name: true } } }, take: 1 },
+        candidateProcesses: {
+          select: { stage: true, mandate: { select: { hiringOrganization: { select: { name: true } } } } },
+          orderBy: { updatedAt: "desc" },
+        },
+      },
+    }),
   ]);
 
   const tabCounts = {
@@ -83,22 +108,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     }
   }
 
-  if (statusFilter.length > 0) where.relationshipStatus = { in: statusFilter as Prisma.PersonWhereInput["relationshipStatus"] extends { in?: infer T } | undefined ? T : never };
-  if (fitFilter.length > 0) where.candidateProfile = { rating: { in: fitFilter as Prisma.CandidateProfileWhereInput["rating"] extends { in?: infer T } | undefined ? T : never } };
-
-  const people = await prisma.person.findMany({
-    where,
-    orderBy: { updatedAt: "desc" },
-    take: take + 1,
-    include: {
-      relationshipOwner: true,
-      currentOrganizationOverride: { select: { name: true } },
-      candidateProfile: true,
-      employmentHistories: { where: { isCurrent: true }, include: { organization: { select: { name: true } } }, take: 1 },
-      organizationAssociations: { where: { isCurrent: true }, include: { organization: { select: { name: true } } }, take: 1 },
-      candidateProcesses: { include: { mandate: { select: { hiringOrganization: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" } },
-    },
-  });
   const hasMore = people.length > take;
   const rows = people.slice(0, take);
 

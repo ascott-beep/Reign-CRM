@@ -47,7 +47,13 @@ export default async function MandatesPage({
   const mandates = await prisma.mandate.findMany({
     where,
     orderBy: { updatedAt: "desc" },
-    include: {
+    select: {
+      id: true,
+      reference: true,
+      title: true,
+      status: true,
+      priority: true,
+      targetCompletionDate: true,
       hiringOrganization: { select: { name: true } },
       portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },

@@ -50,23 +50,25 @@ export default async function OrganizationDetailPage({ params }: { params: Promi
   const user = await requireUser();
   const { id } = await params;
 
-  const org = await prisma.organization.findFirst({
-    where: { id, workspaceId: user.workspaceId },
-    include: {
-      relationshipOwner: true,
-      createdBy: true,
-      sectors: { include: { sector: true } },
-      investorStrategies: { include: { strategy: true } },
-      ownershipType: true,
-      tags: { include: { tag: true } },
-      relationshipsAsSource: { include: { targetOrganization: true }, orderBy: { createdAt: "desc" } },
-      relationshipsAsTarget: { include: { sourceOrganization: true }, orderBy: { createdAt: "desc" } },
-      personAssociations: { include: { person: true }, orderBy: { isPrimaryContact: "desc" } },
-    },
-  });
+  const [org, workspace] = await Promise.all([
+    prisma.organization.findFirst({
+      where: { id, workspaceId: user.workspaceId },
+      include: {
+        relationshipOwner: true,
+        createdBy: true,
+        sectors: { include: { sector: true } },
+        investorStrategies: { include: { strategy: true } },
+        ownershipType: true,
+        tags: { include: { tag: true } },
+        relationshipsAsSource: { include: { targetOrganization: true }, orderBy: { createdAt: "desc" } },
+        relationshipsAsTarget: { include: { sourceOrganization: true }, orderBy: { createdAt: "desc" } },
+        personAssociations: { include: { person: true }, orderBy: { isPrimaryContact: "desc" } },
+      },
+    }),
+    prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } }),
+  ]);
   if (!org) notFound();
 
-  const workspace = await prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } });
   const displayCurrency = workspace.defaultCurrency;
   const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
 
