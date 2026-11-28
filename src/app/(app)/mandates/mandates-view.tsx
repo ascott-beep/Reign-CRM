@@ -6,6 +6,9 @@ import { LayoutGrid, List as ListIcon, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { DeskPicker, type DeskOption } from "@/components/shell/desk-picker";
+import { PracticeFilter } from "@/components/ui/practice-filter";
+import type { Practice } from "@/lib/practices";
 import { cn } from "@/lib/utils";
 import { MandateBoard, type BoardMandate } from "./mandate-board";
 import { MandatesList, type MandateListRow } from "./mandates-list";
@@ -17,11 +20,17 @@ export function MandatesView({
   liveMandates,
   closedMandates,
   listRows,
+  deskOptions,
+  deskValue,
+  practiceFilter,
 }: {
   display: "board" | "list";
   liveMandates: BoardMandate[];
   closedMandates: ClosedMandate[];
   listRows: MandateListRow[];
+  deskOptions: DeskOption[];
+  deskValue: string;
+  practiceFilter: Practice | undefined;
 }) {
   const [closedOpen, setClosedOpen] = useState(false);
 
@@ -45,6 +54,8 @@ export function MandatesView({
             Closed <span className="text-[var(--color-muted)]">{closedMandates.length}</span>
             <ChevronDown className="h-3.5 w-3.5 text-[var(--color-muted)]" />
           </button>
+          <DeskPicker options={deskOptions} initialValue={deskValue} />
+          <PracticeFilter value={practiceFilter} />
           <Button asChild>
             <Link href="/mandates/new">
               <Plus className="h-[14px] w-[14px]" /> New mandate
@@ -79,7 +90,7 @@ export function MandatesView({
         </div>
       ) : null}
 
-      {display === "board" ? <MandateBoard initialMandates={liveMandates} /> : <MandatesList rows={listRows} />}
+      {display === "board" ? <MandateBoard mandates={liveMandates} /> : <MandatesList rows={listRows} />}
     </div>
   );
 }

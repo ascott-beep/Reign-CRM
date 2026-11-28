@@ -14,9 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MoreDetails } from "@/components/ui/more-details";
 import { OrganisationCombobox } from "@/components/ui/organisation-combobox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PillSelect } from "@/components/ui/pill-select";
+import { RolePicker } from "@/components/ui/role-picker";
 import { cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
 import { CURRENCIES } from "@/lib/iso";
+import { PRACTICES, PRACTICE_LABEL, type Practice } from "@/lib/practices";
 import type { MandateFormState } from "./actions";
 
 const PRIORITIES = ["CRITICAL", "HIGH", "NORMAL", "LOW"];
@@ -74,6 +77,8 @@ export function MandateForm({
   const [state, formAction] = useActionState(action, {});
   const values = { ...defaultValues, ...(state.formValues ?? {}) } as Record<string, any>;
   const [baseCurrency, setBaseCurrency] = useState(values.baseCurrency ?? "GBP");
+  const [practiceKey, setPracticeKey] = useState<string>(values.practiceAreaId ?? "");
+  const [role, setRole] = useState<string>(values.title ?? "");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(Array.isArray(values.tagIds) ? values.tagIds : []);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [unsavedCount, setUnsavedCount] = useState(0);
@@ -157,10 +162,16 @@ export function MandateForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <Label>Practice</Label>
+        <PillSelect options={PRACTICES.map((p) => ({ value: p, label: PRACTICE_LABEL[p] }))} value={practiceKey ? [practiceKey] : []} onChange={(v) => setPracticeKey(v[0] ?? "")} multi={false} />
+        <input type="hidden" name="practiceAreaId" value={practiceKey} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="title">
           Role <span className="font-normal text-[var(--color-ink-subtle)]">(required)</span>
         </Label>
-        <Input id="title" name="title" defaultValue={values.title} required />
+        <RolePicker practices={practiceKey ? [practiceKey as Practice] : []} value={role} onChange={setRole} name="title" />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
       </div>
 

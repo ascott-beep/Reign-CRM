@@ -88,6 +88,86 @@ export function candidatePlainStatus(stage: CandidateProcessStage): { label: str
   }
 }
 
+// ---------------------------------------------------------------------------
+// Round 5 screen 09/13 — candidate board columns, and the mandate's own
+// board column worked out from its furthest candidate (Brief is the only
+// manual stage, used only while there are no candidates yet).
+// ---------------------------------------------------------------------------
+
+export const CANDIDATE_BOARD_COLUMNS = ["Longlist", "Approached", "Interested", "Shortlist", "Client interviews", "Offer", "Placed"] as const;
+export type CandidateBoardColumn = (typeof CANDIDATE_BOARD_COLUMNS)[number];
+
+/** Null for a stage shown in the collapsed "Not progressed"/"Withdrawn" list under the board instead of a column. */
+export function candidateBoardColumn(stage: CandidateProcessStage): CandidateBoardColumn | null {
+  switch (stage) {
+    case "SOURCED":
+    case "LONGLISTED":
+      return "Longlist";
+    case "CONTACT_REQUIRED":
+    case "CONTACTED":
+      return "Approached";
+    case "INTERESTED":
+      return "Interested";
+    case "QUALIFIED":
+    case "SUBMITTED":
+    case "CLIENT_REVIEW":
+      return "Shortlist";
+    case "FIRST_INTERVIEW":
+    case "FURTHER_INTERVIEW":
+    case "FINAL_INTERVIEW":
+      return "Client interviews";
+    case "OFFER":
+      return "Offer";
+    case "PLACED":
+      return "Placed";
+    case "ON_HOLD":
+    case "REJECTED":
+    case "WITHDRAWN":
+      return null;
+  }
+}
+
+export const MANDATE_LIVE_BOARD_COLUMNS = ["Brief", "Searching", "Shortlist", "Interviews", "Offer"] as const;
+export type MandateLiveBoardColumn = (typeof MANDATE_LIVE_BOARD_COLUMNS)[number];
+
+const CANDIDATE_TO_MANDATE_BOARD_COLUMN: Record<CandidateBoardColumn, MandateLiveBoardColumn> = {
+  Longlist: "Searching",
+  Approached: "Searching",
+  Interested: "Searching",
+  Shortlist: "Shortlist",
+  "Client interviews": "Interviews",
+  Offer: "Offer",
+  Placed: "Offer",
+};
+
+const MANDATE_BOARD_COLUMN_RANK: Record<MandateLiveBoardColumn, number> = { Brief: 0, Searching: 1, Shortlist: 2, Interviews: 3, Offer: 4 };
+
+/** A mandate's board column, worked out from its furthest candidate so it never needs setting by hand, except Brief (no candidates yet). */
+export function mandateBoardColumn(candidateStages: CandidateProcessStage[]): MandateLiveBoardColumn {
+  if (candidateStages.length === 0) return "Brief";
+  let furthest: MandateLiveBoardColumn = "Searching";
+  for (const stage of candidateStages) {
+    const column = candidateBoardColumn(stage);
+    const mapped = column ? CANDIDATE_TO_MANDATE_BOARD_COLUMN[column] : "Searching";
+    if (MANDATE_BOARD_COLUMN_RANK[mapped] > MANDATE_BOARD_COLUMN_RANK[furthest]) furthest = mapped;
+  }
+  return furthest;
+}
+
+/** One-line mandate board card summary: count at the furthest stage, or the running total while still searching. */
+export function mandateBoardCardLine(candidateStages: CandidateProcessStage[]): string {
+  const visible = candidateStages.filter((s) => !isCandidateHidden(s));
+  if (visible.length === 0) return "No candidates yet";
+  const column = mandateBoardColumn(candidateStages);
+  if (column === "Searching" || column === "Brief") return `${visible.length} candidate${visible.length === 1 ? "" : "s"}`;
+  const atFurthest = visible.filter((s) => {
+    const c = candidateBoardColumn(s);
+    return c ? CANDIDATE_TO_MANDATE_BOARD_COLUMN[c] === column : false;
+  }).length;
+  const columnWord = column === "Shortlist" ? "on shortlist" : column === "Interviews" ? "interviewing" : "at offer";
+  return `${atFurthest} ${columnWord}`;
+}
+
 /**
  * One-line candidate summary for a mandate's list row, e.g.
  * "1 placed, 1 at final interview" — most-advanced groups first, hidden
@@ -373,7 +453,7 @@ export function mandateFlowTab(status: MandateStatus): MandateFlowTab {
 }
 
 export type MandateBanner = {
-  key: "placed_not_filled" | "offer_before_mandate_offer" | "filled_nobody_placed";
+  key: "placed_not_filled" | "filled_nobody_placed";
   message: string;
   candidateProcessId?: string;
 };
@@ -395,16 +475,10 @@ export function mandateConsistencyCheck(
     };
   }
 
-  const mandateStepIndex = (MANDATE_STAGE_BAR_STEPS as readonly MandateStatus[]).indexOf(mandate.status);
-  const offerStepIndex = MANDATE_STAGE_BAR_STEPS.indexOf("OFFER");
-  const atOffer = candidateProcesses.find((p) => p.stage === "OFFER");
-  if (atOffer && mandateStepIndex >= 0 && mandateStepIndex < offerStepIndex) {
-    return {
-      key: "offer_before_mandate_offer",
-      message: `${atOffer.candidateFirstName} ${atOffer.candidateLastName} is at Offer, but this search isn't at Offer yet.`,
-      candidateProcessId: atOffer.id,
-    };
-  }
+  // Round 5 screen 13: a mandate's board column is now derived from its furthest
+  // candidate and kept in sync automatically (see candidate-process-actions.ts),
+  // so "Offer reached before the mandate's own stage" can no longer happen —
+  // this consistency check is retired along with the old manual stage bar.
 
   if (mandate.status === "FILLED" && !placed) {
     return { key: "filled_nobody_placed", message: "This mandate is marked Filled, but nobody has been recorded as placed." };
