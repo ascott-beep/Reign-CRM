@@ -19,7 +19,7 @@ export function OrganisationCombobox({
   name,
   defaultId,
   defaultName,
-  placeholder = "Start typing to find or add one",
+  placeholder = "Search",
   onNameChange,
 }: {
   name: string;

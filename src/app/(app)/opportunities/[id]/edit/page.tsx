@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
-import { PageHeader } from "@/components/shell/page-header";
 import { OpportunityForm } from "../../opportunity-form";
 import { updateOpportunityAction } from "../../actions";
 
@@ -22,8 +21,7 @@ export default async function EditOpportunityPage({ params }: { params: Promise<
   const boundAction = updateOpportunityAction.bind(null, opportunity.id);
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader title={`Edit ${opportunity.name}`} />
+    <div>
       <OpportunityForm
         action={boundAction}
         people={people}

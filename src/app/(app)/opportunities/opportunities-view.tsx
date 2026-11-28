@@ -6,6 +6,9 @@ import { LayoutGrid, List as ListIcon, ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LinkSegmentedToggle } from "@/components/ui/segmented-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { DeskPicker, type DeskOption } from "@/components/shell/desk-picker";
+import { PracticeFilter } from "@/components/ui/practice-filter";
+import type { Practice } from "@/lib/practices";
 import { formatMoney, cn } from "@/lib/utils";
 import { OpportunityBoard, type BoardOpportunity } from "./opportunity-board";
 import { OpportunitiesTable, type OpportunityListRow } from "./opportunities-table";
@@ -24,19 +27,23 @@ export type ClosedOpportunity = {
 export function OpportunitiesView({
   display,
   openOpportunities,
-  maxOpenWeighted,
   closedOpportunities,
   listRows,
   displayCurrency,
   ratesToGbp,
+  deskOptions,
+  deskValue,
+  practiceFilter,
 }: {
   display: "board" | "table";
   openOpportunities: BoardOpportunity[];
-  maxOpenWeighted: number;
   closedOpportunities: ClosedOpportunity[];
   listRows: OpportunityListRow[];
   displayCurrency: string;
   ratesToGbp: Record<string, number>;
+  deskOptions: DeskOption[];
+  deskValue: string;
+  practiceFilter: Practice | undefined;
 }) {
   const [closedOpen, setClosedOpen] = useState(false);
 
@@ -60,6 +67,8 @@ export function OpportunitiesView({
             Closed <span className="text-[var(--color-muted)]">{closedOpportunities.length}</span>
             <ChevronDown className="h-3.5 w-3.5 text-[var(--color-muted)]" />
           </button>
+          <DeskPicker options={deskOptions} initialValue={deskValue} />
+          <PracticeFilter value={practiceFilter} />
           <Button asChild>
             <Link href="/opportunities/new">
               <Plus className="h-[14px] w-[14px]" /> New opportunity
@@ -68,17 +77,6 @@ export function OpportunitiesView({
         </div>
       </div>
 
-      <div className="-mt-2 flex flex-wrap justify-end gap-[18px] text-[13px] text-[var(--color-muted)]">
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-alert)]" /> Next action overdue
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-pos)]" /> Next action due today or later
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-[9px] w-[9px] rounded-full bg-[var(--color-muted)] opacity-55" /> No next action
-        </span>
-      </div>
 
       {closedOpen ? (
         <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)]">
@@ -104,7 +102,7 @@ export function OpportunitiesView({
       ) : null}
 
       {display === "board" ? (
-        <OpportunityBoard initialOpportunities={openOpportunities} maxOpenWeighted={maxOpenWeighted} displayCurrency={displayCurrency} ratesToGbp={ratesToGbp} />
+        <OpportunityBoard initialOpportunities={openOpportunities} displayCurrency={displayCurrency} ratesToGbp={ratesToGbp} />
       ) : (
         <OpportunitiesTable rows={listRows} />
       )}

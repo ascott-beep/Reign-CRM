@@ -13,8 +13,37 @@ import {
   placementFormSchema,
   markSearchFilledSchema,
 } from "@/lib/validation/candidate-process";
-import { isCandidateInPlay } from "@/lib/rules";
+import { isCandidateInPlay, mandateBoardColumn } from "@/lib/rules";
 import { writeAuditLog } from "@/lib/audit";
+import type { MandateStatus } from "@prisma/client";
+
+const LIVE_MANDATE_STATUS_SET = new Set<MandateStatus>(["BRIEF_RECEIVED", "SEARCH_ACTIVE", "LONGLISTING", "SHORTLISTING", "INTERVIEWING", "OFFER"]);
+const BOARD_COLUMN_TO_STATUS: Record<string, MandateStatus> = {
+  Brief: "BRIEF_RECEIVED",
+  Searching: "SEARCH_ACTIVE",
+  Shortlist: "SHORTLISTING",
+  Interviews: "INTERVIEWING",
+  Offer: "OFFER",
+};
+
+/**
+ * Round 5 screen 13: a mandate's board column is worked out from its
+ * furthest candidate, so the stored status needs to stay in step with it
+ * automatically — called after any candidate is added or moved. Leaves
+ * Filled/Cancelled/On hold alone; those stay explicit only (Mark filled).
+ */
+async function syncMandateStatusFromCandidates(mandateId: string) {
+  const mandate = await prisma.mandate.findUnique({
+    where: { id: mandateId },
+    select: { status: true, candidateProcesses: { select: { stage: true } } },
+  });
+  if (!mandate || !LIVE_MANDATE_STATUS_SET.has(mandate.status)) return;
+  const column = mandateBoardColumn(mandate.candidateProcesses.map((p) => p.stage));
+  const target = BOARD_COLUMN_TO_STATUS[column];
+  if (target && target !== mandate.status) {
+    await prisma.mandate.update({ where: { id: mandateId }, data: { status: target } });
+  }
+}
 
 async function checkOffLimits(workspaceId: string, mandateOrgId: string, candidatePersonId: string) {
   const restrictions = await prisma.offLimitsRestriction.findMany({
@@ -109,6 +138,7 @@ export async function addCandidateToMandateAction(formData: FormData, offLimitsO
           notes: data.note ?? "Candidate reopened for this mandate.",
         },
       });
+      await syncMandateStatusFromCandidates(data.mandateId);
       revalidatePath(`/mandates/${data.mandateId}`);
       return { warning: warning?.reason };
     }
@@ -130,6 +160,7 @@ export async function addCandidateToMandateAction(formData: FormData, offLimitsO
 
   await writeAuditLog({ workspaceId: user.workspaceId, actorId: user.id, entityType: "CandidateProcess", entityId: process.id, action: "CREATE" });
 
+  await syncMandateStatusFromCandidates(data.mandateId);
   revalidatePath(`/mandates/${data.mandateId}`);
   return { warning: warning?.reason };
 }
@@ -195,6 +226,7 @@ export async function changeProcessStageAction(input: {
     changedFields: { fromStage: process.stage, toStage: data.toStage },
   });
 
+  await syncMandateStatusFromCandidates(process.mandateId);
   revalidatePath(`/mandates/${process.mandateId}`);
 }
 

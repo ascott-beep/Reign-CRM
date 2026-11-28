@@ -14,9 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { MoreDetails } from "@/components/ui/more-details";
 import { OrganisationCombobox } from "@/components/ui/organisation-combobox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { PillSelect } from "@/components/ui/pill-select";
+import { RolePicker } from "@/components/ui/role-picker";
 import { cn } from "@/lib/utils";
 import { label } from "@/lib/labels";
 import { CURRENCIES } from "@/lib/iso";
+import { PRACTICES, PRACTICE_LABEL, type Practice } from "@/lib/practices";
 import type { MandateFormState } from "./actions";
 
 const PRIORITIES = ["CRITICAL", "HIGH", "NORMAL", "LOW"];
@@ -74,6 +77,8 @@ export function MandateForm({
   const [state, formAction] = useActionState(action, {});
   const values = { ...defaultValues, ...(state.formValues ?? {}) } as Record<string, any>;
   const [baseCurrency, setBaseCurrency] = useState(values.baseCurrency ?? "GBP");
+  const [practiceKey, setPracticeKey] = useState<string>(values.practiceAreaId ?? "");
+  const [role, setRole] = useState<string>(values.title ?? "");
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>(Array.isArray(values.tagIds) ? values.tagIds : []);
   const [tagPickerOpen, setTagPickerOpen] = useState(false);
   const [unsavedCount, setUnsavedCount] = useState(0);
@@ -133,7 +138,7 @@ export function MandateForm({
 
   return (
     <>
-    <form ref={formRef} action={formAction} onChange={recomputeUnsaved} className="flex flex-col gap-4 pb-20">
+    <form ref={formRef} action={formAction} onChange={recomputeUnsaved} className="flex flex-col gap-4">
       <div className="mx-auto w-full max-w-[760px] rounded-[8px] border border-[var(--color-line)] bg-[var(--color-card)] p-6">
       <h2 className="mb-3.5 text-base font-medium">The search</h2>
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -157,10 +162,16 @@ export function MandateForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
+        <Label>Practice</Label>
+        <PillSelect options={PRACTICES.map((p) => ({ value: p, label: PRACTICE_LABEL[p] }))} value={practiceKey ? [practiceKey] : []} onChange={(v) => setPracticeKey(v[0] ?? "")} multi={false} />
+        <input type="hidden" name="practiceAreaId" value={practiceKey} />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="title">
           Role <span className="font-normal text-[var(--color-ink-subtle)]">(required)</span>
         </Label>
-        <Input id="title" name="title" placeholder="e.g. Group Finance Director" defaultValue={values.title} required />
+        <RolePicker practices={practiceKey ? [practiceKey as Practice] : []} value={role} onChange={setRole} name="title" />
         {errors.title ? <p className="text-xs text-[var(--color-status-danger-ink)]">{errors.title[0]}</p> : null}
       </div>
 
@@ -172,12 +183,11 @@ export function MandateForm({
           defaultName={presetPortfolioCompanyName}
           placeholder="If different from the client"
         />
-        <p className="text-xs text-[var(--color-ink-subtle)]">Only if the role sits at a portfolio company rather than the client itself.</p>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="feePercentage">Fee %</Label>
-        <Input id="feePercentage" name="feePercentage" type="number" min={0} max={100} placeholder="e.g. 30" defaultValue={values.feePercentage} />
+        <Input id="feePercentage" name="feePercentage" type="number" min={0} max={100} defaultValue={values.feePercentage} />
       </div>
       </section>
 
@@ -358,14 +368,14 @@ export function MandateForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="numberOfHires">Number of hires</Label>
-            <Input id="numberOfHires" name="numberOfHires" type="number" min={1} placeholder="e.g. 1" defaultValue={values.numberOfHires ?? 1} />
+            <Input id="numberOfHires" name="numberOfHires" type="number" min={1} defaultValue={values.numberOfHires ?? 1} />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="city">City</Label>
-            <Input id="city" name="city" placeholder="e.g. London" defaultValue={values.city} />
+            <Input id="city" name="city" defaultValue={values.city} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="workArrangement">Work arrangement</Label>
@@ -390,15 +400,15 @@ export function MandateForm({
 
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="roleSummary">Role summary</Label>
-          <Textarea id="roleSummary" name="roleSummary" rows={2} placeholder="e.g. Leading the finance function through a period of rapid growth." defaultValue={values.roleSummary} />
+          <Textarea id="roleSummary" name="roleSummary" rows={2} defaultValue={values.roleSummary} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="businessContext">Business context</Label>
-          <Textarea id="businessContext" name="businessContext" rows={2} placeholder="e.g. Backed by a PE sponsor, targeting a sale in 3-5 years." defaultValue={values.businessContext} />
+          <Textarea id="businessContext" name="businessContext" rows={2} defaultValue={values.businessContext} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="requiredExperience">Required experience</Label>
-          <Textarea id="requiredExperience" name="requiredExperience" rows={2} placeholder="e.g. 10+ years in a PE-backed FD or CFO role." defaultValue={values.requiredExperience} />
+          <Textarea id="requiredExperience" name="requiredExperience" rows={2} defaultValue={values.requiredExperience} />
         </div>
 
         <div className="rounded-md border border-[var(--color-border)] p-4">
@@ -406,12 +416,12 @@ export function MandateForm({
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="minBaseAmount">Min base</Label>
-              <MoneyInput id="minBaseAmount" name="minBaseAmount" currency={baseCurrency} placeholder="e.g. £90,000" defaultValue={values.minBaseAmount} />
+              <MoneyInput id="minBaseAmount" name="minBaseAmount" currency={baseCurrency} defaultValue={values.minBaseAmount} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="maxBaseAmount">Max base</Label>
               <div className="flex gap-2">
-                <MoneyInput id="maxBaseAmount" name="maxBaseAmount" currency={baseCurrency} placeholder="e.g. £120,000" defaultValue={values.maxBaseAmount} />
+                <MoneyInput id="maxBaseAmount" name="maxBaseAmount" currency={baseCurrency} defaultValue={values.maxBaseAmount} />
                 <Select name="baseCurrency" value={baseCurrency} onValueChange={setBaseCurrency}>
                   <SelectTrigger className="w-24">
                     <SelectValue />
@@ -470,19 +480,13 @@ export function MandateForm({
       </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-[var(--color-line)] bg-[var(--color-card)] px-6 py-3 shadow-[var(--shadow-overlay)] md:left-[228px]">
-        {isEdit ? (
+      <div className="mx-auto flex w-full max-w-[760px] items-center justify-between gap-2">
+        {isEdit && unsavedCount > 0 ? (
           <p className="flex items-center gap-1.5 text-[13px] text-[var(--color-ink-subtle)]">
-            {unsavedCount > 0 ? (
-              <>
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warn)]" /> {unsavedCount} unsaved change{unsavedCount === 1 ? "" : "s"}
-              </>
-            ) : (
-              "Changes are saved to the audit log."
-            )}
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-warn)]" /> {unsavedCount} unsaved change{unsavedCount === 1 ? "" : "s"}
           </p>
         ) : (
-          <p className="text-[13px] text-[var(--color-ink-subtle)]">Role and client are required.</p>
+          <span />
         )}
         <div className="flex items-center gap-2">
           <Button type="button" variant="secondary" onClick={() => (unsavedCount > 0 ? setConfirmDiscard(true) : router.push(cancelHref))}>

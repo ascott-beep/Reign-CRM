@@ -1,35 +1,44 @@
-/** ISO 3166-1 alpha-2 countries (subset covering common CRM usage — not exhaustive of all 249). */
+/**
+ * ISO 3166-1 alpha-2 countries (subset covering common CRM usage — not exhaustive of all 249).
+ * Round 5 Part A item 14: United Kingdom first, then DACH, then Benelux, then everything
+ * else A to Z by name. countryOptions() below is what the UI should actually render from,
+ * since it keeps this order (a plain alphabetical sort would scatter UK/DACH/Benelux).
+ */
 export const COUNTRIES: { code: string; name: string }[] = [
   { code: "GB", name: "United Kingdom" },
-  { code: "US", name: "United States" },
-  { code: "IE", name: "Ireland" },
-  { code: "FR", name: "France" },
+  // DACH
   { code: "DE", name: "Germany" },
-  { code: "NL", name: "Netherlands" },
-  { code: "BE", name: "Belgium" },
-  { code: "LU", name: "Luxembourg" },
+  { code: "AT", name: "Austria" },
   { code: "CH", name: "Switzerland" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "PT", name: "Portugal" },
-  { code: "SE", name: "Sweden" },
-  { code: "NO", name: "Norway" },
+  // Benelux
+  { code: "BE", name: "Belgium" },
+  { code: "NL", name: "Netherlands" },
+  { code: "LU", name: "Luxembourg" },
+  // Everything else, A to Z by name
+  { code: "AU", name: "Australia" },
+  { code: "BR", name: "Brazil" },
+  { code: "CA", name: "Canada" },
+  { code: "CN", name: "China" },
   { code: "DK", name: "Denmark" },
   { code: "FI", name: "Finland" },
-  { code: "PL", name: "Poland" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "QA", name: "Qatar" },
-  { code: "SG", name: "Singapore" },
+  { code: "FR", name: "France" },
   { code: "HK", name: "Hong Kong" },
-  { code: "JP", name: "Japan" },
-  { code: "AU", name: "Australia" },
-  { code: "CA", name: "Canada" },
   { code: "IN", name: "India" },
-  { code: "ZA", name: "South Africa" },
-  { code: "BR", name: "Brazil" },
+  { code: "IE", name: "Ireland" },
+  { code: "IT", name: "Italy" },
+  { code: "JP", name: "Japan" },
   { code: "MX", name: "Mexico" },
-  { code: "CN", name: "China" },
+  { code: "NO", name: "Norway" },
+  { code: "PL", name: "Poland" },
+  { code: "PT", name: "Portugal" },
+  { code: "QA", name: "Qatar" },
+  { code: "SA", name: "Saudi Arabia" },
+  { code: "SG", name: "Singapore" },
+  { code: "ZA", name: "South Africa" },
+  { code: "ES", name: "Spain" },
+  { code: "SE", name: "Sweden" },
+  { code: "AE", name: "United Arab Emirates" },
+  { code: "US", name: "United States" },
 ];
 
 export function countryName(code: string | null | undefined) {

@@ -27,9 +27,18 @@ export function formatMoney(
   }
 }
 
-/** Section 9.6 — prefixes a converted total with "≈" so it reads as an estimate, not an exact figure. */
-export function formatConvertedMoney(amount: number, approx: boolean, currency: string) {
-  return `${approx ? "≈" : ""}${formatMoney(amount, currency)}`;
+/**
+ * Round 5 Part A item 2 — no "≈" or "~" before a converted amount; the fact
+ * that it is converted is said in the nearby label ("in EUR") instead, via
+ * convertedLabel() below.
+ */
+export function formatConvertedMoney(amount: number, _approx: boolean, currency: string) {
+  return formatMoney(amount, currency);
+}
+
+/** Appends "in {currency}" to a label when the figure next to it is a converted total. */
+export function convertedLabel(label: string, approx: boolean, currency: string) {
+  return approx ? `${label} in ${currency}` : label;
 }
 
 export function humanizeEnum(value: string | null | undefined) {

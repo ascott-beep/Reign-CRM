@@ -123,7 +123,7 @@ export function MarkSearchFilledDialog({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="agreedBaseAmount">Final base salary</Label>
-                <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} placeholder="e.g. £90,000" />
+                <MoneyInput id="agreedBaseAmount" name="agreedBaseAmount" currency={agreedBaseCurrency} />
               </div>
               <div>
                 <Label htmlFor="agreedBaseCurrency">Currency</Label>

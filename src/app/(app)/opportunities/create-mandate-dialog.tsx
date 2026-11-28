@@ -82,7 +82,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Win this opportunity</DialogTitle>
+          <DialogTitle>Convert to mandate</DialogTitle>
           {current ? (
             <DialogDescription>
               {current.role} · {current.orgName}
@@ -157,7 +157,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
                 These move to the new mandate:{" "}
                 {current.clientContactName ? `${current.clientContactName} as client contact, ` : current.clientContactCount > 0 ? `${current.clientContactCount} client contacts, ` : ""}
                 {current.activityCount} activit{current.activityCount === 1 ? "y" : "ies"}, {current.noteCount} note{current.noteCount === 1 ? "" : "s"} and {current.documentCount} file
-                {current.documentCount === 1 ? "" : "s"}. The opportunity is marked Won only when you confirm.
+                {current.documentCount === 1 ? "" : "s"}. The opportunity only converts when you confirm.
               </span>
             </div>
 
@@ -176,7 +176,7 @@ export function CreateMandateDialog({ open, opportunityId, onClose }: { open: bo
             Cancel
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={!current || pending}>
-            {pending ? "Creating…" : "Win and create mandate"}
+            {pending ? "Converting…" : "Convert to mandate"}
           </Button>
         </DialogFooter>
       </DialogContent>

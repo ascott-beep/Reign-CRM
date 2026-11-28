@@ -93,11 +93,11 @@ export function CandidatesTable({
   return (
     <div className="min-w-[640px]">
       <div className={cn(GRID, "mt-2 h-10 text-xs text-[var(--color-muted)]")}>
-        <span>Candidate</span>
-        <span>Where they are</span>
-        <span>Progress</span>
-        <span>Fit</span>
-        <span>Next step</span>
+        <span className="min-w-0 truncate">Candidate</span>
+        <span className="min-w-0 truncate">Where they are</span>
+        <span className="min-w-0 truncate">Progress</span>
+        <span className="min-w-0 truncate">Fit</span>
+        <span className="min-w-0 truncate">Next step</span>
       </div>
 
       {rows.length === 0 ? (

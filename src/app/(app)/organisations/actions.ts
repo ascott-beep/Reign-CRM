@@ -10,6 +10,74 @@ import { findOrganizationDuplicates } from "@/lib/duplicates";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { researchOrganization } from "@/lib/intelligence-sweep";
 import { researchNewOrganization, type OrganizationResearchResult } from "@/lib/organization-research";
+import { areaNameForPractice, PRACTICES, type Practice } from "@/lib/practices";
+
+/** Looks up the PracticeArea row ids for a workspace's Finance/Commercial/Technology & Data/Transformation rows matching the given practice keys (every workspace is seeded with all four, so this never needs to create one). */
+async function practiceAreaIdsForPractices(workspaceId: string, practices: string[]): Promise<string[]> {
+  const names = practices.filter((p): p is Practice => (PRACTICES as readonly string[]).includes(p)).map(areaNameForPractice);
+  if (names.length === 0) return [];
+  const rows = await prisma.practiceArea.findMany({ where: { workspaceId, name: { in: names } }, select: { id: true } });
+  return rows.map((r) => r.id);
+}
+
+/** Replaces an organisation's "practices they hire" with exactly the given set. */
+async function syncHiringPracticeAreas(organizationId: string, workspaceId: string, practiceKeys: string[] | undefined) {
+  if (!practiceKeys) return;
+  const practiceAreaIds = await practiceAreaIdsForPractices(workspaceId, practiceKeys);
+  await prisma.organizationPracticeArea.deleteMany({ where: { organizationId } });
+  if (practiceAreaIds.length > 0) {
+    await prisma.organizationPracticeArea.createMany({ data: practiceAreaIds.map((practiceAreaId) => ({ organizationId, practiceAreaId })) });
+  }
+}
+
+/** Replaces a portfolio company's ownership (owned-by + co-investor) OrganizationRelationship rows with exactly what the form submitted. */
+async function syncOwnership(
+  organizationId: string,
+  workspaceId: string,
+  createdById: string,
+  owned: {
+    ownedByOrganizationId?: string;
+    fundVehicleName?: string;
+    dealType?: string;
+    ownershipLevel?: string;
+    investedDate?: Date;
+    coInvestorOrganizationIds?: string[];
+  },
+) {
+  await prisma.organizationRelationship.deleteMany({
+    where: { targetOrganizationId: organizationId, type: { in: ["CURRENT_INVESTOR_IN", "CO_INVESTOR_WITH"] } },
+  });
+  if (owned.ownedByOrganizationId) {
+    await prisma.organizationRelationship.create({
+      data: {
+        workspaceId,
+        sourceOrganizationId: owned.ownedByOrganizationId,
+        targetOrganizationId: organizationId,
+        type: "CURRENT_INVESTOR_IN",
+        investmentStatus: "CURRENT",
+        investmentDate: owned.investedDate ?? null,
+        fundVehicleName: owned.fundVehicleName ?? null,
+        dealType: (owned.dealType as never) ?? null,
+        ownershipLevel: (owned.ownershipLevel as never) ?? null,
+        isLeadInvestor: true,
+        createdById,
+      },
+    });
+  }
+  for (const coInvestorId of owned.coInvestorOrganizationIds ?? []) {
+    await prisma.organizationRelationship.create({
+      data: {
+        workspaceId,
+        sourceOrganizationId: coInvestorId,
+        targetOrganizationId: organizationId,
+        type: "CO_INVESTOR_WITH",
+        investmentStatus: "CURRENT",
+        investmentDate: owned.investedDate ?? null,
+        createdById,
+      },
+    });
+  }
+}
 
 export type OrgFormState = {
   errors?: Record<string, string[]>;
@@ -18,7 +86,14 @@ export type OrgFormState = {
 };
 
 function readForm(formData: FormData) {
-  const raw = Object.fromEntries(formData.entries());
+  // Object.fromEntries would silently keep only the last value for a
+  // repeated name (several hidden inputs for one array field, e.g.
+  // sectorIds) -- getAll per key keeps every one of them.
+  const raw: Record<string, unknown> = {};
+  for (const key of new Set(formData.keys())) {
+    const all = formData.getAll(key);
+    raw[key] = all.length > 1 ? all : all[0];
+  }
   return raw;
 }
 
@@ -104,6 +179,21 @@ export async function createOrganizationAction(_prev: OrgFormState, formData: Fo
       portfolioClassification: data.portfolioClassification ?? null,
       businessModelSummary: data.businessModelSummary ?? null,
       investmentThesisSummary: data.investmentThesisSummary ?? null,
+      currentFundName: data.currentFundName ?? null,
+      fundSizeAmount: data.fundSizeAmount ?? null,
+      fundSizeCurrency: data.fundSizeCurrency ?? null,
+      fundVintageYear: data.fundVintageYear ?? null,
+      typicalMinEquityChequeAmount: data.typicalMinEquityChequeAmount ?? null,
+      typicalMinEquityChequeCurrency: data.typicalMinEquityChequeCurrency ?? null,
+      typicalMaxEquityChequeAmount: data.typicalMaxEquityChequeAmount ?? null,
+      typicalMaxEquityChequeCurrency: data.typicalMaxEquityChequeCurrency ?? null,
+      investmentRegions: (data.investmentRegions as never) ?? [],
+      countriesOfOperation: data.countriesOfOperation ?? [],
+      ebitdaAmount: data.ebitdaAmount ?? null,
+      ebitdaCurrency: data.ebitdaCurrency ?? null,
+      revenueAmount: data.revenueAmount ?? null,
+      revenueCurrency: data.revenueCurrency ?? null,
+      likelyExitWindow: data.likelyExitWindow ?? null,
       createdById: user.id,
       sectors:
         data.sectorIds && data.sectorIds.length > 0
@@ -111,8 +201,24 @@ export async function createOrganizationAction(_prev: OrgFormState, formData: Fo
           : data.sectorId
             ? { create: [{ sectorId: data.sectorId, isPrimary: true }] }
             : undefined,
+      investorStrategies:
+        data.investorStrategyIds && data.investorStrategyIds.length > 0
+          ? { create: data.investorStrategyIds.map((strategyId) => ({ strategyId })) }
+          : undefined,
     },
   });
+
+  await syncHiringPracticeAreas(org.id, user.workspaceId, data.hiringPracticeAreaIds);
+  if (data.type === "PORTFOLIO_COMPANY") {
+    await syncOwnership(org.id, user.workspaceId, user.id, {
+      ownedByOrganizationId: data.ownedByOrganizationId,
+      fundVehicleName: data.fundVehicleName,
+      dealType: data.dealType,
+      ownershipLevel: data.ownershipLevel,
+      investedDate: data.investedDate,
+      coInvestorOrganizationIds: data.coInvestorOrganizationIds,
+    });
+  }
 
   await writeAuditLog({
     workspaceId: user.workspaceId,

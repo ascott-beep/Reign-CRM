@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { mandateViewWhere } from "@/lib/saved-views";
@@ -8,10 +9,16 @@ import {
   LIVE_MANDATE_STATUSES,
   CLOSED_MANDATE_STATUSES,
   mandateStageBarStep,
+  mandateBoardColumn,
+  mandateBoardCardLine,
   isCandidateHidden,
   summariseCandidateProcesses,
 } from "@/lib/rules";
 import { label } from "@/lib/labels";
+import { formatConvertedMoney, convertedLabel } from "@/lib/utils";
+import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
+import { DESK_COOKIE } from "@/lib/desk-cookie";
+import { PRACTICES, PRACTICE_LABEL, type Practice } from "@/lib/practices";
 import { MandatesView } from "./mandates-view";
 import type { BoardMandate } from "./mandate-board";
 import type { ClosedMandate } from "./mandates-view";
@@ -26,6 +33,26 @@ function clientLabel(m: { hiringOrganization: { name: string }; portfolioCompany
   return m.portfolioCompany ? `${m.hiringOrganization.name} · ${m.portfolioCompany.name}` : m.hiringOrganization.name;
 }
 
+/** A mandate's own likely fee: the agreed fixed fee if set, else an estimate from its fee percentage and base range. */
+function mandateLikelyFee(m: {
+  fixedFeeAmount: unknown;
+  fixedFeeCurrency: string | null;
+  feePercentage: unknown;
+  minBaseAmount: unknown;
+  maxBaseAmount: unknown;
+  baseCurrency: string | null;
+}): { amount: number; currency: string } | null {
+  if (m.fixedFeeAmount) return { amount: Number(m.fixedFeeAmount as { toString(): string }), currency: m.fixedFeeCurrency ?? "GBP" };
+  const min = m.minBaseAmount ? Number(m.minBaseAmount as { toString(): string }) : null;
+  const max = m.maxBaseAmount ? Number(m.maxBaseAmount as { toString(): string }) : null;
+  const percentage = m.feePercentage ? Number(m.feePercentage as { toString(): string }) : null;
+  if (percentage && (min || max)) {
+    const midpoint = min && max ? (min + max) / 2 : (min ?? max ?? 0);
+    return { amount: (midpoint * percentage) / 100, currency: m.baseCurrency ?? "GBP" };
+  }
+  return null;
+}
+
 export default async function MandatesPage({
   searchParams,
 }: {
@@ -35,11 +62,27 @@ export default async function MandatesPage({
   const sp = await searchParams;
   const display = sp.display === "list" ? "list" : "board";
   const viewId = typeof sp.view === "string" ? sp.view : undefined;
+  const practiceFilter = PRACTICES.includes(sp.practice as Practice) ? (sp.practice as Practice) : undefined;
 
-  const activeView = viewId ? await prisma.savedView.findUnique({ where: { id: viewId } }) : null;
+  const [activeView, workspace, cookieStore, consultants, practiceAreaFilter] = await Promise.all([
+    viewId ? prisma.savedView.findUnique({ where: { id: viewId } }) : Promise.resolve(null),
+    prisma.workspace.findUniqueOrThrow({ where: { id: user.workspaceId }, select: { defaultCurrency: true, exchangeRatesToGbp: true } }),
+    cookies(),
+    prisma.user.findMany({ where: { workspaceId: user.workspaceId, active: true }, select: { id: true, firstName: true, lastName: true }, orderBy: { firstName: "asc" } }),
+    practiceFilter
+      ? prisma.practiceArea.findUnique({ where: { workspaceId_name: { workspaceId: user.workspaceId, name: PRACTICE_LABEL[practiceFilter] } }, select: { id: true } })
+      : Promise.resolve(null),
+  ]);
+  const displayCurrency = workspace.defaultCurrency;
+  const ratesToGbp = normalizeExchangeRates(workspace.exchangeRatesToGbp);
+  const deskOptions = consultants.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }));
+  const deskValue = cookieStore.get(DESK_COOKIE)?.value ?? "";
 
   const where: Prisma.MandateWhereInput = { workspaceId: user.workspaceId, archivedAt: null, ...mandateVisibilityWhere(user) };
   if (activeView) Object.assign(where, mandateViewWhere(activeView.filterJson as Record<string, unknown>, user.id));
+  if (deskValue === "me") where.ownerId = user.id;
+  else if (deskValue) where.ownerId = deskValue;
+  if (practiceAreaFilter) where.practiceAreaId = practiceAreaFilter.id;
 
   const fix = typeof sp.fix === "string" ? sp.fix : undefined;
   if (fix === "no-hiring-manager") where.hiringManagerPersonId = null;
@@ -54,6 +97,12 @@ export default async function MandatesPage({
       status: true,
       priority: true,
       targetCompletionDate: true,
+      fixedFeeAmount: true,
+      fixedFeeCurrency: true,
+      feePercentage: true,
+      minBaseAmount: true,
+      maxBaseAmount: true,
+      baseCurrency: true,
       hiringOrganization: { select: { name: true } },
       portfolioCompany: { select: { name: true } },
       owner: { select: { firstName: true, lastName: true } },
@@ -66,15 +115,17 @@ export default async function MandatesPage({
   const liveMandates = mandates.filter((m) => (LIVE_MANDATE_STATUSES as readonly string[]).includes(m.status));
   const closedMandatesRaw = mandates.filter((m) => (CLOSED_MANDATE_STATUSES as string[]).includes(m.status));
 
-  const boardData: BoardMandate[] = liveMandates.map((m) => ({
-    id: m.id,
-    reference: m.reference,
-    title: m.title,
-    status: m.status,
-    organizationName: clientLabel(m),
-    candidateCount: m.candidateProcesses.filter((p) => !isCandidateHidden(p.stage)).length,
-    nextActionStatus: nextActionStatus(m.primaryNextTask?.dueDate),
-  }));
+  const boardData: BoardMandate[] = liveMandates.map((m) => {
+    const stages = m.candidateProcesses.map((p) => p.stage);
+    return {
+      id: m.id,
+      reference: m.reference,
+      title: m.title,
+      column: mandateBoardColumn(stages),
+      organizationName: clientLabel(m),
+      cardLine: mandateBoardCardLine(stages),
+    };
+  });
 
   const closedMandates: ClosedMandate[] = closedMandatesRaw.map((m) => ({
     id: m.id,
@@ -105,11 +156,36 @@ export default async function MandatesPage({
     };
   });
 
+  const interviewingCount = boardData.filter((m) => m.column === "Interviews").length;
+  const fees = liveMandates
+    .map(mandateLikelyFee)
+    .filter((f): f is { amount: number; currency: string } => f !== null)
+    .map((f) => ({ amount: f.amount, currency: f.currency }));
+  const feesTotal = convertedTotal(fees, displayCurrency, ratesToGbp);
+
   return (
     <div className="flex flex-1 flex-col gap-6">
-      <PageHeader title="Mandates" description="Executive searches you are running for clients" user={user} />
+      <PageHeader
+        title="Mandates"
+        description={
+          <>
+            {liveMandates.length} live · {interviewingCount} interviewing ·{" "}
+            <span className="text-[var(--color-ink)]">{formatConvertedMoney(feesTotal.amount, feesTotal.approx, displayCurrency)}</span>{" "}
+            {convertedLabel("in fees", feesTotal.approx, displayCurrency)}
+          </>
+        }
+        user={user}
+      />
       {fix === "no-hiring-manager" ? <FixBanner label="Mandates without a hiring manager" clearHref="/mandates" /> : null}
-      <MandatesView display={fix ? "list" : display} liveMandates={boardData} closedMandates={closedMandates} listRows={listRows} />
+      <MandatesView
+        display={fix ? "list" : display}
+        liveMandates={boardData}
+        closedMandates={closedMandates}
+        listRows={listRows}
+        deskOptions={deskOptions}
+        deskValue={deskValue}
+        practiceFilter={practiceFilter}
+      />
     </div>
   );
 }

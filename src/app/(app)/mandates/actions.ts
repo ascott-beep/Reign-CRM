@@ -7,8 +7,16 @@ import { requireUser, canMutate, canViewMandate, PermissionError } from "@/lib/p
 import { mandateFormSchema, mandateStatusChangeSchema } from "@/lib/validation/mandate";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { generateMandateReference } from "@/lib/mandate-reference";
+import { areaNameForPractice, PRACTICES, type Practice } from "@/lib/practices";
 
 export type MandateFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
+
+/** Round 5 screen 10: resolves the form's practice key (FINANCE/COMMERCIAL/...) to its workspace PracticeArea row id. */
+async function practiceAreaIdForPracticeKey(workspaceId: string, practiceKey: string | undefined): Promise<string | null> {
+  if (!practiceKey || !(PRACTICES as readonly string[]).includes(practiceKey)) return null;
+  const row = await prisma.practiceArea.findFirst({ where: { workspaceId, name: areaNameForPractice(practiceKey as Practice) }, select: { id: true } });
+  return row?.id ?? null;
+}
 
 export async function createMandateAction(_prev: MandateFormState, formData: FormData): Promise<MandateFormState> {
   const user = await requireUser();
@@ -22,6 +30,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
   if (!data.source) return { errors: { source: ["Source is required for a mandate with no opportunity"] }, formValues: raw };
 
   const reference = await generateMandateReference(user.workspaceId);
+  const practiceAreaId = await practiceAreaIdForPracticeKey(user.workspaceId, data.practiceAreaId);
 
   const mandate = await prisma.mandate.create({
     data: {
@@ -30,6 +39,7 @@ export async function createMandateAction(_prev: MandateFormState, formData: For
       title: data.title,
       hiringOrganizationId: data.hiringOrganizationId,
       portfolioCompanyId: data.portfolioCompanyId ?? null,
+      practiceAreaId,
       source: data.source,
       status: "BRIEF_RECEIVED",
       priority: data.priority,
@@ -78,6 +88,7 @@ export async function updateMandateAction(mandateId: string, _prev: MandateFormS
   const data = parsed.data;
 
   const before = await prisma.mandate.findUniqueOrThrow({ where: { id: mandateId } });
+  const practiceAreaId = await practiceAreaIdForPracticeKey(user.workspaceId, data.practiceAreaId);
   const updated = await prisma.$transaction(async (tx) => {
     const result = await tx.mandate.update({
       where: { id: mandateId },
@@ -85,6 +96,7 @@ export async function updateMandateAction(mandateId: string, _prev: MandateFormS
         title: data.title,
         hiringOrganizationId: data.hiringOrganizationId,
         portfolioCompanyId: data.portfolioCompanyId ?? null,
+        practiceAreaId,
         source: data.source,
         priority: data.priority,
         confidentiality: data.confidentiality,

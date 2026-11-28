@@ -7,6 +7,14 @@ import { requireUser, canMutate, PermissionError } from "@/lib/permissions";
 import { opportunityFormSchema, stageChangeSchema, createMandateFromOpportunitySchema, defaultProbabilityFor, CHANCE_OF_WINNING } from "@/lib/validation/opportunity";
 import { writeAuditLog, diffFields } from "@/lib/audit";
 import { generateMandateReference } from "@/lib/mandate-reference";
+import { areaNameForPractice, PRACTICES, type Practice } from "@/lib/practices";
+
+/** The opportunity form submits a practice KEY (e.g. "FINANCE"), not a PracticeArea row id -- resolved here against the workspace's seeded rows. */
+export async function practiceAreaIdForPracticeKey(workspaceId: string, practiceKey: string | undefined): Promise<string | null> {
+  if (!practiceKey || !(PRACTICES as readonly string[]).includes(practiceKey)) return null;
+  const row = await prisma.practiceArea.findFirst({ where: { workspaceId, name: areaNameForPractice(practiceKey as Practice) }, select: { id: true } });
+  return row?.id ?? null;
+}
 
 export type OpportunityFormState = { errors?: Record<string, string[]>; formValues?: Record<string, unknown> };
 
@@ -15,11 +23,25 @@ async function getWorkspaceStageProbabilities(workspaceId: string): Promise<Reco
   return (workspace?.opportunityStageProbabilities as Record<string, number> | null) ?? null;
 }
 
-/** Round 2 section 9 — the short create form doesn't ask for a name; derive one from role + company when it's left blank. */
-async function resolveOpportunityName(name: string | undefined, hiringOrganizationId: string, potentialRoleTitle: string | undefined) {
+/**
+ * Round 2 section 9 — the short create form doesn't ask for a name; derive
+ * one from role + company when it's left blank. Round 5 screen 06: prefers
+ * the portfolio company over the client when both are set ("Portfolio
+ * company · Role", or "Client · Role" with no portfolio company).
+ */
+async function resolveOpportunityName(
+  name: string | undefined,
+  hiringOrganizationId: string,
+  potentialRoleTitle: string | undefined,
+  portfolioCompanyId?: string,
+) {
   if (name) return name;
-  const org = await prisma.organization.findUniqueOrThrow({ where: { id: hiringOrganizationId }, select: { name: true } });
-  return potentialRoleTitle ? `${potentialRoleTitle} · ${org.name}` : org.name;
+  const [org, portfolioCompany] = await Promise.all([
+    prisma.organization.findUniqueOrThrow({ where: { id: hiringOrganizationId }, select: { name: true } }),
+    portfolioCompanyId ? prisma.organization.findUnique({ where: { id: portfolioCompanyId }, select: { name: true } }) : Promise.resolve(null),
+  ]);
+  const companyName = portfolioCompany?.name ?? org.name;
+  return potentialRoleTitle ? `${companyName} · ${potentialRoleTitle}` : companyName;
 }
 
 export async function createOpportunityAction(_prev: OpportunityFormState, formData: FormData): Promise<OpportunityFormState> {
@@ -41,7 +63,8 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
   }
 
   const overrides = await getWorkspaceStageProbabilities(user.workspaceId);
-  const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle);
+  const name = await resolveOpportunityName(data.name, data.hiringOrganizationId, data.potentialRoleTitle, data.portfolioCompanyId);
+  const practiceAreaId = await practiceAreaIdForPracticeKey(user.workspaceId, data.practiceAreaId);
   const stage = data.stage ?? "SIGNAL_IDENTIFIED";
   const chance = data.chanceOfWinning ?? "MEDIUM";
 
@@ -52,6 +75,7 @@ export async function createOpportunityAction(_prev: OpportunityFormState, formD
         name,
         hiringOrganizationId: data.hiringOrganizationId,
         portfolioCompanyId: data.portfolioCompanyId ?? null,
+        practiceAreaId,
         type: data.type,
         stage,
         stageProbabilityDefault: defaultProbabilityFor(stage, overrides),

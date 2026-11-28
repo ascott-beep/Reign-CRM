@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/permissions";
-import { PageHeader } from "@/components/shell/page-header";
 import { OrganizationForm } from "../../organization-form";
 import { updateOrganizationAction } from "../../actions";
 
@@ -20,8 +19,7 @@ export default async function EditOrganizationPage({ params }: { params: Promise
   const boundAction = updateOrganizationAction.bind(null, org.id);
 
   return (
-    <div className="max-w-3xl">
-      <PageHeader title={`Edit ${org.name}`} />
+    <div>
       <OrganizationForm
         action={boundAction}
         users={users}

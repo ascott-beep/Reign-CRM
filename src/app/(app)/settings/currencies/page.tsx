@@ -21,9 +21,6 @@ export default async function SettingsCurrenciesPage() {
         <CardContent className="flex flex-col gap-4 pt-4">
           <div className="flex flex-col gap-1.5">
             <h3 className="text-sm font-semibold">Show totals in</h3>
-            <p className="text-xs text-[var(--color-ink-subtle)]">
-              Report and dashboard totals convert into this currency and are marked &ldquo;≈&rdquo; whenever a conversion happened.
-            </p>
           </div>
           <form action={updateCurrencySettingsAction} className="flex flex-col gap-4">
             <select

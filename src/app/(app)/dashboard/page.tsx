@@ -6,7 +6,7 @@ import { formatWeekday, formatShortDate, formatWeekdayDate, startOfTodayInLondon
 import { requireUser, mandateVisibilityWhere } from "@/lib/permissions";
 import { DeskPicker } from "@/components/shell/desk-picker";
 import { DESK_COOKIE } from "@/lib/desk-cookie";
-import { formatConvertedMoney, cn } from "@/lib/utils";
+import { formatConvertedMoney, convertedLabel, cn } from "@/lib/utils";
 import { normalizeExchangeRates, convertedTotal } from "@/lib/currency";
 import { label } from "@/lib/labels";
 import {
@@ -246,7 +246,7 @@ export default async function DashboardPage() {
 
   const kpis = [
     {
-      title: "Fees placed",
+      title: convertedLabel("Fees placed", feesPlacedThisYear.approx, displayCurrency),
       value: formatConvertedMoney(feesPlacedThisYear.amount, feesPlacedThisYear.approx, displayCurrency),
       detail: `${placementsThisYear.length} placement${placementsThisYear.length === 1 ? "" : "s"} in ${now.getFullYear()}`,
       detailTone: "pos" as const,
@@ -335,14 +335,14 @@ export default async function DashboardPage() {
           <h1 className="m-0 text-[22px] font-light leading-tight tracking-[-0.01em] text-[var(--color-ink)]">
             {greeting}, {user.firstName}
           </h1>
-          <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Desk overview · {formatWeekdayDate(now)}</div>
+          <div className="mt-[3px] text-[13px] text-[var(--color-muted)]">Overview · {formatWeekdayDate(now)}</div>
         </div>
         <div data-toolbar className="flex flex-wrap items-center gap-3">
           <DeskPicker options={deskOptions} initialValue={cookieStore.get(DESK_COOKIE)?.value ?? ""} />
         </div>
       </header>
 
-      <section aria-label="Desk figures" className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+      <section aria-label="Key figures" className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         {kpis.map((kpi) => (
           <Link
             key={kpi.title}
@@ -451,7 +451,7 @@ export default async function DashboardPage() {
         <div className="flex min-w-0 flex-[7_1_460px] flex-col rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-[22px] pb-4 pt-[18px]">
           <div className="flex items-baseline justify-between gap-4">
             <div>
-              <h2 className="m-0 text-[15px] font-medium">Likely fees</h2>
+              <h2 className="m-0 text-[15px] font-medium">{convertedLabel("Likely fees", pipelineApprox, displayCurrency)}</h2>
               <div className="mt-0.5 text-[12.5px] text-[var(--color-muted)]">
                 {openOpportunities.length} open opportunit{openOpportunities.length === 1 ? "y" : "ies"}
               </div>

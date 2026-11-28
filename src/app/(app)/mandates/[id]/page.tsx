@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { InteractiveStageBar } from "@/components/ui/interactive-stage-bar";
 import { NextUpCard } from "@/components/ui/next-up-card";
 import { HistoryWithFilters } from "@/components/ui/history-filters";
 import { OrganizationHoverCard, UserHoverCard } from "@/components/shell/entity-hover-card";
@@ -21,28 +20,29 @@ import { InterviewsTab } from "../interviews-tab";
 import { OfferTab } from "../offer-tab";
 import { DocumentsTab } from "../../documents/documents-tab";
 import type { CandidateOption } from "../add-candidate-dialog";
-import { CandidatesTable, type CandidateRow } from "../candidates-table";
+import type { CandidateRow } from "../candidates-table";
+import type { BoardCandidate } from "../candidate-board";
+import { CandidatesTab } from "../candidates-tab";
 import { MandateHeaderActions } from "../mandate-header-actions";
-import { changeMandateStatusAction } from "../actions";
 import { MandateBanner } from "../mandate-banner";
 import { Composer } from "../../activities/composer";
 import {
   mandateConsistencyCheck,
-  mandateFlowTab,
   candidateStep,
   candidatePlainStatus,
   fitLabel,
   candidateNextStepFallback,
   isCandidateHidden,
-  MANDATE_STAGE_BAR_STEPS,
-  MANDATE_STAGE_BAR_LABELS,
-  mandateStageBarStep,
-  daysPerStage,
+  mandateBoardColumn,
 } from "@/lib/rules";
 import { nextActionStatus } from "@/lib/next-action-status";
 
 function currentTitle(person: { headlineOverride: string | null; employmentHistories: { jobTitle: string }[] }) {
   return person.headlineOverride?.split(",")[0] ?? person.employmentHistories[0]?.jobTitle ?? null;
+}
+
+function currentCompany(person: { employmentHistories: { organization: { name: string } | null; employerNameFallback: string | null }[] }) {
+  return person.employmentHistories[0]?.organization?.name ?? person.employmentHistories[0]?.employerNameFallback ?? null;
 }
 
 export default async function MandateDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -67,7 +67,10 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       candidateProcesses: {
         include: {
           candidatePerson: {
-            include: { candidateProfile: true, employmentHistories: { where: { isCurrent: true }, take: 1 } },
+            include: {
+              candidateProfile: true,
+              employmentHistories: { where: { isCurrent: true }, take: 1, include: { organization: { select: { name: true } } } },
+            },
           },
           primaryNextTask: true,
           offers: { orderBy: { createdAt: "desc" } },
@@ -80,7 +83,7 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   });
   if (!mandate) notFound();
 
-  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, statusHistory, mailboxConnection, openTasks] = await Promise.all([
+  const [timeline, interviews, documents, auditLogs, allCandidatesRaw, mailboxConnection, openTasks] = await Promise.all([
     getMandateTimeline(mandate.id, user.id),
     prisma.interview.findMany({
       where: { candidateProcess: { mandateId: mandate.id } },
@@ -100,7 +103,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
       select: { id: true, firstName: true, lastName: true, headlineOverride: true, employmentHistories: { where: { isCurrent: true }, take: 1 } },
       orderBy: { lastName: "asc" },
     }),
-    prisma.mandateStatusHistory.findMany({ where: { mandateId: mandate.id }, orderBy: { changedAt: "asc" } }),
     prisma.mailboxConnection.findFirst({ where: { userId: user.id, emailSyncEnabled: true, status: "ACTIVE" } }),
     prisma.task.findMany({
       where: { mandates: { some: { mandateId: mandate.id } }, status: { in: ["TODO", "IN_PROGRESS"] }, archivedAt: null },
@@ -143,6 +145,15 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   const visibleCandidateRows = candidateRows.filter((r) => !r.hidden).sort((a, b) => b.step - a.step);
   const hiddenCandidateRows = candidateRows.filter((r) => r.hidden);
 
+  const boardCandidates: BoardCandidate[] = mandate.candidateProcesses.map((p) => ({
+    id: p.id,
+    candidateFirstName: p.candidatePerson.firstName,
+    candidateName: `${p.candidatePerson.firstName} ${p.candidatePerson.lastName}`,
+    candidateTitle: currentTitle(p.candidatePerson),
+    candidateCompany: currentCompany(p.candidatePerson),
+    stage: p.stage,
+  }));
+
   const banner = mandateConsistencyCheck(
     mandate,
     mandate.candidateProcesses.map((p) => ({ id: p.id, stage: p.stage, candidateFirstName: p.candidatePerson.firstName, candidateLastName: p.candidatePerson.lastName })),
@@ -155,7 +166,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   const latestNote = timeline.find((t) => t.kind === "activity" && t.summary);
   const latestNoteDate = latestNote && latestNote.kind === "activity" ? latestNote.date : null;
 
-  const flowTab = mandateFlowTab(mandate.status);
+  // Round 5 screen 09/13: the Candidates board is now the main view a mandate opens on.
+  const flowTab = "candidates";
   const briefDone = mandate.signedTerms;
   const candidatesDone = ["INTERVIEWING", "OFFER", "FILLED"].includes(mandate.status);
   const interviewsDone = ["OFFER", "FILLED"].includes(mandate.status);
@@ -169,8 +181,8 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
   if (employmentParts.length) metaParts.push(employmentParts.join(" · "));
 
   const wonFromFund = mandate.sourceOpportunity?.relatedFunds[0]?.organization.name;
-  const stageBarStep = mandateStageBarStep(mandate.status);
-  const stageDays = daysPerStage(statusHistory.map((h) => ({ stage: h.toStatus, at: h.changedAt })));
+  const isLiveMandate = !["FILLED", "CANCELLED", "ON_HOLD"].includes(mandate.status);
+  const boardColumn = mandateBoardColumn(mandate.candidateProcesses.map((p) => p.stage));
 
   // Section 4 composer "With" picker — the record's contacts, and on mandates its candidates.
   const composerPeople = [
@@ -190,7 +202,10 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               </Link>{" "}
               / {mandate.reference}
             </div>
-            <h1 className="mt-2.5 text-[28px] font-light leading-tight tracking-[-0.01em]">{mandate.title}</h1>
+            <h1 className="mt-2.5 flex flex-wrap items-center gap-2.5 text-[28px] font-light leading-tight tracking-[-0.01em]">
+              {mandate.title}
+              <Badge tone="neutral">{isLiveMandate ? boardColumn : label(mandate.status)}</Badge>
+            </h1>
             <div className="mt-3 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-[14.5px] text-[var(--color-ink2)]">
               <OrganizationHoverCard organizationId={mandate.hiringOrganizationId} name={mandate.hiringOrganization.name} typeLabel={label(mandate.hiringOrganization.type)}>
                 <Link href={`/organisations/${mandate.hiringOrganizationId}`} className="text-[var(--color-ink)] no-underline">
@@ -231,19 +246,6 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
               isAdmin={user.role === "ADMIN"}
             />
           </div>
-        </div>
-
-        <div className="rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-[18px] pt-5">
-          <InteractiveStageBar
-            steps={MANDATE_STAGE_BAR_STEPS.map((s) => ({ key: s, label: MANDATE_STAGE_BAR_LABELS[s] }))}
-            currentIndex={stageBarStep - 1}
-            days={stageDays}
-            recordName={`${mandate.title} · ${mandate.hiringOrganization.name}`}
-            onChangeStage={async (toStatus, note) => {
-              "use server";
-              await changeMandateStatusAction({ mandateId: mandate.id, toStatus, notes: note });
-            }}
-          />
         </div>
       </header>
 
@@ -385,21 +387,14 @@ export default async function MandateDetailPage({ params }: { params: Promise<{ 
 
         <TabsContent value="candidates">
           <div className="flex flex-wrap items-start gap-4">
-            <section className="min-w-0 flex-[3_1_600px] overflow-x-auto rounded-[6px] border border-[var(--color-line)] bg-[var(--color-card)] px-6 pb-1.5 pt-[22px]">
-              <div className="flex flex-wrap items-baseline justify-between gap-3">
-                <h2 className="m-0 text-base font-medium">
-                  {mandate.candidateProcesses.length} candidate{mandate.candidateProcesses.length === 1 ? "" : "s"} on this search
-                </h2>
-                <span className="text-[13px] text-[var(--color-muted)]">Most advanced first</span>
-              </div>
-              <CandidatesTable
-                mandateId={mandate.id}
-                rows={visibleCandidateRows}
-                hiddenRows={hiddenCandidateRows}
-                mandateTitle={mandate.title}
-                organizationName={mandate.hiringOrganization.name}
-              />
-            </section>
+            <CandidatesTab
+              mandateId={mandate.id}
+              mandateTitle={mandate.title}
+              organizationName={mandate.hiringOrganization.name}
+              boardCandidates={boardCandidates}
+              rows={visibleCandidateRows}
+              hiddenRows={hiddenCandidateRows}
+            />
 
             <aside className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
               <Card>

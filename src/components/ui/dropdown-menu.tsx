@@ -4,6 +4,7 @@ import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Check, ChevronRight, Circle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { skipAutoFocusAfterPointer } from "@/lib/input-modality";
 
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
@@ -59,6 +60,10 @@ const DropdownMenuContent = React.forwardRef<
         className,
       )}
       {...props}
+      onCloseAutoFocus={(e) => {
+        skipAutoFocusAfterPointer(e);
+        props.onCloseAutoFocus?.(e);
+      }}
     />
   </DropdownMenuPrimitive.Portal>
 ));

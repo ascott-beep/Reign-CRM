@@ -91,7 +91,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   ]);
   const desk = cookieStore.get(DESK_COOKIE)?.value ?? "";
   const deskUserId = desk === "" ? undefined : desk === "me" ? user.id : desk;
-  const deskLabel = desk === "" ? "all desks" : desk === "me" ? "your desk" : (consultants.find((c) => c.id === desk)?.firstName ?? "this desk");
+  const deskLabel = desk === "" ? "everyone" : desk === "me" ? "you" : (consultants.find((c) => c.id === desk)?.firstName ?? "this user");
 
   const rates = normalizeExchangeRates(workspace.exchangeRatesToGbp);
   const currency = workspace.defaultCurrency;
@@ -185,7 +185,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Reports"
-        description={`Desk performance · ${new Date().getFullYear()} · ${deskLabel}`}
+        description={`Performance · ${new Date().getFullYear()} · ${deskLabel}`}
         actions={
           <>
             <DeskPicker options={consultants.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}` }))} initialValue={desk} />

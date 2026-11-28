@@ -198,7 +198,7 @@ export function Composer({
                 setSubject(e.target.value);
                 setSubjectTouched(true);
               }}
-              placeholder="e.g. Call Rebecca Nash"
+
             />
 
             <div className="flex flex-wrap items-center gap-2">

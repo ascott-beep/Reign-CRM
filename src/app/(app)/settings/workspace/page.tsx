@@ -32,7 +32,7 @@ export default async function SettingsWorkspacePage() {
           <form action={updateWorkspaceAction} className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-[var(--color-ink-subtle)]">Company name</label>
-              <input name="name" defaultValue={workspace.name} placeholder="e.g. Reign Partners" className="h-10 rounded-md border border-[var(--color-border-strong)] px-3 text-sm" />
+              <input name="name" defaultValue={workspace.name} className="h-10 rounded-md border border-[var(--color-border-strong)] px-3 text-sm" />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-[var(--color-ink-subtle)]">Time zone</label>

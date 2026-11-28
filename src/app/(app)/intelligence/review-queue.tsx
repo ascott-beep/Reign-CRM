@@ -3,15 +3,18 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Sparkles, Building2, User } from "lucide-react";
+import { Sparkles, Building2, User, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { label } from "@/lib/labels";
 import { formatTime, formatShortDate, isTodayInLondon, isYesterdayInLondon } from "@/lib/datetime";
 import { suggestedActionFor } from "@/lib/rules";
 import { cn } from "@/lib/utils";
-import { acceptIntelligenceItemAction, convertIntelligenceToOpportunityAction, acceptAndRemindIntelligenceItemAction, dismissIntelligenceItemAction } from "./actions";
+import { acceptIntelligenceItemAction, acceptAndRemindIntelligenceItemAction, dismissIntelligenceItemAction } from "./actions";
+import { CreateOpportunityFromSignalDialog } from "./create-opportunity-from-signal-dialog";
+import { AddToExistingOpportunityDialog } from "./add-to-existing-opportunity-dialog";
 import type { IntelligenceConfidence, IntelligenceDismissReason, IntelligenceType } from "@prisma/client";
 
 const DISMISS_REASONS: IntelligenceDismissReason[] = ["NOT_RELEVANT", "WRONG_COMPANY", "ALREADY_KNEW"];
@@ -107,6 +110,8 @@ function SignalCard({ item }: { item: QueueItem }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [dismissOpen, setDismissOpen] = useState(false);
+  const [createOppOpen, setCreateOppOpen] = useState(false);
+  const [addExistingOpen, setAddExistingOpen] = useState(false);
 
   const suggestion = suggestedActionFor({
     type: item.type,
@@ -115,11 +120,11 @@ function SignalCard({ item }: { item: QueueItem }) {
   });
 
   function runMainSuggestion() {
+    if (suggestion.kind === "create_opportunity") {
+      setCreateOppOpen(true);
+      return;
+    }
     startTransition(async () => {
-      if (suggestion.kind === "create_opportunity") {
-        await convertIntelligenceToOpportunityAction(item.id);
-        return;
-      }
       if (suggestion.kind === "update_record") await acceptIntelligenceItemAction(item.id);
       else await acceptAndRemindIntelligenceItemAction(item.id);
       router.refresh();
@@ -180,8 +185,21 @@ function SignalCard({ item }: { item: QueueItem }) {
         <Button size="sm" variant="ghost" disabled={pending} onClick={() => setDismissOpen(true)} className="ml-auto">
           Dismiss
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" disabled={pending} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[4px] text-[var(--color-ink-subtle)] hover:bg-[var(--color-active)]" aria-label="More">
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => setCreateOppOpen(true)}>Create opportunity</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setAddExistingOpen(true)}>Add to existing opportunity</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <DismissDialog item={item} open={dismissOpen} onClose={() => setDismissOpen(false)} />
+      <CreateOpportunityFromSignalDialog item={item} open={createOppOpen} onClose={() => setCreateOppOpen(false)} />
+      <AddToExistingOpportunityDialog item={item} open={addExistingOpen} onClose={() => setAddExistingOpen(false)} />
     </div>
   );
 }
