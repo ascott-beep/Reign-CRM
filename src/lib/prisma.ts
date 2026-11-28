@@ -13,13 +13,27 @@ const globalForPrisma = globalThis as unknown as {
  * lot when each round-trip has real network latency. Layered on in code
  * rather than requiring a hand-edited DATABASE_URL, since that variable is
  * managed by the Neon integration and gets overwritten on reconnect/sync.
+ *
+ * Also makes sure `pgbouncer=true` is set whenever DATABASE_URL points at a
+ * Neon pooled endpoint (host contains "-pooler."). Neon's pooler runs
+ * PgBouncer in transaction mode, which can't hold a prepared statement
+ * across statements the way Prisma does by default; the flag tells Prisma
+ * to skip prepared statements so it works correctly through the pooler,
+ * the same connection that gives every serverless function instance a
+ * real, shared pool instead of a private handful of direct Neon
+ * connections each.
  */
 function datasourceUrl(): string | undefined {
   const base = process.env.DATABASE_URL;
   if (!base) return undefined;
-  if (/[?&]connection_limit=/.test(base)) return base;
-  const separator = base.includes("?") ? "&" : "?";
-  return `${base}${separator}connection_limit=10`;
+  let url = base;
+  if (/-pooler\./.test(url) && !/[?&]pgbouncer=/.test(url)) {
+    url += `${url.includes("?") ? "&" : "?"}pgbouncer=true`;
+  }
+  if (!/[?&]connection_limit=/.test(url)) {
+    url += `${url.includes("?") ? "&" : "?"}connection_limit=10`;
+  }
+  return url;
 }
 
 export const prisma =
